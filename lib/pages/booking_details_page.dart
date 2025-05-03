@@ -18,6 +18,7 @@ class BookingDetailsPage extends StatefulWidget {
 
 class BookingDetailsPageState extends State<BookingDetailsPage> {
   bool _isLoading = true;
+  bool _dataChanged = false; // Track if data was changed
   BookingDetails? _bookingDetails;
 
   // Controllers for editing text fields
@@ -50,7 +51,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   void _initControllers() {
     if (_bookingDetails != null) {
       _firstnameController.text = _bookingDetails!.booking.firstname;
-      _lastnameController.text = _bookingDetails!.booking.lastname;
+      _lastnameController.text =
+          _bookingDetails!.booking.lastname ?? ''; // Handle nullable lastname
       _emailController.text = _bookingDetails!.booking.email;
       _phoneController.text = _bookingDetails!.booking.phoneNumber;
       _notesController.text = _bookingDetails!.booking.notes;
@@ -63,14 +65,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
-      // Utilisation de la nouvelle fonction SQL via RPC
       final response = await supabase.rpc(
         'get_booking_details',
         params: {'p_activity_booking_id': widget.bookingId},
       );
-
-      // Debug: afficher la réponse
-      print('Response from get_booking_details: $response');
 
       if (response != null && response.isNotEmpty) {
         setState(() {
@@ -91,86 +89,174 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     }
   }
 
-  Future<void> _cancelBooking() async {
-    // Vous pourriez implémenter la logique d'annulation ici
-    // Par exemple, mettre à jour un champ status dans la base de données
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // À adapter selon votre logique métier
-      await supabase
-          .from('booking_activities')
-          .update({'status': 'cancelled'})
-          .eq('activity_booking_id', widget.bookingId);
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Réservation annulée avec succès'),
-          backgroundColor: Colors.green,
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        // Return with refresh flag to update calendar
+        Navigator.pop(context, {'refreshCalendar': _dataChanged || true});
+        return false; // We handle the pop ourselves
+      },
+      child: CupertinoPageScaffold(
+        backgroundColor: CupertinoColors.systemGroupedBackground,
+        navigationBar: CupertinoNavigationBar(
+          middle: const Text('Détails de la réservation'),
+          backgroundColor: CupertinoColors.systemGroupedBackground,
+          border: null,
         ),
-      );
+        child:
+            _isLoading
+                ? const Center(child: CupertinoActivityIndicator())
+                : _bookingDetails == null
+                ? const Center(child: Text('Aucun détail trouvé'))
+                : Stack(
+                  children: [
+                    // Main content with padding at the bottom for the fixed button
+                    SafeArea(
+                      bottom:
+                          false, // Don't pad the bottom since we have the fixed button
+                      child: _buildDetailsContent(),
+                    ),
 
-      // Rafraîchir les détails
-      await _fetchBookingDetails();
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de l\'annulation: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _showCancelConfirmation() {
-    showCupertinoDialog(
-      context: context,
-      builder:
-          (context) => CupertinoAlertDialog(
-            title: const Text('Confirmer l\'annulation'),
-            content: const Text(
-              'Êtes-vous sûr de vouloir annuler cette réservation?',
-            ),
-            actions: [
-              CupertinoDialogAction(
-                child: const Text('Non'),
-                onPressed: () => Navigator.pop(context),
-              ),
-              CupertinoDialogAction(
-                isDestructiveAction: true,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _cancelBooking();
-                },
-                child: const Text('Oui, annuler'),
-              ),
-            ],
-          ),
+                    // Fixed position button at the bottom
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _buildFixedActionButton(),
+                    ),
+                  ],
+                ),
+      ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Détails de la réservation'),
-        backgroundColor: CupertinoColors.systemGroupedBackground,
-        border: null,
+  // Fixed position action button at the bottom
+  Widget _buildFixedActionButton() {
+    final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: CupertinoColors.systemBackground,
+        boxShadow: [
+          BoxShadow(
+            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+        border: Border(
+          top: BorderSide(
+            color: CupertinoColors.systemGrey4.withOpacity(0.4),
+            width: 0.5,
+          ),
+        ),
       ),
-      child:
-          _isLoading
-              ? const Center(child: CupertinoActivityIndicator())
-              : _bookingDetails == null
-              ? const Center(child: Text('Aucun détail trouvé'))
-              : SafeArea(child: _buildDetailsContent()),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 12, // Respect safe area
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Cancel/Reinstate Button
+          Expanded(
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              color:
+                  isCancelled
+                      ? CupertinoColors.activeBlue.withOpacity(0.8)
+                      : CupertinoColors.systemGrey5,
+              child: Text(
+                isCancelled ? 'Remettre' : 'Annuler',
+                style: TextStyle(
+                  color:
+                      isCancelled
+                          ? CupertinoColors.white
+                          : CupertinoColors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: () {
+                if (isCancelled) {
+                  _showReinstateConfirmation();
+                } else {
+                  _showCancelConfirmation();
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Delete Button
+          Expanded(
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              color: CupertinoColors.destructiveRed,
+              child: const Text(
+                'Supprimer',
+                style: TextStyle(
+                  color: CupertinoColors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: _showDeleteConfirmation,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Modify Button - Disabled when booking is cancelled
+          Expanded(
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              color:
+                  isCancelled
+                      ? CupertinoColors
+                          .systemGrey4 // Gray color for disabled state
+                      : CupertinoTheme.of(context).primaryColor,
+              child: Text(
+                'Modifier',
+                style: TextStyle(
+                  color: CupertinoColors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              // Disable the button when booking is cancelled by setting onPressed to null
+              onPressed:
+                  isCancelled
+                      ? null
+                      : () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            builder:
+                                (context) => EditBookingPage(
+                                  bookingDetails: _bookingDetails!,
+                                ),
+                          ),
+                        ).then((result) {
+                          if (result == true || result == 'deleted') {
+                            if (result == 'deleted') {
+                              Navigator.pop(
+                                context,
+                                {'status': 'deleted', 'refreshCalendar': true},
+                              ); // Return to the previous screen if booking was deleted
+                            } else {
+                              _fetchBookingDetails(); // Refresh if changes were made
+                            }
+                          }
+                        });
+                      },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -184,92 +270,279 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
     // Calculer l'heure de fin
     final endTime = _bookingDetails!.booking.date.add(
-      Duration(minutes: _bookingDetails!.pricing.duration),
+      Duration(
+        minutes:
+            _bookingDetails!.pricing.duration *
+            _bookingDetails!.booking.nbrParties,
+      ),
     );
     final formattedEndTime = timeFormatter.format(endTime);
 
-    return ListView(
-      padding: const EdgeInsets.all(16.0),
-      children: [
-        // En-tête avec les informations principales
-        _buildHeaderCard(formattedDate, formattedTime, formattedEndTime),
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      slivers: [
+        // Add the pull-to-refresh control
+        CupertinoSliverRefreshControl(
+          onRefresh: () async {
+            // Refresh the booking details
+            await _fetchBookingDetails();
+            // Show a toast to confirm the refresh
+            if (mounted) {
+              _showCupertinoToast('Détails mis à jour');
+            }
+          },
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Main info (header card)
+                _buildHeaderCard(
+                  formattedDate,
+                  formattedTime,
+                  formattedEndTime,
+                ),
 
-        const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-        // Informations client
-        _buildClientInfoSection(),
+                // Client info section
+                _buildCompactSection(
+                  title: 'Informations client',
+                  icon: CupertinoIcons.person_fill,
+                  child: _buildClientInfoSection(),
+                ),
 
-        const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-        // Informations activité
-        _buildActivityInfoSection(),
+                // Activity info
+                _buildCompactSection(
+                  title: 'Activité',
+                  icon: CupertinoIcons.game_controller_solid,
+                  child: _buildActivityInfoSection(),
+                ),
 
-        const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-        // Tarification
-        _buildPricingSection(),
+                // Payment section
+                _buildCompactSection(
+                  title: 'Paiement',
+                  icon: CupertinoIcons.money_euro_circle,
+                  child: _buildPricingSection(),
+                ),
 
-        const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-        // Boutons d'action
-        _buildActionButtons(),
+                // Notes section if any
+                if (_bookingDetails!.booking.notes.isNotEmpty)
+                  _buildCompactSection(
+                    title: 'Notes',
+                    icon: CupertinoIcons.text_bubble,
+                    child: _buildNotesSection(),
+                  ),
+
+                // Add bottom padding for better scrolling experience with the bottom nav bar
+                SizedBox(height: MediaQuery.of(context).padding.bottom + 80),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildHeaderCard(String date, String startTime, String endTime) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: CupertinoTheme.of(context).primaryColor.withOpacity(0.1),
+    final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: CupertinoColors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Activity name with larger font
+          Text(
+            _bookingDetails!.activity.name,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: CupertinoTheme.of(context).primaryColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          // Cancellation indicator if booking is cancelled
+          if (isCancelled) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: CupertinoColors.destructiveRed.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: CupertinoColors.destructiveRed.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    CupertinoIcons.xmark_circle_fill,
+                    color: CupertinoColors.destructiveRed,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Réservation annulée',
+                    style: TextStyle(
+                      color: CupertinoColors.destructiveRed,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          // Date row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: CupertinoTheme.of(
+                    context,
+                  ).primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  CupertinoIcons.calendar,
+                  color: CupertinoTheme.of(context).primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                date,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Time row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: CupertinoTheme.of(
+                    context,
+                  ).primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  CupertinoIcons.clock,
+                  color: CupertinoTheme.of(context).primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '$startTime - $endTime',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactSection({
+    required String title,
+    required IconData icon,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: CupertinoColors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  CupertinoIcons.calendar,
-                  color: CupertinoTheme.of(context).primaryColor,
-                  size: 22,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: CupertinoTheme.of(
+                      context,
+                    ).primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: CupertinoTheme.of(context).primaryColor,
+                    size: 16,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  date,
+                  title,
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                const Spacer(),
+                if (trailing != null) trailing,
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  CupertinoIcons.clock,
-                  color: CupertinoTheme.of(context).primaryColor,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '$startTime - $endTime',
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ],
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12.0),
+              child: Divider(height: 1),
             ),
-            const SizedBox(height: 12),
-            Text(
-              _bookingDetails!.activity.name,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: CupertinoTheme.of(context).primaryColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            child,
           ],
         ),
       ),
@@ -277,244 +550,324 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   }
 
   Widget _buildClientInfoSection() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Informations client',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  child: Icon(
-                    _isEditingCustomerInfo
-                        ? CupertinoIcons.checkmark_circle
-                        : CupertinoIcons.pencil,
-                    color: CupertinoTheme.of(context).primaryColor,
-                  ),
-                  onPressed: () {
-                    if (_isEditingCustomerInfo) {
-                      _saveCustomerInfo();
-                    } else {
-                      _startEditingCustomerInfo();
-                    }
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Prénom
-            _isEditingCustomerInfo
-                ? _buildEditableField(
+    if (_isEditingCustomerInfo) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Prénom & Nom
+          Row(
+            children: [
+              // Prénom
+              Expanded(
+                child: _buildEditableField(
                   CupertinoIcons.person_fill,
                   'Prénom',
                   _firstnameController,
-                )
-                : _buildInfoRow(
-                  CupertinoIcons.person_fill,
-                  'Prénom',
-                  _bookingDetails!.booking.formattedFirstname,
                 ),
-            const Divider(height: 24),
-
-            // Nom
-            _isEditingCustomerInfo
-                ? _buildEditableField(
+              ),
+              const SizedBox(width: 12),
+              // Nom
+              Expanded(
+                child: _buildEditableField(
                   CupertinoIcons.person_fill,
                   'Nom',
                   _lastnameController,
-                )
-                : _buildInfoRow(
-                  CupertinoIcons.person_fill,
-                  'Nom',
-                  _bookingDetails!.booking.formattedLastname,
                 ),
-            const Divider(height: 24),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
-            // Email
-            _isEditingCustomerInfo
-                ? _buildEditableField(
+          // Email & Téléphone
+          Row(
+            children: [
+              // Email
+              Expanded(
+                child: _buildEditableField(
                   CupertinoIcons.mail_solid,
                   'Email',
                   _emailController,
                   keyboardType: TextInputType.emailAddress,
-                )
-                : _buildInfoRow(
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Téléphone
+              Expanded(
+                child: _buildEditableField(
+                  CupertinoIcons.phone_fill,
+                  'Téléphone',
+                  _phoneController,
+                  keyboardType: TextInputType.phone,
+                ),
+              ),
+            ],
+          ),
+
+          // Notes
+          const SizedBox(height: 12),
+          _buildEditableField(
+            CupertinoIcons.doc_text,
+            'Notes',
+            _notesController,
+            maxLines: 3,
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Client name
+          _buildInfoRow(
+            CupertinoIcons.person_fill,
+            'Client',
+            '${_bookingDetails!.booking.formattedFirstname} ${_bookingDetails!.booking.formattedLastname}',
+          ),
+          const SizedBox(height: 12),
+
+          // Contact info rows
+          Row(
+            children: [
+              // Email
+              Expanded(
+                child: _buildInfoItem(
                   CupertinoIcons.mail_solid,
                   'Email',
                   _bookingDetails!.booking.email,
                   onTap: () => _launchEmail(_bookingDetails!.booking.email),
                 ),
-            const Divider(height: 24),
-
-            // Téléphone
-            _isEditingCustomerInfo
-                ? _buildEditableField(
-                  CupertinoIcons.phone_fill,
-                  'Téléphone',
-                  _phoneController,
-                  keyboardType: TextInputType.phone,
-                )
-                : _buildInfoRow(
+              ),
+              const SizedBox(width: 16),
+              // Phone
+              Expanded(
+                child: _buildInfoItem(
                   CupertinoIcons.phone_fill,
                   'Téléphone',
                   _bookingDetails!.booking.phoneNumber,
                   onTap:
                       () => _launchPhone(_bookingDetails!.booking.phoneNumber),
                 ),
-
-            // Notes
-            if (_isEditingCustomerInfo ||
-                _bookingDetails!.booking.notes.isNotEmpty) ...[
-              const Divider(height: 24),
-              _isEditingCustomerInfo
-                  ? _buildEditableField(
-                    CupertinoIcons.doc_text,
-                    'Notes',
-                    _notesController,
-                    maxLines: 3,
-                  )
-                  : _buildInfoRow(
-                    CupertinoIcons.doc_text,
-                    'Notes',
-                    _bookingDetails!.booking.notes,
-                  ),
+              ),
             ],
-          ],
-        ),
-      ),
-    );
+          ),
+        ],
+      );
+    }
   }
 
   Widget _buildActivityInfoSection() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      children: [
+        // First row: Type and Personnes
+        Row(
           children: [
-            const Text(
-              'Informations activité',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.tag_fill,
+                'Type',
+                _bookingDetails!.pricing.type,
+              ),
             ),
-            const SizedBox(height: 12),
-            _buildInfoRow(
-              CupertinoIcons.tag_fill,
-              'Type',
-              _bookingDetails!.pricing.type,
-            ),
-            const Divider(height: 24),
-            _buildInfoRow(
-              CupertinoIcons.person_2_fill,
-              'Nombre de personnes',
-              '${_bookingDetails!.booking.nbrPers} personnes',
-            ),
-            const Divider(height: 24),
-            _buildInfoRow(
-              CupertinoIcons.clock_fill,
-              'Durée',
-              '${_bookingDetails!.pricing.duration} minutes',
-            ),
-            const Divider(height: 24),
-            _buildInfoRow(
-              CupertinoIcons.gamecontroller_fill,
-              'Nombre de parties',
-              '${_bookingDetails!.booking.nbrParties} parties',
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.person_2_fill,
+                'Personnes',
+                '${_bookingDetails!.booking.nbrPers}',
+              ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+
+        // Second row: Duration and Parties
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.clock_fill,
+                'Durée',
+                '${_bookingDetails!.pricing.duration} min',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.gamecontroller_fill,
+                'Parties',
+                '${_bookingDetails!.booking.nbrParties}',
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildPricingSection() {
-    // Calculer le prix actuel en fonction du nombre de personnes
-    final currentPrice = _bookingDetails!.pricing.getPriceForPlayers(
-      _bookingDetails!.booking.nbrPers,
+    // Format currency values
+    final currencyFormat = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: '€',
+      decimalDigits: 2,
     );
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    // Get all the payment values
+    final amount = _bookingDetails!.booking.amount;
+    final deposit = _bookingDetails!.booking.deposit;
+    final total = _bookingDetails!.booking.total;
+    final cardPayment = _bookingDetails!.booking.cardPayment;
+    final cashPayment = _bookingDetails!.booking.cashPayment;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Prix et acompte
+        Row(
           children: [
-            const Text(
-              'Tarification',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.money_euro,
+                'Restant à payer',
+                currencyFormat.format(amount),
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Prix par personne:',
-                  style: TextStyle(fontSize: 16),
-                ),
-                Text(
-                  '€${currentPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total:', style: TextStyle(fontSize: 18)),
-                Text(
-                  '€${(currentPrice * _bookingDetails!.booking.nbrPers).toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: CupertinoTheme.of(context).primaryColor,
-                  ),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.money_euro_circle,
+                'Total',
+                currencyFormat.format(total),
+                isHighlighted: true,
+              ),
             ),
           ],
         ),
+
+        const SizedBox(height: 12),
+
+        // Acompte
+        _buildInfoItem(
+          CupertinoIcons.arrow_down_circle,
+          'Acompte',
+          deposit > 0 ? currencyFormat.format(deposit) : 'Aucun acompte',
+          isHighlighted: deposit > 0,
+        ),
+
+        const SizedBox(height: 16),
+        const Text(
+          'Méthodes de paiement',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: CupertinoColors.systemGrey,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Paiement CB et espèces
+        Row(
+          children: [
+            Expanded(
+              child: _buildPaymentMethodItem(
+                CupertinoIcons.creditcard,
+                'Carte bancaire',
+                cardPayment != null
+                    ? currencyFormat.format(cardPayment)
+                    : 'Non',
+                isPaid: cardPayment != null && cardPayment > 0,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildPaymentMethodItem(
+                CupertinoIcons.money_euro_circle,
+                'Espèces',
+                cashPayment != null
+                    ? currencyFormat.format(cashPayment)
+                    : 'Non',
+                isPaid: cashPayment != null && cashPayment > 0,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Widget pour afficher une méthode de paiement avec son statut
+  Widget _buildPaymentMethodItem(
+    IconData icon,
+    String label,
+    String value, {
+    required bool isPaid,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color:
+            isPaid
+                ? CupertinoTheme.of(context).primaryColor.withOpacity(0.1)
+                : CupertinoColors.systemGrey6,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color:
+              isPaid
+                  ? CupertinoTheme.of(context).primaryColor.withOpacity(0.3)
+                  : CupertinoColors.systemGrey4,
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(fontSize: 13, color: CupertinoColors.systemGrey),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                icon,
+                color:
+                    isPaid
+                        ? CupertinoTheme.of(context).primaryColor
+                        : CupertinoColors.systemGrey,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: isPaid ? FontWeight.w600 : FontWeight.w500,
+                    color:
+                        isPaid
+                            ? CupertinoTheme.of(context).primaryColor
+                            : CupertinoColors.black,
+                  ),
+                ),
+              ),
+              if (isPaid)
+                Icon(
+                  CupertinoIcons.checkmark_circle_fill,
+                  color: CupertinoTheme.of(context).primaryColor,
+                  size: 18,
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: CupertinoButton(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            color: CupertinoTheme.of(context).primaryColor,
-            child: const Text('Modifier'),
-            onPressed: () {
-              // Navigation vers l'écran de modification
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        CupertinoButton(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-          color: CupertinoColors.systemRed,
-          child: const Text('Annuler'),
-          onPressed: _showCancelConfirmation,
-        ),
-      ],
+  Widget _buildNotesSection() {
+    return _buildInfoRow(
+      CupertinoIcons.doc_text,
+      'Notes',
+      _bookingDetails!.booking.notes,
     );
   }
 
@@ -524,7 +877,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     String value, {
     VoidCallback? onTap,
   }) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,37 +928,101 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     );
   }
 
-  void _showActionMenu() {
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder:
-          (BuildContext context) => CupertinoActionSheet(
-            title: const Text('Actions'),
-            message: const Text('Choisissez une action pour cette réservation'),
-            actions: <CupertinoActionSheetAction>[
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  // Logique pour modifier
-                },
-                child: const Text('Modifier la réservation'),
-              ),
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showCancelConfirmation();
-                },
-                isDestructiveAction: true,
-                child: const Text('Annuler la réservation'),
-              ),
-            ],
-            cancelButton: CupertinoActionSheetAction(
-              child: const Text('Fermer'),
-              onPressed: () {
-                Navigator.pop(context);
-              },
+  Widget _buildInfoItem(
+    IconData icon,
+    String label,
+    String value, {
+    bool isHighlighted = false,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGrey6,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: CupertinoColors.systemGrey4, width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color:
+                      isHighlighted
+                          ? CupertinoTheme.of(context).primaryColor
+                          : CupertinoColors.systemGrey,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight:
+                          isHighlighted ? FontWeight.w600 : FontWeight.w500,
+                      color:
+                          isHighlighted
+                              ? CupertinoTheme.of(context).primaryColor
+                              : CupertinoColors.black,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditableField(
+    IconData icon,
+    String label,
+    TextEditingController controller, {
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 4),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: CupertinoColors.systemGrey,
             ),
           ),
+        ),
+        CupertinoTextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          placeholder: label,
+          maxLines: maxLines,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          prefix: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Icon(icon, color: CupertinoColors.systemGrey, size: 16),
+          ),
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemGrey6,
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ],
     );
   }
 
@@ -634,22 +1051,21 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
-      // Ensure we're updating the public.bookings table in the database
       await supabase
-          .from('bookings') // This references the public.bookings table
+          .from('bookings')
           .update({
             'firstname': _firstnameController.text,
             'lastname': _lastnameController.text,
             'email': _emailController.text,
-            'phone_number': _phoneController.text,
-            'notes': _notesController.text,
+            'phone':
+                _phoneController.text, // Changed from 'phone_number' to 'phone'
+            'comment':
+                _notesController.text, // Changed from 'notes' to 'comment'
           })
           .eq('id', _bookingDetails!.booking.bookingId);
 
-      // Refresh booking details to show the updated information
       await _fetchBookingDetails();
 
-      // Exit editing mode
       setState(() {
         _isEditingCustomerInfo = false;
         _isLoading = false;
@@ -657,13 +1073,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
       if (!context.mounted) return;
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informations client mises à jour avec succès'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // Using a local SnackBar without depending on ScaffoldMessenger
+      _showCupertinoToast('Informations client mises à jour avec succès');
     } catch (e) {
       print('Error updating customer info: $e');
       setState(() {
@@ -672,64 +1083,258 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
       if (!context.mounted) return;
 
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors de la mise à jour: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Using a local SnackBar without depending on ScaffoldMessenger
+      _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
     }
   }
 
-  Widget _buildEditableField(
-    IconData icon,
-    String label,
-    TextEditingController controller, {
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: CupertinoTheme.of(context).primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            color: CupertinoTheme.of(context).primaryColor,
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: CupertinoColors.systemGrey,
+  // Custom toast method that works with CupertinoPageScaffold
+  void _showCupertinoToast(String message, {bool isError = false}) {
+    // Show an overlay notification at the top of the screen
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder:
+          (context) => Positioned(
+            top: 80, // Position below the navigation bar
+            left: 16,
+            right: 16,
+            child: Material(
+              // Using Material just for the elevation
+              elevation: 4,
+              borderRadius: BorderRadius.circular(10),
+              color:
+                  isError
+                      ? CupertinoColors.destructiveRed
+                      : CupertinoColors.activeGreen,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isError
+                          ? CupertinoIcons.exclamationmark_circle
+                          : CupertinoIcons.checkmark_circle,
+                      color: CupertinoColors.white,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(
+                          color: CupertinoColors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 2),
-              CupertinoTextField(
-                controller: controller,
-                keyboardType: keyboardType,
-                maxLines: maxLines,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+            ),
+          ),
+    );
+
+    overlay.insert(overlayEntry);
+
+    // Auto-dismiss after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
+  }
+
+  Future<void> _showDeleteConfirmation() async {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder:
+          (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('Confirmer la suppression'),
+            content: const Text(
+              'Êtes-vous sûr de vouloir supprimer cette réservation? Cette action ne peut pas être annulée.',
+            ),
+            actions: <CupertinoDialogAction>[
+              CupertinoDialogAction(
+                child: const Text('Annuler'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteBooking();
+                },
+                child: const Text('Supprimer'),
               ),
             ],
           ),
-        ),
-      ],
     );
+  }
+
+  Future<void> _deleteBooking() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call the delete_booking RPC function instead of directly deleting the record
+      await supabase.rpc(
+        'delete_booking',
+        params: {'p_activity_booking_id': _bookingDetails!.activityBookingId},
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!context.mounted) return;
+
+      // Show success message
+      _showCupertinoToast('Réservation supprimée avec succès');
+
+      // Pop with 'deleted' result and refresh flag for calendar
+      Navigator.pop(context, {
+        'status': 'deleted',
+        'refreshCalendar': true,
+      }); // Return object with deletion status and refresh flag
+    } catch (e) {
+      print('Error deleting booking: $e');
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!context.mounted) return;
+
+      // Show error message with the specific server error
+      _showCupertinoToast('Erreur lors de la suppression: $e', isError: true);
+    }
+  }
+
+  Future<void> _showCancelConfirmation() async {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder:
+          (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('Confirmer l\'annulation'),
+            content: const Text(
+              'Êtes-vous sûr de vouloir annuler cette réservation? Cette action ne peut pas être annulée.',
+            ),
+            actions: <CupertinoDialogAction>[
+              CupertinoDialogAction(
+                child: const Text('Retour'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () {
+                  Navigator.pop(context);
+                  _cancelBooking();
+                },
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _cancelBooking() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await supabase
+          .from('bookings')
+          .update({'is_cancelled': true})
+          .eq('booking_id', _bookingDetails!.booking.bookingId);
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!context.mounted) return;
+
+      _showCupertinoToast('Réservation annulée avec succès');
+
+      // Return to calendar with a signal to refresh, similar to delete operation
+      Navigator.pop(context, {'status': 'cancelled', 'refreshCalendar': true});
+    } catch (e) {
+      print('Error cancelling booking: $e');
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!context.mounted) return;
+
+      _showCupertinoToast('Erreur lors de l\'annulation: $e', isError: true);
+    }
+  }
+
+  Future<void> _showReinstateConfirmation() async {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder:
+          (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('Remettre la réservation'),
+            content: const Text(
+              'Voulez-vous réactiver cette réservation annulée?',
+            ),
+            actions: <CupertinoDialogAction>[
+              CupertinoDialogAction(
+                child: const Text('Annuler'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () {
+                  Navigator.pop(context);
+                  _reinstateBooking();
+                },
+                child: const Text('Réactiver'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _reinstateBooking() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await supabase
+          .from('bookings')
+          .update({'is_cancelled': false})
+          .eq('booking_id', _bookingDetails!.booking.bookingId);
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!context.mounted) return;
+
+      _showCupertinoToast('Réservation réactivée avec succès');
+
+      // Refresh booking details to show updated status
+      await _fetchBookingDetails();
+
+      // Don't navigate back, just stay on the page with updated data
+    } catch (e) {
+      print('Error reinstating booking: $e');
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (!context.mounted) return;
+
+      _showCupertinoToast('Erreur lors de la réactivation: $e', isError: true);
+    }
   }
 }

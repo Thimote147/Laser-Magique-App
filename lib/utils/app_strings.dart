@@ -7,8 +7,7 @@ class AppStrings {
   static const String settings = 'Paramètres';
 
   // Écran Calendrier
-  static const String noBookings = 'Aucun rendez-vous pour';
-  static const String addNewBooking = 'Ajouter un rendez-vous';
+  static const String noBookings = 'Aucune réservations pour';
 
   // Écran Nouvelle Réservation
   static const String newBooking = 'Nouveau Rendez-vous';

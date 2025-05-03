@@ -58,26 +58,53 @@ class LaserMagiqueApp extends StatelessWidget {
         brightness: Brightness.light,
         barBackgroundColor: CupertinoColors.systemGroupedBackground,
         scaffoldBackgroundColor: CupertinoColors.systemGroupedBackground,
+        // Fix the TextTheme to ensure all TextStyles have consistent inherit values
         textTheme: CupertinoTextThemeData(
+          // We need to explicitly set inherit: false on all TextStyles to make them consistent
           navTitleTextStyle: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
             color: CupertinoColors.black,
             fontFamily: '.SF Pro Text',
-            inherit: true, // Ensure consistent inherit value
+            inherit: false,
           ),
           navLargeTitleTextStyle: TextStyle(
             fontSize: 34,
             fontWeight: FontWeight.bold,
             color: CupertinoColors.black,
             fontFamily: '.SF Pro Display',
-            inherit: true, // Ensure consistent inherit value
+            inherit: false,
           ),
           textStyle: TextStyle(
             fontFamily: '.SF Pro Text',
             fontSize: 16,
             color: CupertinoColors.black,
-            inherit: true, // Ensure consistent inherit value
+            inherit: false,
+          ),
+          actionTextStyle: TextStyle(
+            fontFamily: '.SF Pro Text',
+            fontSize: 16,
+            color: Color(0xFF007AFF),
+            inherit: false,
+          ),
+          tabLabelTextStyle: TextStyle(
+            fontFamily: '.SF Pro Text',
+            fontSize: 10,
+            color: CupertinoColors.inactiveGray,
+            inherit: false,
+          ),
+          // Adding other TextStyles to ensure consistency
+          pickerTextStyle: TextStyle(
+            fontFamily: '.SF Pro Text',
+            fontSize: 16,
+            color: CupertinoColors.black,
+            inherit: false,
+          ),
+          dateTimePickerTextStyle: TextStyle(
+            fontFamily: '.SF Pro Text',
+            fontSize: 21,
+            color: CupertinoColors.black,
+            inherit: false,
           ),
         ),
       ),
@@ -489,7 +516,8 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
             Navigator.push(
               context,
               CupertinoPageRoute(
-                builder: (context) => const NewBookingScreen(),
+                builder:
+                    (context) => NewBookingScreen(initialDate: _selectedDay),
               ),
             ).then((value) {
               // Refresh bookings if a new booking was added
@@ -669,33 +697,6 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                   color: CupertinoColors.systemGrey,
                                 ),
                               ),
-                              const SizedBox(height: 16),
-                              CupertinoButton.filled(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    CupertinoPageRoute(
-                                      builder:
-                                          (context) => const NewBookingScreen(),
-                                    ),
-                                  ).then((value) {
-                                    if (value == true) {
-                                      _fetchBookings();
-                                    }
-                                  });
-                                },
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(CupertinoIcons.add, size: 18),
-                                    const SizedBox(width: 8),
-                                    Text(AppStrings.addNewBooking),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -741,8 +742,11 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
         builder: (context) => BookingDetailsPage(bookingId: bookingId),
       ),
     ).then((result) {
-      // If booking was deleted or updated, refresh the bookings list
+      // Check if booking was deleted, cancelled or updated
       if (result == true) {
+        _fetchBookings(); // Simple refresh for updates
+      } else if (result is Map && result['refreshCalendar'] == true) {
+        // This handles both deletion and cancellation
         _fetchBookings();
       }
     });

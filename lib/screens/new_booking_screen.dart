@@ -6,7 +6,9 @@ import '../main.dart'; // For supabase client
 import '../models/activity.dart'; // Import Activity model
 
 class NewBookingScreen extends StatefulWidget {
-  const NewBookingScreen({Key? key}) : super(key: key);
+  final DateTime? initialDate;
+
+  const NewBookingScreen({Key? key, this.initialDate}) : super(key: key);
 
   @override
   NewBookingScreenState createState() => NewBookingScreenState();
@@ -47,6 +49,12 @@ class NewBookingScreenState extends State<NewBookingScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Set selected date from initialDate if provided
+    if (widget.initialDate != null) {
+      _selectedDate = widget.initialDate!;
+    }
+
     _fetchActivities();
 
     // Set default deposit value to 0

@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'package:intl/intl.dart';
 
 /// Modèle représentant les détails complets d'une réservation
 /// basé sur la fonction SQL get_booking_details
@@ -38,40 +39,173 @@ class BookingDetails {
               : DateTime.now(),
     );
   }
+
+  /// Returns a formatted string representation of the date and time
+  String get formattedDate {
+    final DateFormat dateFormat = DateFormat('dd/MM/yyyy à HH:mm');
+    return dateFormat.format(booking.date);
+  }
+
+  /// Returns a formatted duration string
+  String get formattedDuration => '${pricing.duration} minutes';
+
+  /// Returns a summary of the booking info
+  String get summaryInfo {
+    return 'Réservation de ${booking.nbrPers} personne(s) pour ${activity.name}'
+        ' le ${formattedDate} (${formattedDuration})';
+  }
+
+  /// Returns a complete representation of the booking details
+  @override
+  String toString() {
+    final DateFormat dateFormat = DateFormat('dd/MM/yyyy à HH:mm');
+    final currencyFormat = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: '€',
+      decimalDigits: 2,
+    );
+
+    return '''
+DÉTAILS DE LA RÉSERVATION
+-------------------------
+ID: $activityBookingId
+Activité: ${activity.name} (${pricing.type})
+Date: ${dateFormat.format(booking.date)}
+Durée: ${pricing.duration} minutes
+
+CLIENT
+------
+Nom: ${booking.formattedFirstname} ${booking.formattedLastname}
+Email: ${booking.email.isEmpty ? 'Non renseigné' : booking.email}
+Téléphone: ${booking.phoneNumber.isEmpty ? 'Non renseigné' : booking.phoneNumber}
+Commentaire: ${booking.notes.isEmpty ? 'Aucun' : booking.notes}
+
+PARTICIPANTS
+-----------
+Nombre de personnes: ${booking.nbrPers}
+Nombre de parties: ${booking.nbrParties}
+
+TARIFICATION
+-----------
+Type: ${pricing.type}
+Prix: ${currencyFormat.format(booking.amount)}
+Acompte: ${currencyFormat.format(booking.deposit)}
+Total: ${currencyFormat.format(booking.total)}
+
+PAIEMENT
+-------
+Carte: ${booking.cardPayment != null ? currencyFormat.format(booking.cardPayment!) : 'Non'}
+Espèces: ${booking.cashPayment != null ? currencyFormat.format(booking.cashPayment!) : 'Non'}
+Annulé: ${booking.isCancelled ? 'Oui' : 'Non'}
+
+CRÉATION
+-------
+Créé le: ${dateFormat.format(createdAt)}
+Mis à jour: ${dateFormat.format(updatedAt)}
+''';
+  }
+
+  /// Returns a map of formatted key-value pairs for displaying in a UI
+  Map<String, String> toDisplayMap() {
+    final DateFormat dateFormat = DateFormat('dd/MM/yyyy à HH:mm');
+    final currencyFormat = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: '€',
+      decimalDigits: 2,
+    );
+
+    return {
+      'ID': activityBookingId,
+      'Activité': activity.name,
+      'Type': pricing.type,
+      'Date': dateFormat.format(booking.date),
+      'Durée': '$_formatDuration',
+      'Client': booking.fullName,
+      'Email': booking.email.isEmpty ? 'Non renseigné' : booking.email,
+      'Téléphone':
+          booking.phoneNumber.isEmpty ? 'Non renseigné' : booking.phoneNumber,
+      'Commentaire': booking.notes.isEmpty ? 'Aucun' : booking.notes,
+      'Participants': '${booking.nbrPers} personne(s)',
+      'Parties': '${booking.nbrParties} partie(s)',
+      'Prix': currencyFormat.format(booking.amount),
+      'Acompte': currencyFormat.format(booking.deposit),
+      'Total': currencyFormat.format(booking.total),
+      'Paiement Carte':
+          booking.cardPayment != null
+              ? currencyFormat.format(booking.cardPayment!)
+              : 'Non',
+      'Paiement Espèces':
+          booking.cashPayment != null
+              ? currencyFormat.format(booking.cashPayment!)
+              : 'Non',
+      'Annulé': booking.isCancelled ? 'Oui' : 'Non',
+      'Créé le': dateFormat.format(createdAt),
+      'Mis à jour le': dateFormat.format(updatedAt),
+    };
+  }
+
+  String get _formatDuration {
+    if (pricing.duration < 60) {
+      return '${pricing.duration} minutes';
+    } else {
+      final hours = pricing.duration ~/ 60;
+      final minutes = pricing.duration % 60;
+      if (minutes == 0) {
+        return '$hours heure${hours > 1 ? 's' : ''}';
+      } else {
+        return '$hours heure${hours > 1 ? 's' : ''} $minutes minute${minutes > 1 ? 's' : ''}';
+      }
+    }
+  }
 }
 
 /// Informations sur la réservation principale
 class BookingInfo {
   final String bookingId;
   final String firstname;
-  final String lastname;
+  final String? lastname; // Made lastname nullable
   final DateTime date;
   final int nbrPers;
   final int nbrParties;
   final String email;
   final String phoneNumber;
   final String notes;
+  final double total;
+  final double amount;
+  final double deposit;
+  final bool isCancelled;
+  final double? cardPayment;
+  final double? cashPayment;
 
   BookingInfo({
     required this.bookingId,
     required this.firstname,
-    required this.lastname,
+    this.lastname, // Made optional
     required this.date,
     required this.nbrPers,
     required this.nbrParties,
     required this.email,
     required this.phoneNumber,
     this.notes = '',
+    this.total = 0.0,
+    this.amount = 0.0,
+    this.deposit = 0.0,
+    this.isCancelled = false,
+    this.cardPayment,
+    this.cashPayment,
   });
 
   // Getter pour obtenir le nom complet
-  String get fullName => '$firstname $lastname'.trim();
+  String get fullName => '$firstname ${lastname ?? ''}'.trim();
 
   // Getter pour obtenir le prénom formaté (capitalisé)
   String get formattedFirstname => _capitalizeFirst(firstname);
 
   // Getter pour obtenir le nom de famille formaté (capitalisé)
-  String get formattedLastname => _capitalizeFirst(lastname);
+  String get formattedLastname =>
+      lastname != null && lastname!.isNotEmpty
+          ? _capitalizeFirst(lastname!)
+          : '';
 
   // Méthode pour capitaliser la première lettre
   String _capitalizeFirst(String text) {
@@ -128,8 +262,24 @@ class BookingInfo {
       nbrPers: _parseInt(dataMap['nbr_pers']),
       nbrParties: _parseInt(dataMap['nbr_parties']),
       email: dataMap['email']?.toString() ?? '',
-      phoneNumber: dataMap['phone_number']?.toString() ?? '',
-      notes: dataMap['notes']?.toString() ?? '',
+      phoneNumber:
+          dataMap['phone']?.toString() ??
+          '', // Using 'phone' instead of 'phone_number'
+      notes:
+          dataMap['comment']?.toString() ??
+          '', // Using 'comment' instead of 'notes'
+      total: _parseDouble(dataMap['total']),
+      amount: _parseDouble(dataMap['amount']),
+      deposit: _parseDouble(dataMap['deposit']),
+      isCancelled: dataMap['is_cancelled'] == true,
+      cardPayment:
+          dataMap['card_payment'] != null
+              ? _parseDouble(dataMap['card_payment'])
+              : null,
+      cashPayment:
+          dataMap['cash_payment'] != null
+              ? _parseDouble(dataMap['cash_payment'])
+              : null,
     );
   }
 
@@ -172,6 +322,7 @@ class ActivityInfo {
 
 /// Informations sur la tarification
 class PricingInfo {
+  final String id;
   final String type;
   final int minPlayer;
   final int maxPlayer;
@@ -181,6 +332,7 @@ class PricingInfo {
   final int duration;
 
   PricingInfo({
+    required this.id,
     required this.type,
     required this.minPlayer,
     required this.maxPlayer,
@@ -198,6 +350,7 @@ class PricingInfo {
     Map<String, dynamic> dataMap = json;
 
     return PricingInfo(
+      id: dataMap['id']?.toString() ?? '',
       type: dataMap['type']?.toString() ?? '',
       minPlayer: _parseInt(dataMap['min_player']),
       maxPlayer: _parseInt(dataMap['max_player']),

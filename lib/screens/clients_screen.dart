@@ -352,11 +352,15 @@ class ClientsScreenState extends State<ClientsScreen> {
                           color: CupertinoColors.systemGrey,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          client.email,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: CupertinoColors.systemGrey,
+                        Expanded(
+                          child: Text(
+                            client.email,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: CupertinoColors.systemGrey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ],
