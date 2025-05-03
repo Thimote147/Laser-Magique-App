@@ -46,32 +46,54 @@ class SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        centerTitle: true,
+    return CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.systemGroupedBackground,
+      navigationBar: const CupertinoNavigationBar(
+        padding: EdgeInsetsDirectional.only(start: 16, end: 8),
+        middle: null,
+        backgroundColor: CupertinoColors.systemGroupedBackground,
+        border: null,
+        leading: Text(
+          'Paramètres',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 25,
+            color: CupertinoColors.black,
+            fontFamily: '.SF Pro Display',
+          ),
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CupertinoActivityIndicator())
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: SafeArea(
+        child:
+            _isLoading
+                ? const Center(child: CupertinoActivityIndicator())
+                : ListView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.only(top: 8, bottom: 20),
                   children: [
-                    _buildUserInfoSection(),
-                    const SizedBox(height: 24),
-                    _buildGeneralSettingsSection(),
-                    const SizedBox(height: 24),
-                    _buildAppearanceSection(),
-                    const SizedBox(height: 24),
-                    _buildAboutSection(),
-                    const SizedBox(height: 24),
-                    _buildSignOutButton(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildUserInfoSection(),
+                          const SizedBox(height: 24),
+                          _buildGeneralSettingsSection(),
+                          const SizedBox(height: 24),
+                          _buildAppearanceSection(),
+                          const SizedBox(height: 24),
+                          _buildAboutSection(),
+                          const SizedBox(height: 24),
+                          _buildSignOutButton(),
+                          const SizedBox(height: 30),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ),
+      ),
     );
   }
 
@@ -113,18 +135,12 @@ class SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   const Text(
                     'Laser Magique Admin',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _userEmail ?? 'Not signed in',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   GestureDetector(
@@ -156,7 +172,9 @@ class SettingsScreenState extends State<SettingsScreen> {
         _buildSectionHeader('General Settings'),
         Card(
           elevation: 0.5,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           child: Column(
             children: [
               _buildSettingsItem(
@@ -202,7 +220,9 @@ class SettingsScreenState extends State<SettingsScreen> {
         _buildSectionHeader('Appearance'),
         Card(
           elevation: 0.5,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           child: Column(
             children: [
               _buildSettingsItem(
@@ -241,7 +261,9 @@ class SettingsScreenState extends State<SettingsScreen> {
         _buildSectionHeader('About'),
         Card(
           elevation: 0.5,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
           child: Column(
             children: [
               _buildSettingsItem(
@@ -323,33 +345,31 @@ class SettingsScreenState extends State<SettingsScreen> {
   void _showAppInfoDialog() {
     showCupertinoDialog(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Laser Magique'),
-        content: Column(
-          children: [
-            const SizedBox(height: 16),
-            Text(
-              'Version 1.0.0',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: const Text('Laser Magique'),
+            content: Column(
+              children: [
+                const SizedBox(height: 16),
+                Text(
+                  'Version 1.0.0',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Laser Magique App helps beauty salons manage appointments, clients, and services efficiently.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            actions: [
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                child: const Text('OK'),
+                onPressed: () => Navigator.of(context).pop(),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Laser Magique App helps beauty salons manage appointments, clients, and services efficiently.',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: const Text('OK'),
-            onPressed: () => Navigator.of(context).pop(),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -380,9 +400,9 @@ class SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _signOut() async {
     await supabase.auth.signOut();
-    
+
     if (!context.mounted) return;
-    
+
     // Navigate to login or reset app state
     // This would depend on how your authentication flow is set up
   }

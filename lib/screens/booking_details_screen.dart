@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
-import '../main.dart'; // For supabase client
+import '../main.dart'; // Pour le client supabase
+import '../utils/app_strings.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
-  final int bookingId;
+  final String bookingId;
 
-  const BookingDetailsScreen({
-    Key? key,
-    required this.bookingId,
-  }) : super(key: key);
+  const BookingDetailsScreen({Key? key, required this.bookingId})
+    : super(key: key);
 
   @override
   BookingDetailsScreenState createState() => BookingDetailsScreenState();
@@ -32,19 +31,20 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
     });
 
     try {
-      // Fetch booking details from Supabase
-      final response = await supabase
-          .from('bookings')
-          .select()
-          .eq('id', widget.bookingId)
-          .single();
+      // Récupération des détails de la réservation depuis Supabase
+      final response =
+          await supabase
+              .from('bookings')
+              .select()
+              .eq('id', widget.bookingId)
+              .single();
 
       setState(() {
         _booking = BookingModel.fromJson(response);
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching booking details: $e');
+      print('Erreur lors de la récupération des détails: $e');
       setState(() {
         _isLoading = false;
       });
@@ -62,13 +62,13 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
           .update({'status': status})
           .eq('id', widget.bookingId);
 
-      // Refresh booking details
+      // Actualiser les détails de la réservation
       await _fetchBookingDetails();
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Booking status updated to $status'),
+          content: Text('${AppStrings.statusUpdated} $status'),
           backgroundColor: Colors.green,
         ),
       );
@@ -76,7 +76,7 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to update status: $e'),
+          content: Text('${AppStrings.errorOccurred}: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -92,26 +92,26 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
     });
 
     try {
-      await supabase
-          .from('bookings')
-          .delete()
-          .eq('id', widget.bookingId);
+      await supabase.from('bookings').delete().eq('id', widget.bookingId);
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Booking deleted successfully'),
+        SnackBar(
+          content: Text(AppStrings.bookingDeleted),
           backgroundColor: Colors.green,
         ),
       );
 
       if (!context.mounted) return;
-      Navigator.pop(context, true); // Return true to indicate deletion
+      Navigator.pop(
+        context,
+        true,
+      ); // Retourne true pour indiquer la suppression
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to delete booking: $e'),
+          content: Text('${AppStrings.deleteError} $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -124,26 +124,25 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
   void _showDeleteConfirmation() {
     showCupertinoDialog(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Delete Booking'),
-        content: const Text(
-          'Are you sure you want to delete this booking? This action cannot be undone.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.pop(context),
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: Text(AppStrings.delete),
+            content: Text(AppStrings.deleteConfirmation),
+            actions: [
+              CupertinoDialogAction(
+                child: Text(AppStrings.cancel),
+                onPressed: () => Navigator.pop(context),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteBooking();
+                },
+                child: Text(AppStrings.delete),
+              ),
+            ],
           ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteBooking();
-            },
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -154,40 +153,41 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
     showCupertinoModalPopup<void>(
       context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text('Update Status'),
-        message: const Text('Choose a new status for this booking'),
-        actions: <CupertinoActionSheetAction>[
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _updateBookingStatus('confirmed');
-            },
-            child: const Text('Confirmed'),
+      builder:
+          (BuildContext context) => CupertinoActionSheet(
+            title: Text(AppStrings.updateStatus),
+            message: Text(AppStrings.chooseNewStatus),
+            actions: <CupertinoActionSheetAction>[
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _updateBookingStatus('confirmed');
+                },
+                child: Text(AppStrings.confirmed),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _updateBookingStatus('completed');
+                },
+                child: Text(AppStrings.completed),
+              ),
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _updateBookingStatus('cancelled');
+                },
+                isDestructiveAction: true,
+                child: Text(AppStrings.cancelled),
+              ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              child: Text(AppStrings.close),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
           ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _updateBookingStatus('completed');
-            },
-            child: const Text('Completed'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(context);
-              _updateBookingStatus('cancelled');
-            },
-            isDestructiveAction: true,
-            child: const Text('Cancelled'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          child: const Text('Close'),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-      ),
     ).then((_) {
       setState(() {
         _isActionSheetVisible = false;
@@ -197,37 +197,46 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Booking Details'),
-        centerTitle: true,
-        actions: [
-          if (_booking != null && !_isActionSheetVisible)
-            IconButton(
-              icon: const Icon(CupertinoIcons.ellipsis_circle),
-              onPressed: _showStatusActionSheet,
-            ),
-        ],
+    return CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.systemGroupedBackground,
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(AppStrings.bookingDetails),
+        backgroundColor: CupertinoColors.systemGroupedBackground,
+        border: null,
       ),
-      body: _isLoading
-          ? const Center(child: CupertinoActivityIndicator())
-          : _booking == null
-              ? const Center(child: Text('Booking not found'))
-              : SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildStatusCard(),
-                        const SizedBox(height: 24),
-                        _buildBookingDetailsCard(),
-                        const SizedBox(height: 24),
-                        _buildActionsCard(),
-                      ],
-                    ),
+      child:
+          _isLoading
+              ? const Center(child: CupertinoActivityIndicator())
+              : _booking == null
+              ? Center(child: Text(AppStrings.errorOccurred))
+              : SafeArea(
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
                   ),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildStatusCard(),
+                            const SizedBox(height: 16),
+                            _buildBookingDetailsCard(),
+                            const SizedBox(height: 16),
+                            _buildActionsCard(),
+                            const SizedBox(height: 30),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
     );
   }
 
@@ -253,6 +262,21 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
         statusIcon = CupertinoIcons.clock_fill;
     }
 
+    String statusText = '';
+    switch (_booking!.status.toLowerCase()) {
+      case 'confirmed':
+        statusText = AppStrings.confirmed;
+        break;
+      case 'cancelled':
+        statusText = AppStrings.cancelled;
+        break;
+      case 'completed':
+        statusText = AppStrings.completed;
+        break;
+      default:
+        statusText = AppStrings.pending;
+    }
+
     return Card(
       elevation: 0.5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -263,14 +287,10 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
           children: [
             Row(
               children: [
-                Icon(
-                  statusIcon,
-                  color: statusColor,
-                  size: 24,
-                ),
+                Icon(statusIcon, color: statusColor, size: 24),
                 const SizedBox(width: 8),
                 Text(
-                  'Status: ${_booking!.status.toUpperCase()}',
+                  '${AppStrings.status} ${statusText.toUpperCase()}',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -287,18 +307,18 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
               children: [
                 _buildInfoItem(
                   CupertinoIcons.calendar,
-                  'Date',
-                  DateFormat('MMM d, yyyy').format(_booking!.date),
+                  AppStrings.date,
+                  DateFormat('d MMM yyyy', 'fr_FR').format(_booking!.date),
                 ),
                 _buildInfoItem(
                   CupertinoIcons.clock,
-                  'Time',
-                  DateFormat('h:mm a').format(_booking!.date),
+                  AppStrings.time,
+                  DateFormat('HH:mm').format(_booking!.date),
                 ),
                 _buildInfoItem(
-                  CupertinoIcons.money_dollar,
-                  'Price',
-                  '€${_booking!.price.toStringAsFixed(2)}',
+                  CupertinoIcons.money_euro,
+                  AppStrings.price,
+                  '€0.00', // Prix supprimé du modèle, affichage d'une valeur par défaut
                 ),
               ],
             ),
@@ -313,20 +333,11 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
       children: [
         Icon(icon, size: 28, color: Colors.grey),
         const SizedBox(height: 8),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -341,44 +352,45 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Customer Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Text(
+              AppStrings.customerInfo,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildDetailItem('Customer Name', _booking!.customerName),
+            _buildDetailItem(AppStrings.firstName, _booking!.firstName),
+            const SizedBox(height: 16),
+            _buildDetailItem(AppStrings.lastName, _booking!.lastName),
             const SizedBox(height: 16),
             const Divider(height: 1),
             const SizedBox(height: 16),
-            const Text(
-              'Service Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Text(
+              AppStrings.serviceInfo,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildDetailItem('Service', _booking!.service),
+            _buildDetailItem(AppStrings.service, _booking!.service),
             const SizedBox(height: 16),
             _buildDetailItem(
-                'Duration', '${_getDurationFromService(_booking!.service)} minutes'),
+              AppStrings.duration,
+              '${_getDurationFromService(_booking!.service)} ${AppStrings.minutes}',
+            ),
             const SizedBox(height: 16),
-            _buildDetailItem('Price', '€${_booking!.price.toStringAsFixed(2)}'),
+            _buildDetailItem(
+              AppStrings.price,
+              '€0.00', // Remplacé la référence à price qui n'existe plus
+            ),
           ],
         ),
       ),
     );
   }
 
-  // Simple function to estimate duration based on service name
+  // Fonction simple pour estimer la durée en fonction du nom du service
   int _getDurationFromService(String service) {
-    if (service.contains('Small')) return 30;
-    if (service.contains('Medium')) return 45;
-    if (service.contains('Large')) return 60;
-    return 45; // Default duration
+    if (service.contains('Petite')) return 30;
+    if (service.contains('Moyenne')) return 45;
+    if (service.contains('Grande')) return 60;
+    return 45; // Durée par défaut
   }
 
   Widget _buildDetailItem(String label, String value) {
@@ -389,19 +401,13 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
           width: 130,
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ),
       ],
@@ -417,12 +423,9 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Actions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            Text(
+              AppStrings.actions,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Row(
@@ -431,7 +434,7 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   child: CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () {
-                      // Navigate to edit screen
+                      // Navigation vers l'écran d'édition
                     },
                     child: Container(
                       alignment: Alignment.center,
@@ -440,9 +443,9 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         color: Theme.of(context).primaryColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'Edit',
-                        style: TextStyle(
+                      child: Text(
+                        AppStrings.edit,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -464,9 +467,9 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.red),
                       ),
-                      child: const Text(
-                        'Delete',
-                        style: TextStyle(
+                      child: Text(
+                        AppStrings.delete,
+                        style: const TextStyle(
                           color: Colors.red,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
