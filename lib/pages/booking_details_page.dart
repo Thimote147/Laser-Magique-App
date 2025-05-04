@@ -362,7 +362,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ), // Reduced vertical padding
       decoration: BoxDecoration(
         color: CupertinoColors.white,
         borderRadius: BorderRadius.circular(12),
@@ -377,11 +380,11 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Activity name with larger font
+          // Activity name with slightly smaller font
           Text(
             _bookingDetails!.activity.name,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20, // Reduced from 22
               fontWeight: FontWeight.bold,
               color: CupertinoTheme.of(context).primaryColor,
             ),
@@ -390,10 +393,13 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
           // Cancellation indicator if booking is cancelled
           if (isCancelled) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 8), // Reduced spacing
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              padding: const EdgeInsets.symmetric(
+                vertical: 6,
+                horizontal: 12,
+              ), // Reduced padding
               decoration: BoxDecoration(
                 color: CupertinoColors.destructiveRed.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -403,18 +409,21 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize:
+                    MainAxisSize.min, // Added to make container tighter
                 children: [
                   const Icon(
                     CupertinoIcons.xmark_circle_fill,
                     color: CupertinoColors.destructiveRed,
-                    size: 20,
+                    size: 16, // Reduced size
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6), // Reduced spacing
                   const Text(
                     'Réservation annulée',
                     style: TextStyle(
                       color: CupertinoColors.destructiveRed,
                       fontWeight: FontWeight.w600,
+                      fontSize: 13, // Reduced size
                     ),
                   ),
                 ],
@@ -422,14 +431,14 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
             ),
           ],
 
-          const SizedBox(height: 12),
-
-          // Date row
+          const SizedBox(height: 10), // Reduced spacing
+          // Date and Time info in a more compact layout
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Date
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6), // Reduced padding
                 decoration: BoxDecoration(
                   color: CupertinoTheme.of(
                     context,
@@ -439,27 +448,21 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                 child: Icon(
                   CupertinoIcons.calendar,
                   color: CupertinoTheme.of(context).primaryColor,
-                  size: 20,
+                  size: 16, // Reduced size
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6), // Reduced spacing
               Text(
                 date,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14, // Reduced size
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Time row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+              const SizedBox(width: 16), // Space between date and time
+              // Time
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6), // Reduced padding
                 decoration: BoxDecoration(
                   color: CupertinoTheme.of(
                     context,
@@ -469,14 +472,14 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                 child: Icon(
                   CupertinoIcons.clock,
                   color: CupertinoTheme.of(context).primaryColor,
-                  size: 20,
+                  size: 16, // Reduced size
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6), // Reduced spacing
               Text(
                 '$startTime - $endTime',
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14, // Reduced size
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -687,7 +690,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               child: _buildInfoItem(
                 CupertinoIcons.clock_fill,
                 'Durée',
-                '${_bookingDetails!.pricing.duration} min',
+                _formatDuration(
+                  _bookingDetails!.pricing.duration *
+                      _bookingDetails!.booking.nbrParties,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -702,6 +708,25 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         ),
       ],
     );
+  }
+
+  // Helper method to format duration in hours and minutes or just minutes
+  String _formatDuration(int minutes) {
+    if (minutes >= 60) {
+      int hours = minutes ~/ 60;
+      int remainingMinutes = minutes % 60;
+
+      if (remainingMinutes == 0) {
+        return hours == 1 ? '1 heure' : '$hours heures';
+      } else {
+        String hourText = hours == 1 ? '1 heure' : '$hours heures';
+        String minuteText =
+            remainingMinutes == 1 ? '1 minute' : '$remainingMinutes minutes';
+        return '$hourText $minuteText';
+      }
+    } else {
+      return minutes == 1 ? '1 minute' : '$minutes minutes';
+    }
   }
 
   Widget _buildPricingSection() {
@@ -722,14 +747,15 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Prix et acompte
+        // Prix et acompte (switched positions)
         Row(
           children: [
             Expanded(
               child: _buildInfoItem(
-                CupertinoIcons.money_euro,
-                'Restant à payer',
-                currencyFormat.format(amount),
+                CupertinoIcons.arrow_down_circle,
+                'Acompte',
+                deposit > 0 ? currencyFormat.format(deposit) : 'Aucun acompte',
+                isHighlighted: deposit > 0,
               ),
             ),
             const SizedBox(width: 12),
@@ -746,12 +772,11 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
         const SizedBox(height: 12),
 
-        // Acompte
+        // Restant à payer (moved from above)
         _buildInfoItem(
-          CupertinoIcons.arrow_down_circle,
-          'Acompte',
-          deposit > 0 ? currencyFormat.format(deposit) : 'Aucun acompte',
-          isHighlighted: deposit > 0,
+          CupertinoIcons.money_euro,
+          'Restant à payer',
+          currencyFormat.format(amount),
         ),
 
         const SizedBox(height: 16),

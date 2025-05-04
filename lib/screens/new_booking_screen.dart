@@ -1022,7 +1022,45 @@ class NewBookingScreenState extends State<NewBookingScreen> {
           ),
     );
 
-    return '${activity.minPlayer}-${activity.maxPlayer} pers. · ${activity.duration} min · ${activity.firstPrice.toStringAsFixed(2)}€ - ${activity.thirdPrice.toStringAsFixed(2)}€';
+    // Get the first available price and corresponding number of parties
+    String priceText;
+    int durationMultiplier = 1; // Default multiplier for duration (1 party)
+
+    if (activity.firstPrice > 0) {
+      priceText = '${activity.firstPrice.toStringAsFixed(2)}€';
+      durationMultiplier = 1; // firstPrice is for 1 party
+    } else if (activity.secondPrice > 0) {
+      priceText = '${activity.secondPrice.toStringAsFixed(2)}€';
+      durationMultiplier = 2; // secondPrice is for 2 parties
+    } else if (activity.thirdPrice > 0) {
+      priceText = '${activity.thirdPrice.toStringAsFixed(2)}€';
+      durationMultiplier = 3; // thirdPrice is for 3 parties
+    } else {
+      priceText = '0.00€';
+      durationMultiplier = 1;
+    }
+
+    // Calculate total duration based on the price's corresponding parties
+    int totalDurationMinutes = activity.duration * durationMultiplier;
+
+    // Format duration to display in hours if more than 59 minutes
+    String durationText;
+    if (totalDurationMinutes >= 60) {
+      int hours = totalDurationMinutes ~/ 60;
+      int minutes = totalDurationMinutes % 60;
+
+      if (minutes == 0) {
+        // If it's a full hour with no minutes
+        durationText = '${hours}h';
+      } else {
+        // If it has both hours and minutes
+        durationText = '${hours}h ${minutes}min';
+      }
+    } else {
+      durationText = '${totalDurationMinutes} min';
+    }
+
+    return '${activity.minPlayer}-${activity.maxPlayer} pers. - ${durationText} - ${priceText}';
   }
 
   // Activity picker modal
@@ -1399,51 +1437,23 @@ class NewBookingScreenState extends State<NewBookingScreen> {
         },
       );
 
-      // Display success message
+      // Display success message with toast notification instead of dialog
       if (!context.mounted) return;
 
-      // Show success dialog
-      showCupertinoDialog(
-        context: context,
-        builder:
-            (context) => CupertinoAlertDialog(
-              title: const Text('Succès'),
-              content: const Text('La réservation a été créée avec succès !'),
-              actions: [
-                CupertinoDialogAction(
-                  child: const Text('OK'),
-                  onPressed: () {
-                    Navigator.pop(context); // Close dialog
-                    Navigator.pop(
-                      context,
-                      true,
-                    ); // Return to previous screen with success indicator
-                  },
-                ),
-              ],
-            ),
-      );
+      // Show success toast
+      _showCupertinoToast('La réservation a été créée avec succès !');
+
+      // Return to previous screen with success indicator
+      Navigator.pop(context, true);
     } catch (e) {
       print('Error creating booking: $e');
 
       if (!context.mounted) return;
 
-      // Show error dialog
-      showCupertinoDialog(
-        context: context,
-        builder:
-            (context) => CupertinoAlertDialog(
-              title: const Text('Erreur'),
-              content: Text(
-                'Erreur lors de la création de la réservation: ${e.toString()}',
-              ),
-              actions: [
-                CupertinoDialogAction(
-                  child: const Text('OK'),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
+      // Show error with toast notification
+      _showCupertinoToast(
+        'Erreur lors de la création: ${e.toString()}',
+        isError: true,
       );
     } finally {
       setState(() {
@@ -1513,5 +1523,61 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
     // Multiply by the number of persons to get the total price
     return pricePerPerson * _numberOfPersons;
+  }
+
+  // Custom toast method that works with CupertinoPageScaffold
+  void _showCupertinoToast(String message, {bool isError = false}) {
+    // Show an overlay notification at the top of the screen
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder:
+          (context) => Positioned(
+            top: 80, // Position below the navigation bar
+            left: 16,
+            right: 16,
+            child: Material(
+              // Using Material just for the elevation
+              elevation: 4,
+              borderRadius: BorderRadius.circular(10),
+              color:
+                  isError
+                      ? CupertinoColors.destructiveRed
+                      : CupertinoColors.activeGreen,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isError
+                          ? CupertinoIcons.exclamationmark_circle
+                          : CupertinoIcons.checkmark_circle,
+                      color: CupertinoColors.white,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(
+                          color: CupertinoColors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+    );
+
+    overlay.insert(overlayEntry);
+
+    // Auto-dismiss after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
   }
 }

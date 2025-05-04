@@ -38,7 +38,6 @@ class EditBookingPageState extends State<EditBookingPage> {
   late TimeOfDay _selectedTime;
   late int _numberOfPeople;
   late int _numberOfGames;
-  late bool _isCancelled;
 
   // Activity pricing ID
   String? _selectedActivityId;
@@ -87,7 +86,6 @@ class EditBookingPageState extends State<EditBookingPage> {
     );
     _numberOfPeople = widget.bookingDetails.booking.nbrPers;
     _numberOfGames = widget.bookingDetails.booking.nbrParties;
-    _isCancelled = widget.bookingDetails.booking.isCancelled;
     _selectedActivityId = widget.bookingDetails.pricing.id;
 
     // Load available activities
@@ -201,7 +199,6 @@ class EditBookingPageState extends State<EditBookingPage> {
           'p_nbr_parties': _numberOfGames,
           'p_card_payment': cardPayment,
           'p_cash_payment': cashPayment,
-          'p_is_cancelled': _isCancelled,
           'p_activity_pricing_id': _selectedActivityId,
         },
       );
