@@ -41,7 +41,7 @@ class Client {
 }
 
 class ClientsScreen extends StatefulWidget {
-  const ClientsScreen({Key? key}) : super(key: key);
+  const ClientsScreen({super.key});
 
   @override
   ClientsScreenState createState() => ClientsScreenState();
@@ -648,7 +648,7 @@ class ClientsScreenState extends State<ClientsScreen> {
 class ClientDetailView extends StatelessWidget {
   final Client client;
 
-  const ClientDetailView({Key? key, required this.client}) : super(key: key);
+  const ClientDetailView({super.key, required this.client});
 
   @override
   Widget build(BuildContext context) {

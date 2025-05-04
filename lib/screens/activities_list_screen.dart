@@ -3,7 +3,7 @@ import '../main.dart';
 import '../models/activity.dart';
 
 class ActivitiesListScreen extends StatefulWidget {
-  const ActivitiesListScreen({Key? key}) : super(key: key);
+  const ActivitiesListScreen({super.key});
 
   @override
   _ActivitiesListScreenState createState() => _ActivitiesListScreenState();

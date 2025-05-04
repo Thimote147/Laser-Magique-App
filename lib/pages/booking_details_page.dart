@@ -3,14 +3,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import '../models/booking_details.dart';
 import '../main.dart'; // Pour accéder à l'instance Supabase
-import '../utils/app_strings.dart';
 import 'edit_booking_page.dart'; // Import the new edit page
 
 class BookingDetailsPage extends StatefulWidget {
   final String bookingId;
 
-  const BookingDetailsPage({Key? key, required this.bookingId})
-    : super(key: key);
+  const BookingDetailsPage({super.key, required this.bookingId});
 
   @override
   BookingDetailsPageState createState() => BookingDetailsPageState();
@@ -18,7 +16,7 @@ class BookingDetailsPage extends StatefulWidget {
 
 class BookingDetailsPageState extends State<BookingDetailsPage> {
   bool _isLoading = true;
-  bool _dataChanged = false; // Track if data was changed
+  final bool _dataChanged = false;
   BookingDetails? _bookingDetails;
 
   // Controllers for editing text fields
@@ -29,7 +27,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   final TextEditingController _notesController = TextEditingController();
 
   // Editing state variables
-  bool _isEditingCustomerInfo = false;
+  final bool _isEditingCustomerInfo = false;
 
   @override
   void initState() {
@@ -45,18 +43,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     _phoneController.dispose();
     _notesController.dispose();
     super.dispose();
-  }
-
-  // Initialize controllers with current values
-  void _initControllers() {
-    if (_bookingDetails != null) {
-      _firstnameController.text = _bookingDetails!.booking.firstname;
-      _lastnameController.text =
-          _bookingDetails!.booking.lastname ?? ''; // Handle nullable lastname
-      _emailController.text = _bookingDetails!.booking.email;
-      _phoneController.text = _bookingDetails!.booking.phoneNumber;
-      _notesController.text = _bookingDetails!.booking.notes;
-    }
   }
 
   Future<void> _fetchBookingDetails() async {
@@ -98,10 +84,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         return false; // We handle the pop ourselves
       },
       child: CupertinoPageScaffold(
-        backgroundColor: CupertinoColors.systemGroupedBackground,
+        backgroundColor: themeService.getBackgroundColor(),
         navigationBar: CupertinoNavigationBar(
           middle: const Text('Détails de la réservation'),
-          backgroundColor: CupertinoColors.systemGroupedBackground,
+          backgroundColor: themeService.getBackgroundColor(),
           border: null,
         ),
         child:
@@ -134,23 +120,46 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   // Fixed position action button at the bottom
   Widget _buildFixedActionButton() {
     final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
+    final backgroundColor = themeService.getCardColor();
+    final borderColor = themeService.getSeparatorColor();
+
+    // Define border radius constant to ensure consistency
+    const double buttonBorderRadius = 8.0;
+
+    // Define more prominent colors for the cancel button
+    final cancelButtonColor =
+        isCancelled
+            ? CupertinoColors.activeBlue.withOpacity(0.8)
+            : themeService.darkMode
+            ? CupertinoColors.systemGrey5.darkColor
+            : CupertinoColors
+                .systemGrey6; // Lighter background for better contrast
+
+    // Define a more visible border color for the cancel button
+    final cancelBorderColor =
+        isCancelled
+            ? CupertinoColors.activeBlue
+            : CupertinoColors.systemRed.withOpacity(
+              0.6,
+            ); // More visible red tint for border
+
+    // Define more prominent text color for the cancel button
+    final cancelTextColor =
+        isCancelled
+            ? CupertinoColors.white
+            : CupertinoColors.systemRed; // Red text for better visibility
 
     return Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.systemBackground,
+        color: backgroundColor,
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: borderColor,
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
         ],
-        border: Border(
-          top: BorderSide(
-            color: CupertinoColors.systemGrey4.withOpacity(0.4),
-            width: 0.5,
-          ),
-        ),
+        border: Border(top: BorderSide(color: borderColor, width: 0.5)),
       ),
       padding: EdgeInsets.only(
         left: 16,
@@ -163,98 +172,128 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         children: [
           // Cancel/Reinstate Button
           Expanded(
-            child: CupertinoButton(
-              padding: EdgeInsets.zero,
-              color:
-                  isCancelled
-                      ? CupertinoColors.activeBlue.withOpacity(0.8)
-                      : CupertinoColors.systemGrey5,
-              child: Text(
-                isCancelled ? 'Remettre' : 'Annuler',
-                style: TextStyle(
-                  color:
-                      isCancelled
-                          ? CupertinoColors.white
-                          : CupertinoColors.black,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: cancelBorderColor, // More visible border
+                  width: 1.5, // Slightly thicker border for visibility
+                ),
+                borderRadius: BorderRadius.circular(buttonBorderRadius),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(
+                  buttonBorderRadius - 1,
+                ), // Slightly smaller to fit inside container
+                child: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  borderRadius: BorderRadius.circular(
+                    buttonBorderRadius - 1,
+                  ), // Match the clip radius
+                  color: cancelButtonColor,
+                  child: Text(
+                    isCancelled ? 'Remettre' : 'Annuler',
+                    style: TextStyle(
+                      color: cancelTextColor, // More visible text
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onPressed: () {
+                    if (isCancelled) {
+                      _showReinstateConfirmation();
+                    } else {
+                      _showCancelConfirmation();
+                    }
+                  },
                 ),
               ),
-              onPressed: () {
-                if (isCancelled) {
-                  _showReinstateConfirmation();
-                } else {
-                  _showCancelConfirmation();
-                }
-              },
             ),
           ),
           const SizedBox(width: 12),
 
           // Delete Button
           Expanded(
-            child: CupertinoButton(
-              padding: EdgeInsets.zero,
-              color: CupertinoColors.destructiveRed,
-              child: const Text(
-                'Supprimer',
-                style: TextStyle(
-                  color: CupertinoColors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+            flex: isCancelled ? 2 : 1, // Take more space when in cancelled state (modify button is hidden)
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: CupertinoColors.destructiveRed,
+                  width: 1.0,
+                ),
+                borderRadius: BorderRadius.circular(buttonBorderRadius),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(buttonBorderRadius - 1),
+                child: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  borderRadius: BorderRadius.circular(buttonBorderRadius - 1),
+                  color: CupertinoColors.destructiveRed,
+                  onPressed: _showDeleteConfirmation,
+                  child: const Text(
+                    'Supprimer',
+                    style: TextStyle(
+                      color: CupertinoColors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-              onPressed: _showDeleteConfirmation,
             ),
           ),
 
-          const SizedBox(width: 12),
-
-          // Modify Button - Disabled when booking is cancelled
-          Expanded(
-            child: CupertinoButton(
-              padding: EdgeInsets.zero,
-              color:
-                  isCancelled
-                      ? CupertinoColors
-                          .systemGrey4 // Gray color for disabled state
-                      : CupertinoTheme.of(context).primaryColor,
-              child: Text(
-                'Modifier',
-                style: TextStyle(
-                  color: CupertinoColors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+          // Only show Modify Button when booking is not cancelled
+          if (!isCancelled) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: CupertinoTheme.of(context).primaryColor,
+                    width: 1.0,
+                  ),
+                  borderRadius: BorderRadius.circular(buttonBorderRadius),
                 ),
-              ),
-              // Disable the button when booking is cancelled by setting onPressed to null
-              onPressed:
-                  isCancelled
-                      ? null
-                      : () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            builder:
-                                (context) => EditBookingPage(
-                                  bookingDetails: _bookingDetails!,
-                                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(buttonBorderRadius - 1),
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    borderRadius: BorderRadius.circular(buttonBorderRadius - 1),
+                    color: CupertinoTheme.of(context).primaryColor,
+                    child: const Text(
+                      'Modifier',
+                      style: TextStyle(
+                        color: CupertinoColors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (context) => EditBookingPage(
+                            bookingDetails: _bookingDetails!,
                           ),
-                        ).then((result) {
-                          if (result == true || result == 'deleted') {
-                            if (result == 'deleted') {
-                              Navigator.pop(
-                                context,
-                                {'status': 'deleted', 'refreshCalendar': true},
-                              ); // Return to the previous screen if booking was deleted
-                            } else {
-                              _fetchBookingDetails(); // Refresh if changes were made
-                            }
+                        ),
+                      ).then((result) {
+                        if (result == true || result == 'deleted') {
+                          if (result == 'deleted') {
+                            Navigator.pop(
+                              context,
+                              {'status': 'deleted', 'refreshCalendar': true},
+                            ); // Return to the previous screen if booking was deleted
+                          } else {
+                            _fetchBookingDetails(); // Refresh if changes were made
                           }
-                        });
-                      },
+                        }
+                      });
+                    },
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -359,6 +398,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
   Widget _buildHeaderCard(String date, String startTime, String endTime) {
     final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
+    final cardColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+    final primaryColor = CupertinoTheme.of(context).primaryColor;
 
     return Container(
       width: double.infinity,
@@ -367,11 +410,11 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         vertical: 12,
       ), // Reduced vertical padding
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: separatorColor,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -386,7 +429,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
             style: TextStyle(
               fontSize: 20, // Reduced from 22
               fontWeight: FontWeight.bold,
-              color: CupertinoTheme.of(context).primaryColor,
+              color: primaryColor,
             ),
             textAlign: TextAlign.center,
           ),
@@ -440,23 +483,22 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               Container(
                 padding: const EdgeInsets.all(6), // Reduced padding
                 decoration: BoxDecoration(
-                  color: CupertinoTheme.of(
-                    context,
-                  ).primaryColor.withOpacity(0.1),
+                  color: primaryColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   CupertinoIcons.calendar,
-                  color: CupertinoTheme.of(context).primaryColor,
+                  color: primaryColor,
                   size: 16, // Reduced size
                 ),
               ),
               const SizedBox(width: 6), // Reduced spacing
               Text(
                 date,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14, // Reduced size
                   fontWeight: FontWeight.w500,
+                  color: textColor,
                 ),
               ),
               const SizedBox(width: 16), // Space between date and time
@@ -464,23 +506,22 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               Container(
                 padding: const EdgeInsets.all(6), // Reduced padding
                 decoration: BoxDecoration(
-                  color: CupertinoTheme.of(
-                    context,
-                  ).primaryColor.withOpacity(0.1),
+                  color: primaryColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   CupertinoIcons.clock,
-                  color: CupertinoTheme.of(context).primaryColor,
+                  color: primaryColor,
                   size: 16, // Reduced size
                 ),
               ),
               const SizedBox(width: 6), // Reduced spacing
               Text(
                 '$startTime - $endTime',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14, // Reduced size
                   fontWeight: FontWeight.w500,
+                  color: textColor,
                 ),
               ),
             ],
@@ -496,13 +537,18 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     required Widget child,
     Widget? trailing,
   }) {
+    final cardColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+    final primaryColor = CupertinoTheme.of(context).primaryColor;
+
     return Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: separatorColor,
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -518,32 +564,27 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: CupertinoTheme.of(
-                      context,
-                    ).primaryColor.withOpacity(0.1),
+                    color: primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
-                    icon,
-                    color: CupertinoTheme.of(context).primaryColor,
-                    size: 16,
-                  ),
+                  child: Icon(icon, color: primaryColor, size: 16),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: textColor,
                   ),
                 ),
                 const Spacer(),
                 if (trailing != null) trailing,
               ],
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12.0),
-              child: Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Divider(height: 1, color: separatorColor),
             ),
             child,
           ],
@@ -754,7 +795,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               child: _buildInfoItem(
                 CupertinoIcons.arrow_down_circle,
                 'Acompte',
-                deposit > 0 ? currencyFormat.format(deposit) : 'Aucun acompte',
+                deposit > 0 ? currencyFormat.format(deposit) : '0.00 €',
                 isHighlighted: deposit > 0,
               ),
             ),
@@ -827,38 +868,42 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     String value, {
     required bool isPaid,
   }) {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final primaryColor = CupertinoTheme.of(context).primaryColor;
+
+    final backgroundColor =
+        isPaid
+            ? primaryColor.withOpacity(0.1)
+            : themeService.darkMode
+            ? CupertinoColors.systemGrey6.darkColor
+            : CupertinoColors.systemGrey6;
+
+    final borderColor =
+        isPaid
+            ? primaryColor.withOpacity(0.3)
+            : themeService.getSeparatorColor();
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
-        color:
-            isPaid
-                ? CupertinoTheme.of(context).primaryColor.withOpacity(0.1)
-                : CupertinoColors.systemGrey6,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color:
-              isPaid
-                  ? CupertinoTheme.of(context).primaryColor.withOpacity(0.3)
-                  : CupertinoColors.systemGrey4,
-          width: 0.5,
-        ),
+        border: Border.all(color: borderColor, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 13, color: CupertinoColors.systemGrey),
+            style: TextStyle(fontSize: 13, color: secondaryTextColor),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
               Icon(
                 icon,
-                color:
-                    isPaid
-                        ? CupertinoTheme.of(context).primaryColor
-                        : CupertinoColors.systemGrey,
+                color: isPaid ? primaryColor : secondaryTextColor,
                 size: 18,
               ),
               const SizedBox(width: 6),
@@ -868,17 +913,14 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: isPaid ? FontWeight.w600 : FontWeight.w500,
-                    color:
-                        isPaid
-                            ? CupertinoTheme.of(context).primaryColor
-                            : CupertinoColors.black,
+                    color: isPaid ? primaryColor : textColor,
                   ),
                 ),
               ),
               if (isPaid)
                 Icon(
                   CupertinoIcons.checkmark_circle_fill,
-                  color: CupertinoTheme.of(context).primaryColor,
+                  color: primaryColor,
                   size: 18,
                 ),
             ],
@@ -902,6 +944,9 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     String value, {
     VoidCallback? onTap,
   }) {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+
     return GestureDetector(
       onTap: onTap,
       child: Row(
@@ -926,17 +971,15 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: CupertinoColors.systemGrey,
-                  ),
+                  style: TextStyle(fontSize: 14, color: secondaryTextColor),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
+                    color: textColor,
                   ),
                 ),
               ],
@@ -960,21 +1003,29 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     bool isHighlighted = false,
     VoidCallback? onTap,
   }) {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final backgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.systemGrey6.darkColor
+            : CupertinoColors.systemGrey6;
+    final borderColor = themeService.getSeparatorColor();
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey6,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: CupertinoColors.systemGrey4, width: 0.5),
+          border: Border.all(color: borderColor, width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
+              style: TextStyle(fontSize: 12, color: secondaryTextColor),
             ),
             const SizedBox(height: 2),
             Row(
@@ -984,7 +1035,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                   color:
                       isHighlighted
                           ? CupertinoTheme.of(context).primaryColor
-                          : CupertinoColors.systemGrey,
+                          : secondaryTextColor,
                   size: 16,
                 ),
                 const SizedBox(width: 6),
@@ -998,7 +1049,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                       color:
                           isHighlighted
                               ? CupertinoTheme.of(context).primaryColor
-                              : CupertinoColors.black,
+                              : textColor,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1061,56 +1112,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     // Implémenter la logique pour lancer l'application téléphone
     print('Launching phone: $phoneNumber');
     // Vous pourriez utiliser le package url_launcher ici
-  }
-
-  void _startEditingCustomerInfo() {
-    setState(() {
-      _isEditingCustomerInfo = true;
-      _initControllers();
-    });
-  }
-
-  Future<void> _saveCustomerInfo() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await supabase
-          .from('bookings')
-          .update({
-            'firstname': _firstnameController.text,
-            'lastname': _lastnameController.text,
-            'email': _emailController.text,
-            'phone':
-                _phoneController.text, // Changed from 'phone_number' to 'phone'
-            'comment':
-                _notesController.text, // Changed from 'notes' to 'comment'
-          })
-          .eq('id', _bookingDetails!.booking.bookingId);
-
-      await _fetchBookingDetails();
-
-      setState(() {
-        _isEditingCustomerInfo = false;
-        _isLoading = false;
-      });
-
-      if (!context.mounted) return;
-
-      // Using a local SnackBar without depending on ScaffoldMessenger
-      _showCupertinoToast('Informations client mises à jour avec succès');
-    } catch (e) {
-      print('Error updating customer info: $e');
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (!context.mounted) return;
-
-      // Using a local SnackBar without depending on ScaffoldMessenger
-      _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
-    }
   }
 
   // Custom toast method that works with CupertinoPageScaffold
@@ -1204,7 +1205,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
-      // Call the delete_booking RPC function instead of directly deleting the record
       await supabase.rpc(
         'delete_booking',
         params: {'p_activity_booking_id': _bookingDetails!.activityBookingId},
@@ -1215,15 +1215,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       });
 
       if (!context.mounted) return;
-
-      // Show success message
       _showCupertinoToast('Réservation supprimée avec succès');
-
-      // Pop with 'deleted' result and refresh flag for calendar
-      Navigator.pop(context, {
-        'status': 'deleted',
-        'refreshCalendar': true,
-      }); // Return object with deletion status and refresh flag
+      Navigator.pop(context, {'status': 'deleted', 'refreshCalendar': true});
     } catch (e) {
       print('Error deleting booking: $e');
       setState(() {
@@ -1231,8 +1224,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       });
 
       if (!context.mounted) return;
-
-      // Show error message with the specific server error
       _showCupertinoToast('Erreur lors de la suppression: $e', isError: true);
     }
   }
@@ -1282,10 +1273,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       });
 
       if (!context.mounted) return;
-
       _showCupertinoToast('Réservation annulée avec succès');
-
-      // Return to calendar with a signal to refresh, similar to delete operation
       Navigator.pop(context, {'status': 'cancelled', 'refreshCalendar': true});
     } catch (e) {
       print('Error cancelling booking: $e');
@@ -1294,7 +1282,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       });
 
       if (!context.mounted) return;
-
       _showCupertinoToast('Erreur lors de l\'annulation: $e', isError: true);
     }
   }
@@ -1344,13 +1331,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       });
 
       if (!context.mounted) return;
-
       _showCupertinoToast('Réservation réactivée avec succès');
-
-      // Refresh booking details to show updated status
       await _fetchBookingDetails();
-
-      // Don't navigate back, just stay on the page with updated data
     } catch (e) {
       print('Error reinstating booking: $e');
       setState(() {
@@ -1358,7 +1340,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       });
 
       if (!context.mounted) return;
-
       _showCupertinoToast('Erreur lors de la réactivation: $e', isError: true);
     }
   }

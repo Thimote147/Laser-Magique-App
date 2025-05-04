@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import '../models/booking_details.dart';
-import '../main.dart'; // For Supabase instance
+import '../main.dart'; // For Supabase instance and themeService
 
 class EditBookingPage extends StatefulWidget {
   final BookingDetails bookingDetails;
 
-  const EditBookingPage({Key? key, required this.bookingDetails})
-    : super(key: key);
+  const EditBookingPage({super.key, required this.bookingDetails});
 
   @override
   EditBookingPageState createState() => EditBookingPageState();
@@ -108,7 +107,6 @@ class EditBookingPageState extends State<EditBookingPage> {
         _loadingActivities = false;
       });
     } catch (e) {
-      print('Error fetching activities: $e');
       setState(() {
         _loadingActivities = false;
       });
@@ -177,46 +175,90 @@ class EditBookingPageState extends State<EditBookingPage> {
       // Calculate remaining amount
       double amount = total - deposit - cardPayment - cashPayment;
 
-      // Use the update_booking RPC function with all parameters
-      await supabase.rpc(
-        'update_booking',
-        params: {
-          'p_activity_booking_id': widget.bookingDetails.activityBookingId,
-          'p_booking_id': widget.bookingDetails.booking.bookingId,
-          'p_date': dateTime.toIso8601String(),
-          'p_email': _emailController.text,
-          'p_phone': _phoneController.text,
-          'p_total': total,
-          'p_amount': amount,
-          'p_comment': _notesController.text,
-          'p_deposit': deposit,
-          'p_lastname':
-              _lastnameController.text.isEmpty
-                  ? null
-                  : _lastnameController.text,
-          'p_nbr_pers': _numberOfPeople,
-          'p_firstname': _firstnameController.text,
-          'p_nbr_parties': _numberOfGames,
-          'p_card_payment': cardPayment,
-          'p_cash_payment': cashPayment,
-          'p_activity_pricing_id': _selectedActivityId,
-        },
-      );
+      // Ensure we use the newly selected activity ID
+      final String activityPricingId =
+          _selectedActivityId ?? widget.bookingDetails.pricing.id;
 
-      setState(() {
-        _isLoading = false;
-        _hasChanges = false;
-      });
+      // Create parameters map for the update_booking RPC call
+      final Map<String, dynamic> params = {
+        'p_activity_booking_id': widget.bookingDetails.activityBookingId,
+        'p_booking_id': widget.bookingDetails.booking.bookingId,
+        'p_date': dateTime.toIso8601String(),
+        'p_email': _emailController.text,
+        'p_phone': _phoneController.text,
+        'p_total': total,
+        'p_amount': amount,
+        'p_comment': _notesController.text,
+        'p_deposit': deposit,
+        'p_lastname':
+            _lastnameController.text.isEmpty ? null : _lastnameController.text,
+        'p_nbr_pers': _numberOfPeople,
+        'p_firstname': _firstnameController.text,
+        'p_nbr_parties': _numberOfGames,
+        'p_card_payment': cardPayment,
+        'p_cash_payment': cashPayment,
+        'p_activity_pricing_id': activityPricingId,
+      };
 
-      if (!context.mounted) return;
+      try {
+        // Use the update_booking RPC function with all parameters
+        final response = await supabase.rpc('update_booking', params: params);
 
-      // Show success message and navigate back
-      _showCupertinoToast('Réservation mise à jour avec succès');
+        setState(() {
+          _isLoading = false;
+          _hasChanges = false;
+        });
 
-      // Return to the details page with success indicator
-      Navigator.pop(context, true);
+        if (!context.mounted) return;
+
+        // Show success message if response is not null
+        if (response != null) {
+          _showCupertinoToast('Réservation mise à jour avec succès');
+          // Return to the details page with success indicator
+          Navigator.pop(context, true);
+        } else {
+          // Try to get more information if the update failed
+          try {
+            // Check booking details
+            await supabase.rpc(
+              'get_booking_details',
+              params: {
+                'p_activity_booking_id':
+                    widget.bookingDetails.activityBookingId,
+              },
+            );
+
+            // Check booking activities record
+            await supabase
+                .from('booking_activities')
+                .select()
+                .eq(
+                  'activity_booking_id',
+                  widget.bookingDetails.activityBookingId,
+                )
+                .single();
+
+            // If we get here, the record exists despite response being null
+            _showCupertinoToast('Réservation mise à jour avec succès');
+            Navigator.pop(context, true);
+          } catch (detailsError) {
+            _showCupertinoToast(
+              'La mise à jour a échoué. Veuillez vérifier les données et réessayer.',
+              isError: true,
+            );
+          }
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (!context.mounted) return;
+
+        // Show error message with more details
+        _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
+      }
     } catch (e) {
-      print('Error updating booking: $e');
       setState(() {
         _isLoading = false;
       });
@@ -318,21 +360,28 @@ class EditBookingPageState extends State<EditBookingPage> {
           );
         }
 
+        final bgColor =
+            themeService.darkMode
+                ? CupertinoColors.systemBackground.darkColor
+                : CupertinoColors.systemBackground;
+        final headerColor =
+            themeService.darkMode
+                ? CupertinoColors.secondarySystemBackground.darkColor
+                : CupertinoColors.secondarySystemBackground;
+        final separatorColor = themeService.getSeparatorColor();
+
         return Container(
           height: 300,
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          color: bgColor,
           child: Column(
             children: [
               Container(
                 height: 40,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: const BoxDecoration(
-                  color: CupertinoColors.secondarySystemBackground,
+                decoration: BoxDecoration(
+                  color: headerColor,
                   border: Border(
-                    bottom: BorderSide(
-                      color: CupertinoColors.separator,
-                      width: 0.0,
-                    ),
+                    bottom: BorderSide(color: separatorColor, width: 0.0),
                   ),
                 ),
                 child: Row(
@@ -435,21 +484,28 @@ class EditBookingPageState extends State<EditBookingPage> {
           }
         }
 
+        final bgColor =
+            themeService.darkMode
+                ? CupertinoColors.systemBackground.darkColor
+                : CupertinoColors.systemBackground;
+        final headerColor =
+            themeService.darkMode
+                ? CupertinoColors.secondarySystemBackground.darkColor
+                : CupertinoColors.secondarySystemBackground;
+        final separatorColor = themeService.getSeparatorColor();
+
         return Container(
           height: 300,
-          color: CupertinoColors.systemBackground.resolveFrom(context),
+          color: bgColor,
           child: Column(
             children: [
               Container(
                 height: 40,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: const BoxDecoration(
-                  color: CupertinoColors.secondarySystemBackground,
+                decoration: BoxDecoration(
+                  color: headerColor,
                   border: Border(
-                    bottom: BorderSide(
-                      color: CupertinoColors.separator,
-                      width: 0.0,
-                    ),
+                    bottom: BorderSide(color: separatorColor, width: 0.0),
                   ),
                 ),
                 child: Row(
@@ -509,13 +565,19 @@ class EditBookingPageState extends State<EditBookingPage> {
   }
 
   void _showUnsavedChangesDialog() {
+    final textColor = themeService.getTextColor();
+
     showCupertinoDialog(
       context: context,
       builder:
           (context) => CupertinoAlertDialog(
-            title: const Text('Modifications non enregistrées'),
-            content: const Text(
+            title: Text(
+              'Modifications non enregistrées',
+              style: TextStyle(color: textColor),
+            ),
+            content: Text(
               'Vous avez des modifications non enregistrées. Voulez-vous quitter sans les enregistrer?',
+              style: TextStyle(color: textColor),
             ),
             actions: [
               CupertinoDialogAction(
@@ -535,72 +597,6 @@ class EditBookingPageState extends State<EditBookingPage> {
     );
   }
 
-  Future<void> _showDeleteConfirmation() async {
-    return showCupertinoDialog<void>(
-      context: context,
-      builder:
-          (BuildContext context) => CupertinoAlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: const Text(
-              'Êtes-vous sûr de vouloir supprimer cette réservation? Cette action ne peut pas être annulée.',
-            ),
-            actions: <CupertinoDialogAction>[
-              CupertinoDialogAction(
-                child: const Text('Annuler'),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              ),
-              CupertinoDialogAction(
-                isDestructiveAction: true,
-                onPressed: () {
-                  Navigator.pop(context);
-                  _deleteBooking();
-                },
-                child: const Text('Supprimer'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _deleteBooking() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Delete the booking from the database
-      await supabase
-          .from('bookings')
-          .delete()
-          .eq('id', widget.bookingDetails.booking.bookingId);
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (!context.mounted) return;
-
-      // Show success message and navigate back
-      _showCupertinoToast('Réservation supprimée avec succès');
-      Navigator.pop(
-        context,
-        'deleted',
-      ); // Return 'deleted' to indicate deletion
-    } catch (e) {
-      print('Error deleting booking: $e');
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (!context.mounted) return;
-
-      // Show error message
-      _showCupertinoToast('Erreur lors de la suppression: $e', isError: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -612,10 +608,10 @@ class EditBookingPageState extends State<EditBookingPage> {
         return true;
       },
       child: CupertinoPageScaffold(
-        backgroundColor: CupertinoColors.systemGroupedBackground,
+        backgroundColor: themeService.getBackgroundColor(),
         navigationBar: CupertinoNavigationBar(
           middle: const Text('Modifier la réservation'),
-          backgroundColor: CupertinoColors.systemGroupedBackground,
+          backgroundColor: themeService.getBackgroundColor(),
           border: null,
         ),
         child: SafeArea(
@@ -633,7 +629,7 @@ class EditBookingPageState extends State<EditBookingPage> {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  color: CupertinoColors.systemBackground,
+                  color: themeService.getCardColor(),
                   padding: EdgeInsets.only(
                     bottom: MediaQuery.of(context).padding.bottom,
                     top: 12,
@@ -643,6 +639,7 @@ class EditBookingPageState extends State<EditBookingPage> {
                   child: CupertinoButton(
                     padding: EdgeInsets.zero,
                     color: CupertinoTheme.of(context).primaryColor,
+                    onPressed: _isLoading ? null : _saveBooking,
                     child: const Text(
                       'Modifier',
                       style: TextStyle(
@@ -651,7 +648,6 @@ class EditBookingPageState extends State<EditBookingPage> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    onPressed: _isLoading ? null : _saveBooking,
                   ),
                 ),
               ),
@@ -770,6 +766,14 @@ class EditBookingPageState extends State<EditBookingPage> {
     String? suffix,
     String? Function(String?)? validator,
   }) {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final inputBackgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.darkBackgroundGray
+            : CupertinoColors.systemGrey6;
+    final borderColor = themeService.getSeparatorColor();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -777,10 +781,10 @@ class EditBookingPageState extends State<EditBookingPage> {
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: CupertinoColors.systemGrey,
+              color: secondaryTextColor,
             ),
           ),
         ),
@@ -789,9 +793,11 @@ class EditBookingPageState extends State<EditBookingPage> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           placeholder: '0.00',
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          style: TextStyle(color: textColor),
+          placeholderStyle: TextStyle(color: secondaryTextColor),
           prefix: Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: Icon(icon, color: CupertinoColors.systemGrey, size: 16),
+            child: Icon(icon, color: secondaryTextColor, size: 16),
           ),
           suffix:
               suffix != null
@@ -799,17 +805,14 @@ class EditBookingPageState extends State<EditBookingPage> {
                     padding: const EdgeInsets.only(right: 8),
                     child: Text(
                       suffix,
-                      style: const TextStyle(
-                        color: CupertinoColors.systemGrey,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(color: secondaryTextColor, fontSize: 16),
                     ),
                   )
                   : null,
           decoration: BoxDecoration(
-            color: CupertinoColors.systemGrey6,
+            color: inputBackgroundColor,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: CupertinoColors.systemGrey5, width: 0.5),
+            border: Border.all(color: borderColor, width: 0.5),
           ),
           onChanged: (value) {
             // Re-render to update the calculated remaining amount
@@ -969,6 +972,8 @@ class EditBookingPageState extends State<EditBookingPage> {
               setState(() {
                 _numberOfPeople++;
                 _hasChanges = true;
+                // Update total price when number of people changes
+                _updateTotalPrice();
               });
             }
           },
@@ -977,6 +982,8 @@ class EditBookingPageState extends State<EditBookingPage> {
               setState(() {
                 _numberOfPeople--;
                 _hasChanges = true;
+                // Update total price when number of people changes
+                _updateTotalPrice();
               });
             }
           },
@@ -994,17 +1001,22 @@ class EditBookingPageState extends State<EditBookingPage> {
             setState(() {
               _numberOfGames++;
               _hasChanges = true;
+              // Update total price when number of games changes
+              _updateTotalPrice();
             });
           },
           onDecrement: () {
-            if (_numberOfGames > 1) {
+            // Use _getMinParties() to ensure we don't go below minimum required parties
+            if (_numberOfGames > _getMinParties()) {
               setState(() {
                 _numberOfGames--;
                 _hasChanges = true;
+                // Update total price when number of games changes
+                _updateTotalPrice();
               });
             }
           },
-          minValue: 1,
+          minValue: _getMinParties(),
           maxValue: 10,
         ),
         const SizedBox(height: 12),
@@ -1016,7 +1028,7 @@ class EditBookingPageState extends State<EditBookingPage> {
           value:
               _loadingActivities
                   ? 'Chargement...'
-                  : '${_getActivityDuration()} minutes',
+                  : _formatDuration(_getActivityDuration() * _numberOfGames),
           showChevron: false,
         ),
       ],
@@ -1044,7 +1056,7 @@ class EditBookingPageState extends State<EditBookingPage> {
     }
 
     for (var activity in _availableActivities) {
-      if (activity['pricing_id'] == _selectedActivityId) {
+      if (activity['activity_id'] == _selectedActivityId) {
         return activity['type'] ?? 'Type non trouvé';
       }
     }
@@ -1058,7 +1070,7 @@ class EditBookingPageState extends State<EditBookingPage> {
     }
 
     for (var activity in _availableActivities) {
-      if (activity['pricing_id'] == _selectedActivityId) {
+      if (activity['activity_id'] == _selectedActivityId) {
         return activity['min_player'] ??
             widget.bookingDetails.pricing.minPlayer;
       }
@@ -1073,7 +1085,7 @@ class EditBookingPageState extends State<EditBookingPage> {
     }
 
     for (var activity in _availableActivities) {
-      if (activity['pricing_id'] == _selectedActivityId) {
+      if (activity['activity_id'] == _selectedActivityId) {
         return activity['max_player'] ??
             widget.bookingDetails.pricing.maxPlayer;
       }
@@ -1088,12 +1100,42 @@ class EditBookingPageState extends State<EditBookingPage> {
     }
 
     for (var activity in _availableActivities) {
-      if (activity['pricing_id'] == _selectedActivityId) {
+      if (activity['activity_id'] == _selectedActivityId) {
         return activity['duration'] ?? widget.bookingDetails.pricing.duration;
       }
     }
 
     return widget.bookingDetails.pricing.duration;
+  }
+
+  // Helper method to get the minimum number of parties based on pricing
+  int _getMinParties() {
+    if (_selectedActivityId == null || _availableActivities.isEmpty) {
+      // Check if the activity in the original booking details has only thirdPrice
+      if (widget.bookingDetails.pricing.firstPrice <= 0 &&
+          widget.bookingDetails.pricing.secondPrice <= 0 &&
+          widget.bookingDetails.pricing.thirdPrice > 0) {
+        return 3; // If only thirdPrice is available, minimum is 3 parties
+      }
+      return 1; // Default minimum
+    }
+
+    // Check the selected activity from available activities
+    for (var activity in _availableActivities) {
+      if (activity['activity_id'] == _selectedActivityId) {
+        double firstPrice = activity['first_price']?.toDouble() ?? 0.0;
+        double secondPrice = activity['second_price']?.toDouble() ?? 0.0;
+        double thirdPrice = activity['third_price']?.toDouble() ?? 0.0;
+
+        // For activities with only thirdPrice (like birthday packages)
+        if (firstPrice <= 0 && secondPrice <= 0 && thirdPrice > 0) {
+          return 3; // These activities require minimum 3 parties
+        }
+        break;
+      }
+    }
+
+    return 1; // Default minimum is 1 party
   }
 
   void _showActivityPicker() {
@@ -1113,11 +1155,17 @@ class EditBookingPageState extends State<EditBookingPage> {
         // Find the initially selected activity index
         int initialIndex = 0;
         for (int i = 0; i < _availableActivities.length; i++) {
-          if (_availableActivities[i]['pricing_id'] == _selectedActivityId) {
+          if (_availableActivities[i]['activity_id'] == _selectedActivityId) {
             initialIndex = i;
             break;
           }
         }
+
+        final bgColor =
+            themeService.darkMode
+                ? CupertinoColors.systemBackground.darkColor
+                : CupertinoColors.systemBackground;
+        final textColor = themeService.getTextColor();
 
         return Container(
           height: 300,
@@ -1125,7 +1173,7 @@ class EditBookingPageState extends State<EditBookingPage> {
           margin: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
-          color: CupertinoColors.systemBackground,
+          color: bgColor,
           child: Column(
             children: [
               Row(
@@ -1139,19 +1187,34 @@ class EditBookingPageState extends State<EditBookingPage> {
                     child: const Text('Confirmer'),
                     onPressed: () {
                       if (_availableActivities.isNotEmpty) {
+                        final newActivityId =
+                            _availableActivities[initialIndex]['activity_id'];
+
                         setState(() {
-                          _selectedActivityId =
-                              _availableActivities[initialIndex]['pricing_id'];
-                          _hasChanges = true;
+                          // Only proceed if activity actually changed
+                          if (_selectedActivityId != newActivityId) {
+                            _selectedActivityId = newActivityId;
+                            _hasChanges = true;
 
-                          // Update number of people if necessary
-                          int minPlayers = _getMinPlayers();
-                          int maxPlayers = _getMaxPlayers();
+                            // Get new minimum and maximum values based on the new activity
+                            int minPlayers = _getMinPlayers();
+                            int maxPlayers = _getMaxPlayers();
+                            int minParties = _getMinParties();
 
-                          if (_numberOfPeople < minPlayers) {
-                            _numberOfPeople = minPlayers;
-                          } else if (_numberOfPeople > maxPlayers) {
-                            _numberOfPeople = maxPlayers;
+                            // Adjust number of people if necessary
+                            if (_numberOfPeople < minPlayers) {
+                              _numberOfPeople = minPlayers;
+                            } else if (_numberOfPeople > maxPlayers) {
+                              _numberOfPeople = maxPlayers;
+                            }
+
+                            // Adjust number of parties if necessary
+                            if (_numberOfGames < minParties) {
+                              _numberOfGames = minParties;
+                            }
+
+                            // Update the total price
+                            _updateTotalPrice();
                           }
                         });
                       }
@@ -1175,7 +1238,10 @@ class EditBookingPageState extends State<EditBookingPage> {
                             (activity) => Center(
                               child: Text(
                                 '${activity['name'] ?? 'Erreur'} (${activity['type'] ?? 'erreur'})',
-                                style: const TextStyle(fontSize: 16),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: textColor,
+                                ),
                               ),
                             ),
                           )
@@ -1190,6 +1256,14 @@ class EditBookingPageState extends State<EditBookingPage> {
   }
 
   Widget _buildNotesSection() {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final inputBackgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.darkBackgroundGray
+            : CupertinoColors.systemGrey6;
+    final borderColor = themeService.getSeparatorColor();
+
     return _buildSection(
       title: 'Notes',
       icon: CupertinoIcons.text_bubble,
@@ -1197,12 +1271,14 @@ class EditBookingPageState extends State<EditBookingPage> {
         CupertinoTextField(
           controller: _notesController,
           placeholder: 'Notes supplémentaires (optionnel)',
+          placeholderStyle: TextStyle(color: secondaryTextColor),
+          style: TextStyle(color: textColor),
           maxLines: 4,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: CupertinoColors.systemGrey6,
+            color: inputBackgroundColor,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: CupertinoColors.systemGrey5, width: 0.5),
+            border: Border.all(color: borderColor, width: 0.5),
           ),
         ),
       ],
@@ -1214,13 +1290,18 @@ class EditBookingPageState extends State<EditBookingPage> {
     required IconData icon,
     required List<Widget> children,
   }) {
+    final cardColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+    final primaryColor = CupertinoTheme.of(context).primaryColor;
+
     return Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: separatorColor,
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -1236,30 +1317,25 @@ class EditBookingPageState extends State<EditBookingPage> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: CupertinoTheme.of(
-                      context,
-                    ).primaryColor.withOpacity(0.1),
+                    color: primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
-                    icon,
-                    color: CupertinoTheme.of(context).primaryColor,
-                    size: 16,
-                  ),
+                  child: Icon(icon, color: primaryColor, size: 16),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: textColor,
                   ),
                 ),
               ],
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12.0),
-              child: Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Divider(height: 1, color: separatorColor),
             ),
             ...children,
           ],
@@ -1275,6 +1351,14 @@ class EditBookingPageState extends State<EditBookingPage> {
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
   }) {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final inputBackgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.darkBackgroundGray
+            : CupertinoColors.systemGrey6;
+    final borderColor = themeService.getSeparatorColor();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1282,10 +1366,10 @@ class EditBookingPageState extends State<EditBookingPage> {
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: CupertinoColors.systemGrey,
+              color: secondaryTextColor,
             ),
           ),
         ),
@@ -1294,14 +1378,16 @@ class EditBookingPageState extends State<EditBookingPage> {
           keyboardType: keyboardType,
           placeholder: label,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          style: TextStyle(color: textColor),
+          placeholderStyle: TextStyle(color: secondaryTextColor),
           prefix: Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: Icon(icon, color: CupertinoColors.systemGrey, size: 16),
+            child: Icon(icon, color: secondaryTextColor, size: 16),
           ),
           decoration: BoxDecoration(
-            color: CupertinoColors.systemGrey6,
+            color: inputBackgroundColor,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: CupertinoColors.systemGrey5, width: 0.5),
+            border: Border.all(color: borderColor, width: 0.5),
           ),
         ),
         if (validator != null)
@@ -1333,16 +1419,25 @@ class EditBookingPageState extends State<EditBookingPage> {
     required String value,
     required bool showChevron,
   }) {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final inputBackgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.darkBackgroundGray
+            : CupertinoColors.systemGrey6;
+    final borderColor = themeService.getSeparatorColor();
+    final primaryColor = CupertinoTheme.of(context).primaryColor;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6,
+        color: inputBackgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CupertinoColors.systemGrey4, width: 0.5),
+        border: Border.all(color: borderColor, width: 0.5),
       ),
       child: Row(
         children: [
-          Icon(icon, color: CupertinoTheme.of(context).primaryColor, size: 18),
+          Icon(icon, color: primaryColor, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1350,26 +1445,24 @@ class EditBookingPageState extends State<EditBookingPage> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: CupertinoColors.systemGrey,
-                  ),
+                  style: TextStyle(fontSize: 13, color: secondaryTextColor),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
+                    color: textColor,
                   ),
                 ),
               ],
             ),
           ),
           if (showChevron)
-            const Icon(
+            Icon(
               CupertinoIcons.chevron_right,
-              color: CupertinoColors.systemGrey3,
+              color: secondaryTextColor,
               size: 18,
             ),
         ],
@@ -1386,16 +1479,29 @@ class EditBookingPageState extends State<EditBookingPage> {
     required int minValue,
     required int maxValue,
   }) {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final inputBackgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.darkBackgroundGray
+            : CupertinoColors.systemGrey6;
+    final borderColor = themeService.getSeparatorColor();
+    final primaryColor = CupertinoTheme.of(context).primaryColor;
+    final disabledColor =
+        themeService.darkMode
+            ? CupertinoColors.systemGrey.darkColor
+            : CupertinoColors.systemGrey4;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6,
+        color: inputBackgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CupertinoColors.systemGrey4, width: 0.5),
+        border: Border.all(color: borderColor, width: 0.5),
       ),
       child: Row(
         children: [
-          Icon(icon, color: CupertinoTheme.of(context).primaryColor, size: 18),
+          Icon(icon, color: primaryColor, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1403,17 +1509,15 @@ class EditBookingPageState extends State<EditBookingPage> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: CupertinoColors.systemGrey,
-                  ),
+                  style: TextStyle(fontSize: 13, color: secondaryTextColor),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '$value',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
+                    color: textColor,
                   ),
                 ),
               ],
@@ -1427,10 +1531,7 @@ class EditBookingPageState extends State<EditBookingPage> {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color:
-                        value > minValue
-                            ? CupertinoTheme.of(context).primaryColor
-                            : CupertinoColors.systemGrey4,
+                    color: value > minValue ? primaryColor : disabledColor,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -1443,9 +1544,10 @@ class EditBookingPageState extends State<EditBookingPage> {
               const SizedBox(width: 8),
               Text(
                 '$value',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
+                  color: textColor,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1455,10 +1557,7 @@ class EditBookingPageState extends State<EditBookingPage> {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color:
-                        value < maxValue
-                            ? CupertinoTheme.of(context).primaryColor
-                            : CupertinoColors.systemGrey4,
+                    color: value < maxValue ? primaryColor : disabledColor,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -1473,5 +1572,88 @@ class EditBookingPageState extends State<EditBookingPage> {
         ],
       ),
     );
+  }
+
+  void _updateTotalPrice() {
+    if (_selectedActivityId == null || _availableActivities.isEmpty) {
+      return;
+    }
+
+    // Find the selected activity
+    Map<String, dynamic>? selectedActivity;
+    for (var activity in _availableActivities) {
+      if (activity['activity_id'] == _selectedActivityId) {
+        selectedActivity = activity;
+        break;
+      }
+    }
+
+    if (selectedActivity == null) {
+      return;
+    }
+
+    // Get pricing information
+    double firstPrice = selectedActivity['first_price']?.toDouble() ?? 0.00;
+    double secondPrice = selectedActivity['second_price']?.toDouble() ?? 0.00;
+    double thirdPrice = selectedActivity['third_price']?.toDouble() ?? 0.00;
+
+    double totalPrice = 0.00;
+
+    // For activities with only thirdPrice (like birthday packages)
+    if (firstPrice <= 0 && secondPrice <= 0 && thirdPrice > 0) {
+      // Base price for 3 parties
+      totalPrice = thirdPrice * _numberOfPeople;
+
+      // Add cost for additional parties if more than 3
+      if (_numberOfGames > 3) {
+        double additionalPartyPrice =
+            thirdPrice / 3; // Price per additional party
+        totalPrice +=
+            (additionalPartyPrice * (_numberOfGames - 3)) * _numberOfPeople;
+      }
+    } else {
+      // Regular pricing based on number of parties
+      double pricePerParty;
+
+      if (_numberOfGames == 1 && firstPrice > 0) {
+        pricePerParty = firstPrice;
+      } else if (_numberOfGames == 2 && secondPrice > 0) {
+        pricePerParty = secondPrice;
+      } else if (_numberOfGames >= 3 && thirdPrice > 0) {
+        pricePerParty = thirdPrice;
+      } else {
+        // Fallback - use the first non-zero price
+        pricePerParty =
+            firstPrice > 0
+                ? firstPrice
+                : (secondPrice > 0 ? secondPrice : thirdPrice);
+      }
+
+      totalPrice = pricePerParty * _numberOfPeople;
+    }
+
+    // Update the total text field
+    if (totalPrice > 0) {
+      setState(() {
+        _totalController.text = totalPrice.toStringAsFixed(2);
+      });
+    }
+  }
+
+  // Helper method to format duration in hours and minutes or just minutes
+  String _formatDuration(int minutes) {
+    if (minutes < 60) {
+      return '$minutes minutes';
+    } else {
+      int hours = minutes ~/ 60;
+      int remainingMinutes = minutes % 60;
+
+      if (remainingMinutes == 0) {
+        return hours == 1 ? '1 heure' : '$hours heures';
+      } else {
+        String hourText = hours == 1 ? '1 heure' : '$hours heures';
+        return '$hourText $remainingMinutes minutes';
+      }
+    }
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:developer' as developer;
 import 'package:intl/intl.dart';
 
 /// Modèle représentant les détails complets d'une réservation
@@ -21,8 +20,6 @@ class BookingDetails {
   });
 
   factory BookingDetails.fromJson(Map<String, dynamic> json) {
-    // Pour déboguer les données reçues
-    developer.log('BookingDetails.fromJson: ${json.toString()}');
 
     return BookingDetails(
       activityBookingId: json['activity_booking_id']?.toString() ?? '',
@@ -52,7 +49,7 @@ class BookingDetails {
   /// Returns a summary of the booking info
   String get summaryInfo {
     return 'Réservation de ${booking.nbrPers} personne(s) pour ${activity.name}'
-        ' le ${formattedDate} (${formattedDuration})';
+        ' le $formattedDate ($formattedDuration)';
   }
 
   /// Returns a complete representation of the booking details
@@ -119,7 +116,7 @@ Mis à jour: ${dateFormat.format(updatedAt)}
       'Activité': activity.name,
       'Type': pricing.type,
       'Date': dateFormat.format(booking.date),
-      'Durée': '$_formatDuration',
+      'Durée': _formatDuration,
       'Client': booking.fullName,
       'Email': booking.email.isEmpty ? 'Non renseigné' : booking.email,
       'Téléphone':
@@ -214,8 +211,6 @@ class BookingInfo {
   }
 
   factory BookingInfo.fromJson(Map<String, dynamic> json) {
-    // Pour déboguer les données de réservation
-    developer.log('BookingInfo.fromJson: ${json.toString()}');
 
     // No need to decode json as it's already a Map<String, dynamic>
     Map<String, dynamic> dataMap = json;
@@ -307,8 +302,6 @@ class ActivityInfo {
   ActivityInfo({required this.activityId, required this.name});
 
   factory ActivityInfo.fromJson(Map<String, dynamic> json) {
-    // For debugging
-    developer.log('ActivityInfo.fromJson: ${json.toString()}');
 
     // No need to decode json as it's already a Map<String, dynamic>
     Map<String, dynamic> dataMap = json;
@@ -343,8 +336,6 @@ class PricingInfo {
   });
 
   factory PricingInfo.fromJson(Map<String, dynamic> json) {
-    // For debugging
-    developer.log('PricingInfo.fromJson: ${json.toString()}');
 
     // No need to decode json as it's already a Map<String, dynamic>
     Map<String, dynamic> dataMap = json;

@@ -7,8 +7,7 @@ import '../utils/app_strings.dart';
 class BookingDetailsScreen extends StatefulWidget {
   final String bookingId;
 
-  const BookingDetailsScreen({Key? key, required this.bookingId})
-    : super(key: key);
+  const BookingDetailsScreen({super.key, required this.bookingId});
 
   @override
   BookingDetailsScreenState createState() => BookingDetailsScreenState();
@@ -17,7 +16,6 @@ class BookingDetailsScreen extends StatefulWidget {
 class BookingDetailsScreenState extends State<BookingDetailsScreen> {
   bool _isLoading = true;
   BookingModel? _booking;
-  bool _isActionSheetVisible = false;
 
   @override
   void initState() {
@@ -45,41 +43,6 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
       });
     } catch (e) {
       print('Erreur lors de la récupération des détails: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _updateBookingStatus(String status) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await supabase
-          .from('bookings')
-          .update({'status': status})
-          .eq('id', widget.bookingId);
-
-      // Actualiser les détails de la réservation
-      await _fetchBookingDetails();
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${AppStrings.statusUpdated} $status'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${AppStrings.errorOccurred}: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
       setState(() {
         _isLoading = false;
       });
@@ -144,55 +107,6 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
             ],
           ),
     );
-  }
-
-  void _showStatusActionSheet() {
-    setState(() {
-      _isActionSheetVisible = true;
-    });
-
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder:
-          (BuildContext context) => CupertinoActionSheet(
-            title: Text(AppStrings.updateStatus),
-            message: Text(AppStrings.chooseNewStatus),
-            actions: <CupertinoActionSheetAction>[
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _updateBookingStatus('confirmed');
-                },
-                child: Text(AppStrings.confirmed),
-              ),
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _updateBookingStatus('completed');
-                },
-                child: Text(AppStrings.completed),
-              ),
-              CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _updateBookingStatus('cancelled');
-                },
-                isDestructiveAction: true,
-                child: Text(AppStrings.cancelled),
-              ),
-            ],
-            cancelButton: CupertinoActionSheetAction(
-              child: Text(AppStrings.close),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-          ),
-    ).then((_) {
-      setState(() {
-        _isActionSheetVisible = false;
-      });
-    });
   }
 
   @override

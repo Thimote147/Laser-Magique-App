@@ -7,10 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'screens/new_booking_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/booking_details_screen.dart';
-import 'screens/clients_screen.dart';
 import 'utils/app_strings.dart';
-import 'models/booking.dart';
+import 'utils/theme_service.dart';
 import 'pages/booking_details_page.dart'; // Ajout de cette importation
 
 // Global Supabase client instance
@@ -19,11 +17,17 @@ late final SupabaseClient supabase;
 // Global navigation key to access navigation from anywhere
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+// Global theme service instance
+final themeService = ThemeService();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize date formatting for French locale
   await initializeDateFormatting('fr_FR', null);
+
+  // Initialize theme service
+  await themeService.initialize();
 
   // Load environment variables
   await dotenv.load();
@@ -39,8 +43,32 @@ Future<void> main() async {
   runApp(const LaserMagiqueApp());
 }
 
-class LaserMagiqueApp extends StatelessWidget {
+class LaserMagiqueApp extends StatefulWidget {
   const LaserMagiqueApp({super.key});
+
+  @override
+  LaserMagiqueAppState createState() => LaserMagiqueAppState();
+}
+
+class LaserMagiqueAppState extends State<LaserMagiqueApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Écouter les changements de thème
+    themeService.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    // Supprimer l'écouteur quand le widget est supprimé
+    themeService.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  // Méthode appelée quand le thème change
+  void _onThemeChanged() {
+    setState(() {}); // Forcer la reconstruction du widget avec le nouveau thème
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,61 +81,7 @@ class LaserMagiqueApp extends StatelessWidget {
         DefaultCupertinoLocalizations.delegate,
         DefaultWidgetsLocalizations.delegate,
       ],
-      theme: const CupertinoThemeData(
-        primaryColor: Color(0xFF007AFF),
-        brightness: Brightness.light,
-        barBackgroundColor: CupertinoColors.systemGroupedBackground,
-        scaffoldBackgroundColor: CupertinoColors.systemGroupedBackground,
-        // Fix the TextTheme to ensure all TextStyles have consistent inherit values
-        textTheme: CupertinoTextThemeData(
-          // We need to explicitly set inherit: false on all TextStyles to make them consistent
-          navTitleTextStyle: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: CupertinoColors.black,
-            fontFamily: '.SF Pro Text',
-            inherit: false,
-          ),
-          navLargeTitleTextStyle: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.bold,
-            color: CupertinoColors.black,
-            fontFamily: '.SF Pro Display',
-            inherit: false,
-          ),
-          textStyle: TextStyle(
-            fontFamily: '.SF Pro Text',
-            fontSize: 16,
-            color: CupertinoColors.black,
-            inherit: false,
-          ),
-          actionTextStyle: TextStyle(
-            fontFamily: '.SF Pro Text',
-            fontSize: 16,
-            color: Color(0xFF007AFF),
-            inherit: false,
-          ),
-          tabLabelTextStyle: TextStyle(
-            fontFamily: '.SF Pro Text',
-            fontSize: 10,
-            color: CupertinoColors.inactiveGray,
-            inherit: false,
-          ),
-          // Adding other TextStyles to ensure consistency
-          pickerTextStyle: TextStyle(
-            fontFamily: '.SF Pro Text',
-            fontSize: 16,
-            color: CupertinoColors.black,
-            inherit: false,
-          ),
-          dateTimePickerTextStyle: TextStyle(
-            fontFamily: '.SF Pro Text',
-            fontSize: 21,
-            color: CupertinoColors.black,
-            inherit: false,
-          ),
-        ),
-      ),
+      theme: themeService.getTheme(),
       home: const MainScreen(),
     );
   }
@@ -164,12 +138,7 @@ class MainScreenState extends State<MainScreen> {
                 controller: _pageController,
                 onPageChanged: _onPageChanged,
                 physics: const NeverScrollableScrollPhysics(), // Disable swipe
-                children: const [
-                  HomePage(),
-                  AnalyticsPage(),
-                  ClientsScreen(),
-                  SettingsScreen(),
-                ],
+                children: const [HomePage(), AnalyticsPage(), SettingsScreen()],
               ),
             ),
             Positioned(
@@ -200,10 +169,6 @@ class MainScreenState extends State<MainScreen> {
                       label: AppStrings.analytics,
                     ),
                     BottomNavigationBarItem(
-                      icon: const Icon(CupertinoIcons.person_2_fill),
-                      label: AppStrings.clients,
-                    ),
-                    BottomNavigationBarItem(
                       icon: const Icon(CupertinoIcons.settings),
                       label: AppStrings.settings,
                     ),
@@ -216,203 +181,6 @@ class MainScreenState extends State<MainScreen> {
       ),
     );
   }
-
-  Widget _buildTabItem({
-    required int index,
-    required IconData icon,
-    required String label,
-  }) {
-    final isSelected = _selectedIndex == index;
-    final color =
-        isSelected
-            ? CupertinoTheme.of(context).primaryColor
-            : CupertinoColors.systemGrey;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _onItemTapped(index),
-      child: Container(
-        width: 80,
-        height: 50,
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddClientSheet(BuildContext context) {
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final phoneController = TextEditingController();
-    final notesController = TextEditingController();
-
-    return CupertinoActionSheet(
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(CupertinoIcons.person_add, size: 28),
-          const SizedBox(width: 8),
-          Text(
-            AppStrings.addNewClient,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-      message: const Text(
-        "Veuillez saisir les informations du client",
-        style: TextStyle(fontSize: 14),
-      ),
-      actions: [
-        CupertinoTheme(
-          data: CupertinoThemeData(
-            brightness: Brightness.light,
-            primaryColor: CupertinoTheme.of(context).primaryColor,
-          ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            decoration: const BoxDecoration(
-              color: CupertinoColors.systemBackground,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: Column(
-              children: [
-                CupertinoTextField(
-                  controller: nameController,
-                  padding: const EdgeInsets.all(12),
-                  placeholder: AppStrings.fullName,
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(
-                      CupertinoIcons.person_fill,
-                      color: CupertinoColors.systemGrey,
-                      size: 20,
-                    ),
-                  ),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey6,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                CupertinoTextField(
-                  controller: emailController,
-                  padding: const EdgeInsets.all(12),
-                  placeholder: AppStrings.email,
-                  keyboardType: TextInputType.emailAddress,
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(
-                      CupertinoIcons.mail_solid,
-                      color: CupertinoColors.systemGrey,
-                      size: 20,
-                    ),
-                  ),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey6,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                CupertinoTextField(
-                  controller: phoneController,
-                  padding: const EdgeInsets.all(12),
-                  placeholder: AppStrings.phoneNumber,
-                  keyboardType: TextInputType.phone,
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: Icon(
-                      CupertinoIcons.phone_fill,
-                      color: CupertinoColors.systemGrey,
-                      size: 20,
-                    ),
-                  ),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey6,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                CupertinoTextField(
-                  controller: notesController,
-                  padding: const EdgeInsets.all(12),
-                  placeholder: AppStrings.notes,
-                  maxLines: 3,
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: 8, top: 10),
-                    child: Icon(
-                      CupertinoIcons.text_bubble_fill,
-                      color: CupertinoColors.systemGrey,
-                      size: 20,
-                    ),
-                  ),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey6,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: CupertinoButton.filled(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    borderRadius: BorderRadius.circular(10),
-                    onPressed: () {
-                      // In a real app, you'd save to Supabase here
-                      Navigator.pop(context);
-
-                      // Show success banner
-                      _showSuccessBanner(
-                        context,
-                        AppStrings.clientAddedSuccess,
-                      );
-                    },
-                    child: Text(AppStrings.saveClient),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-      cancelButton: CupertinoActionSheetAction(
-        onPressed: () => Navigator.pop(context),
-        isDefaultAction: true,
-        child: Text(AppStrings.cancel),
-      ),
-    );
-  }
-
-  void _showSuccessBanner(BuildContext context, String message) {
-    showCupertinoDialog(
-      context: context,
-      builder:
-          (context) => CupertinoAlertDialog(
-            title: const Text("Succès"),
-            content: Text(message),
-            actions: [
-              CupertinoDialogAction(
-                child: const Text("OK"),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-    );
-  }
 }
 
 class HomePage extends StatefulWidget {
@@ -423,7 +191,6 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
-  final GlobalKey<HomePageState> _key = GlobalKey();
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
   List<BookingModel> _bookings = [];
@@ -493,19 +260,22 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: themeService.getBackgroundColor(),
       navigationBar: CupertinoNavigationBar(
         padding: EdgeInsetsDirectional.only(start: 16, end: 8),
         middle: null,
-        backgroundColor: CupertinoColors.systemGroupedBackground,
+        backgroundColor: themeService.getBackgroundColor(),
         border: null,
         leading: Text(
           AppStrings.appName,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 25,
-            color: CupertinoColors.black,
+            color: textColor,
             fontFamily: '.SF Pro Display',
           ),
         ),
@@ -526,7 +296,11 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
               }
             });
           },
-          child: Icon(CupertinoIcons.add, size: 28),
+          child: Icon(
+            CupertinoIcons.add,
+            size: 28,
+            color: CupertinoTheme.of(context).primaryColor,
+          ),
         ),
       ),
       child: SafeArea(
@@ -550,7 +324,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                   bottom:
                       60.0, // Added bottom padding to account for the tab bar height
                 ),
-                child: _buildBookingsList(),
+                child: _buildBookingsList(textColor, secondaryTextColor),
               ),
             ),
           ],
@@ -560,14 +334,17 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   }
 
   Widget _buildCalendar() {
+    final calendarBackgroundColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+
     return Container(
       margin: const EdgeInsets.only(top: 8.0, bottom: 8.0),
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: calendarBackgroundColor,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: themeService.getSeparatorColor(),
             blurRadius: 10,
             spreadRadius: 0,
           ),
@@ -575,68 +352,108 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
       ),
       child: Padding(
         padding: const EdgeInsets.all(10.0),
-        child: TableCalendar(
-          firstDay: DateTime.utc(2023, 1, 1),
-          lastDay: DateTime.utc(2025, 12, 31),
-          focusedDay: _focusedDay,
-          calendarFormat: CalendarFormat.month,
-          startingDayOfWeek: StartingDayOfWeek.monday, // Start week on Monday
-          locale: 'fr_FR', // Use French locale
-          selectedDayPredicate: (day) {
-            return isSameDay(_selectedDay, day);
-          },
-          onDaySelected: (selectedDay, focusedDay) {
-            setState(() {
-              _selectedDay = selectedDay;
-              _focusedDay = focusedDay;
-            });
-          },
-          headerStyle: const HeaderStyle(
-            formatButtonVisible: false,
-            titleCentered: true,
-            titleTextStyle: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'SF Pro Display',
+        // Wrap TableCalendar with Material widget
+        child: Material(
+          color: Colors.transparent, // Make it transparent to keep your styling
+          child: TableCalendar(
+            firstDay: DateTime.utc(2023, 1, 1),
+            lastDay: DateTime.utc(2025, 12, 31),
+            focusedDay: _focusedDay,
+            calendarFormat: CalendarFormat.month,
+            startingDayOfWeek: StartingDayOfWeek.monday, // Start week on Monday
+            locale: 'fr_FR', // Use French locale
+            selectedDayPredicate: (day) {
+              return isSameDay(_selectedDay, day);
+            },
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextStyle: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'SF Pro Display',
+                color: textColor,
+              ),
+              leftChevronIcon: Icon(
+                CupertinoIcons.chevron_left,
+                color: CupertinoTheme.of(context).primaryColor,
+              ),
+              rightChevronIcon: Icon(
+                CupertinoIcons.chevron_right,
+                color: CupertinoTheme.of(context).primaryColor,
+              ),
             ),
-          ),
-          calendarStyle: CalendarStyle(
-            todayDecoration: BoxDecoration(
-              color: CupertinoColors.systemGrey3.withOpacity(0.3),
-              shape: BoxShape.circle,
+            calendarStyle: CalendarStyle(
+              defaultTextStyle: TextStyle(color: textColor),
+              weekendTextStyle: TextStyle(
+                color:
+                    themeService.darkMode
+                        ? CupertinoColors.systemRed.darkColor
+                        : CupertinoColors.systemRed,
+              ),
+              outsideTextStyle: TextStyle(
+                color: themeService.getSecondaryTextColor().withOpacity(0.6),
+              ),
+              todayDecoration: BoxDecoration(
+                color: CupertinoColors.systemGrey3.withOpacity(0.3),
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+              ),
+              selectedDecoration: BoxDecoration(
+                color: CupertinoTheme.of(context).primaryColor,
+                shape: BoxShape.circle,
+              ),
+              selectedTextStyle: const TextStyle(
+                color: CupertinoColors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              markersMaxCount: 3,
+              markerDecoration: BoxDecoration(
+                color: CupertinoTheme.of(context).primaryColor,
+                shape: BoxShape.circle,
+              ),
             ),
-            todayTextStyle: const TextStyle(
-              color: CupertinoColors.black,
-              fontWeight: FontWeight.bold,
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+              ),
+              weekendStyle: TextStyle(
+                color:
+                    themeService.darkMode
+                        ? CupertinoColors.systemRed.darkColor
+                        : CupertinoColors.systemRed,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            selectedDecoration: BoxDecoration(
-              color: CupertinoTheme.of(context).primaryColor,
-              shape: BoxShape.circle,
-            ),
-            markersMaxCount: 3,
-            markerDecoration: BoxDecoration(
-              color: CupertinoTheme.of(context).primaryColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          eventLoader: (day) {
-            // Use Set to eliminate duplicates, then convert back to List
-            final bookingsForDay =
-                _bookings.where((booking) {
-                  return booking.date.year == day.year &&
-                      booking.date.month == day.month &&
-                      booking.date.day == day.day;
-                }).toList();
+            eventLoader: (day) {
+              // Use Set to eliminate duplicates, then convert back to List
+              final bookingsForDay =
+                  _bookings.where((booking) {
+                    return booking.date.year == day.year &&
+                        booking.date.month == day.month &&
+                        booking.date.day == day.day;
+                  }).toList();
 
-            // Return at most 1 event per day to show only one dot
-            return bookingsForDay.isEmpty ? [] : [bookingsForDay.first];
-          },
+              // Return at most 1 event per day to show only one dot
+              return bookingsForDay.isEmpty ? [] : [bookingsForDay.first];
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBookingsList() {
+  Widget _buildBookingsList(Color textColor, Color secondaryTextColor) {
     final bookingsForSelectedDay = _getBookingsForSelectedDay();
 
     // iOS-style bookings list with grouped look and pull-to-refresh
@@ -650,10 +467,10 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
               'EEEE d MMMM',
               'fr_FR',
             ).format(_selectedDay).toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: CupertinoColors.systemGrey,
+              color: secondaryTextColor,
               letterSpacing: 0.5,
             ),
           ),
@@ -662,8 +479,8 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Container(
-              decoration: const BoxDecoration(
-                color: CupertinoColors.white,
+              decoration: BoxDecoration(
+                color: themeService.getCardColor(),
                 borderRadius: BorderRadius.all(Radius.circular(10)),
               ),
               child: CustomScrollView(
@@ -684,17 +501,17 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 CupertinoIcons.calendar_badge_minus,
                                 size: 50,
-                                color: CupertinoColors.systemGrey,
+                                color: secondaryTextColor,
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 '${AppStrings.noBookings} ${DateFormat('EEEE d MMMM', 'fr_FR').format(_selectedDay)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
-                                  color: CupertinoColors.systemGrey,
+                                  color: secondaryTextColor,
                                 ),
                               ),
                             ],
@@ -718,9 +535,9 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                     () => _navigateToBookingDetails(booking.id),
                               ),
                               if (index < bookingsForSelectedDay.length - 1)
-                                const Divider(
+                                Divider(
                                   height: 0.5,
-                                  color: CupertinoColors.systemGrey5,
+                                  color: themeService.getSeparatorColor(),
                                 ),
                             ],
                           );
@@ -754,7 +571,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
 }
 
 class AnalyticsPage extends StatefulWidget {
-  const AnalyticsPage({Key? key}) : super(key: key);
+  const AnalyticsPage({super.key});
 
   @override
   AnalyticsPageState createState() => AnalyticsPageState();
@@ -778,6 +595,20 @@ class AnalyticsPageState extends State<AnalyticsPage>
   void initState() {
     super.initState();
     _fetchAnalyticsData();
+    // Add theme change listener
+    themeService.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    // Remove theme change listener
+    themeService.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  // Force UI update when theme changes
+  void _onThemeChanged() {
+    setState(() {});
   }
 
   Future<void> _fetchAnalyticsData() async {
@@ -824,26 +655,29 @@ class AnalyticsPageState extends State<AnalyticsPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final textColor = themeService.getTextColor();
+    final backgroundColor = themeService.getBackgroundColor();
+
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: backgroundColor,
       navigationBar: CupertinoNavigationBar(
         padding: const EdgeInsetsDirectional.only(start: 16, end: 8),
         middle: null,
-        backgroundColor: CupertinoColors.systemGroupedBackground,
+        backgroundColor: backgroundColor,
         border: null,
-        leading: const Text(
-          'Analytiques',
+        leading: Text(
+          'Statistiques',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 25,
-            color: CupertinoColors.black,
+            color: textColor,
             fontFamily: '.SF Pro Display',
           ),
         ),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
-          child: const Icon(CupertinoIcons.refresh),
           onPressed: _fetchAnalyticsData,
+          child: Icon(CupertinoIcons.refresh, color: textColor),
         ),
       ),
       child: SafeArea(
@@ -890,7 +724,7 @@ class AnalyticsPageState extends State<AnalyticsPage>
         Expanded(
           child: _buildSummaryCard(
             title: 'Revenus',
-            value: '€${_totalRevenue.toStringAsFixed(2)}',
+            value: '${_totalRevenue.toStringAsFixed(2)}€',
             icon: CupertinoIcons.money_euro_circle,
             color: CupertinoColors.activeGreen,
           ),
@@ -905,14 +739,19 @@ class AnalyticsPageState extends State<AnalyticsPage>
     required IconData icon,
     required Color color,
   }) {
+    final cardColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: separatorColor,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -934,10 +773,10 @@ class AnalyticsPageState extends State<AnalyticsPage>
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: CupertinoColors.systemGrey,
+                  color: secondaryTextColor,
                 ),
               ),
             ],
@@ -945,10 +784,10 @@ class AnalyticsPageState extends State<AnalyticsPage>
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: CupertinoColors.black,
+              color: textColor,
             ),
           ),
         ],
@@ -957,13 +796,18 @@ class AnalyticsPageState extends State<AnalyticsPage>
   }
 
   Widget _buildPopularServicesList() {
+    final cardColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+
     return Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: separatorColor,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -974,32 +818,32 @@ class AnalyticsPageState extends State<AnalyticsPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(
+                const Icon(
                   CupertinoIcons.star_fill,
                   color: CupertinoColors.systemYellow,
                   size: 22,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   'Services populaires',
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
-                    color: CupertinoColors.black,
+                    color: textColor,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             if (_topServices.isEmpty)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Text(
                     'Aucune donnée disponible',
-                    style: TextStyle(color: CupertinoColors.systemGrey),
+                    style: TextStyle(color: secondaryTextColor),
                   ),
                 ),
               )
@@ -1009,10 +853,8 @@ class AnalyticsPageState extends State<AnalyticsPage>
                 shrinkWrap: true,
                 itemCount: _topServices.length > 5 ? 5 : _topServices.length,
                 separatorBuilder:
-                    (context, index) => const Divider(
-                      height: 1,
-                      color: CupertinoColors.systemGrey5,
-                    ),
+                    (context, index) =>
+                        Divider(height: 1, color: separatorColor),
                 itemBuilder: (context, index) {
                   final entry = _topServices[index];
                   return Padding(
@@ -1027,9 +869,9 @@ class AnalyticsPageState extends State<AnalyticsPage>
                             color: CupertinoTheme.of(context).primaryColor,
                             borderRadius: BorderRadius.circular(15),
                           ),
-                          child: Text(
-                            '${index + 1}',
-                            style: const TextStyle(
+                          child: const Text(
+                            '●',
+                            style: TextStyle(
                               color: CupertinoColors.white,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1039,18 +881,18 @@ class AnalyticsPageState extends State<AnalyticsPage>
                         Expanded(
                           child: Text(
                             entry.key,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
-                              color: CupertinoColors.black,
+                              color: textColor,
                             ),
                           ),
                         ),
                         Text(
                           '${entry.value} réservations',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: CupertinoColors.systemGrey,
+                            color: secondaryTextColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1070,14 +912,18 @@ class AnalyticsPageState extends State<AnalyticsPage>
       ..sort((a, b) => b.date.compareTo(a.date));
 
     final recentBookings = sortedBookings.take(5).toList();
+    final cardColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final separatorColor = themeService.getSeparatorColor();
 
     return Container(
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: CupertinoColors.systemGrey5.withOpacity(0.5),
+            color: separatorColor,
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1088,32 +934,35 @@ class AnalyticsPageState extends State<AnalyticsPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(
                   CupertinoIcons.time,
-                  color: CupertinoColors.systemIndigo,
+                  color:
+                      themeService.darkMode
+                          ? CupertinoColors.systemIndigo.darkColor
+                          : CupertinoColors.systemIndigo,
                   size: 22,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   'Réservations récentes',
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,
-                    color: CupertinoColors.black,
+                    color: textColor,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             if (recentBookings.isEmpty)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Text(
                     'Aucune réservation récente',
-                    style: TextStyle(color: CupertinoColors.systemGrey),
+                    style: TextStyle(color: secondaryTextColor),
                   ),
                 ),
               )
@@ -1123,10 +972,8 @@ class AnalyticsPageState extends State<AnalyticsPage>
                 shrinkWrap: true,
                 itemCount: recentBookings.length,
                 separatorBuilder:
-                    (context, index) => const Divider(
-                      height: 1,
-                      color: CupertinoColors.systemGrey5,
-                    ),
+                    (context, index) =>
+                        Divider(height: 1, color: separatorColor),
                 itemBuilder: (context, index) {
                   final booking = recentBookings[index];
                   return Padding(
@@ -1156,18 +1003,18 @@ class AnalyticsPageState extends State<AnalyticsPage>
                             children: [
                               Text(
                                 booking.customerName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
-                                  color: CupertinoColors.black,
+                                  color: textColor,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 booking.service,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
-                                  color: CupertinoColors.systemGrey,
+                                  color: secondaryTextColor,
                                 ),
                               ),
                             ],
@@ -1178,19 +1025,19 @@ class AnalyticsPageState extends State<AnalyticsPage>
                           children: [
                             Text(
                               DateFormat('dd/MM/yyyy').format(booking.date),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: CupertinoColors.systemGrey,
+                                color: secondaryTextColor,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               '0.00€',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: CupertinoColors.activeBlue,
+                                color: CupertinoTheme.of(context).primaryColor,
                               ),
                             ),
                           ],
@@ -1207,15 +1054,24 @@ class AnalyticsPageState extends State<AnalyticsPage>
   }
 
   Color _getStatusColor(String status) {
+    // Use theme-aware colors that respect dark/light mode
     switch (status.toLowerCase()) {
       case 'confirmed':
-        return CupertinoColors.activeGreen;
+        return themeService.darkMode
+            ? CupertinoColors.activeGreen.darkColor
+            : CupertinoColors.activeGreen;
       case 'cancelled':
-        return CupertinoColors.destructiveRed;
+        return themeService.darkMode
+            ? CupertinoColors.systemRed.darkColor
+            : CupertinoColors.systemRed;
       case 'completed':
-        return CupertinoColors.activeBlue;
+        return themeService.darkMode
+            ? CupertinoColors.activeBlue.darkColor
+            : CupertinoColors.activeBlue;
       default:
-        return CupertinoColors.systemOrange;
+        return themeService.darkMode
+            ? CupertinoColors.systemOrange.darkColor
+            : CupertinoColors.systemOrange;
     }
   }
 
@@ -1249,14 +1105,15 @@ class BookingListItem extends StatelessWidget {
     final formattedTime = DateFormat('HH:mm').format(booking.date);
     final formattedEndTime = DateFormat('HH:mm').format(booking.endTime);
 
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+    final cardColor = themeService.getCardColor();
+
     // Different styling for cancelled bookings
     final TextStyle nameStyle = TextStyle(
       fontSize: 16,
       fontWeight: booking.isCancelled ? FontWeight.normal : FontWeight.w600,
-      color:
-          booking.isCancelled
-              ? CupertinoColors.systemGrey
-              : CupertinoColors.black,
+      color: booking.isCancelled ? secondaryTextColor : textColor,
       decoration: booking.isCancelled ? TextDecoration.lineThrough : null,
     );
 
@@ -1264,15 +1121,17 @@ class BookingListItem extends StatelessWidget {
       fontSize: 13,
       color:
           booking.isCancelled
-              ? CupertinoColors.systemGrey3
-              : CupertinoColors.systemGrey,
+              ? secondaryTextColor.withOpacity(0.7)
+              : secondaryTextColor,
     );
 
     // Background color based on booking status
     final Color backgroundColor =
         booking.isCancelled
-            ? CupertinoColors.systemGrey6
-            : CupertinoColors.white;
+            ? cardColor.withOpacity(
+              0.7,
+            ) // Slightly transparent in cancelled state
+            : cardColor;
 
     return CupertinoButton(
       padding: EdgeInsets.zero,
@@ -1401,7 +1260,7 @@ class BookingListItem extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                             color:
                                 booking.isCancelled
-                                    ? CupertinoColors.systemGrey
+                                    ? secondaryTextColor
                                     : CupertinoTheme.of(context).primaryColor,
                           ),
                         ),
@@ -1435,9 +1294,9 @@ class BookingListItem extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               CupertinoIcons.chevron_right,
-              color: CupertinoColors.systemGrey3,
+              color: secondaryTextColor,
               size: 16,
             ),
           ],

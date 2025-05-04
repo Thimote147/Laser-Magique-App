@@ -8,7 +8,7 @@ import '../models/activity.dart'; // Import Activity model
 class NewBookingScreen extends StatefulWidget {
   final DateTime? initialDate;
 
-  const NewBookingScreen({Key? key, this.initialDate}) : super(key: key);
+  const NewBookingScreen({super.key, this.initialDate});
 
   @override
   NewBookingScreenState createState() => NewBookingScreenState();
@@ -177,9 +177,16 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = themeService.getBackgroundColor();
+
     return CupertinoPageScaffold(
+      backgroundColor: backgroundColor,
       navigationBar: CupertinoNavigationBar(
-        middle: const Text('Nouvelle réservation'),
+        middle: Text(
+          'Nouvelle réservation',
+          style: TextStyle(color: themeService.getTextColor()),
+        ),
+        backgroundColor: backgroundColor,
         previousPageTitle: 'Retour',
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
@@ -278,13 +285,16 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     required IconData icon,
     required Widget child,
   }) {
+    final cardColor = themeService.getCardColor();
+    final separatorColor = themeService.getSeparatorColor();
+
     return Card(
-      color: CupertinoColors.white,
+      color: cardColor,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: CupertinoColors.systemGrey5, width: 0.5),
+        side: BorderSide(color: separatorColor, width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -310,14 +320,15 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: themeService.getTextColor(),
                   ),
                 ),
               ],
             ),
-            const Divider(height: 24),
+            Divider(height: 24, color: separatorColor),
             child,
           ],
         ),
@@ -385,6 +396,13 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
   // Activity information section
   Widget _buildActivityInformation() {
+    final textColor = themeService.getTextColor();
+    final backgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.systemGrey6.darkColor
+            : CupertinoColors.systemGrey6;
+    final separatorColor = themeService.getSeparatorColor();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -396,12 +414,9 @@ class NewBookingScreenState extends State<NewBookingScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey6,
+                color: backgroundColor,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: CupertinoColors.systemGrey4,
-                  width: 0.5,
-                ),
+                border: Border.all(color: separatorColor, width: 0.5),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -409,11 +424,11 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                   Expanded(
                     child: Text(
                       _getSelectedActivityName(),
-                      style: const TextStyle(fontSize: 15),
+                      style: TextStyle(fontSize: 15, color: textColor),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Icon(
+                  Icon(
                     CupertinoIcons.chevron_down,
                     color: CupertinoColors.systemGrey,
                     size: 14,
@@ -489,6 +504,12 @@ class NewBookingScreenState extends State<NewBookingScreen> {
   // Date and time information section
   Widget _buildDateTimeInformation() {
     final frenchDateFormat = DateFormat('dd MMMM yyyy', 'fr_FR');
+    final textColor = themeService.getTextColor();
+    final backgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.systemGrey6.darkColor
+            : CupertinoColors.systemGrey6;
+    final separatorColor = themeService.getSeparatorColor();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,19 +528,16 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: CupertinoColors.systemGrey6,
+                      color: backgroundColor,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: CupertinoColors.systemGrey4,
-                        width: 0.5,
-                      ),
+                      border: Border.all(color: separatorColor, width: 0.5),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           frenchDateFormat.format(_selectedDate),
-                          style: const TextStyle(fontSize: 15),
+                          style: TextStyle(fontSize: 15, color: textColor),
                           overflow: TextOverflow.ellipsis,
                         ),
                         Icon(
@@ -546,19 +564,16 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: CupertinoColors.systemGrey6,
+                      color: backgroundColor,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: CupertinoColors.systemGrey4,
-                        width: 0.5,
-                      ),
+                      border: Border.all(color: separatorColor, width: 0.5),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(fontSize: 15),
+                          style: TextStyle(fontSize: 15, color: textColor),
                         ),
                         Icon(
                           CupertinoIcons.clock,
@@ -587,7 +602,7 @@ class NewBookingScreenState extends State<NewBookingScreen> {
               const SizedBox(width: 6),
               Text(
                 'Fin estimée: ${_calculateEstimatedEndTime()}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   color: CupertinoColors.systemGrey,
                 ),
@@ -694,12 +709,19 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     required String value,
     required IconData icon,
   }) {
+    final textColor = themeService.getTextColor();
+    final backgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.systemGrey6.darkColor
+            : CupertinoColors.systemGrey6;
+    final separatorColor = themeService.getSeparatorColor();
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CupertinoColors.systemGrey4, width: 0.5),
+        border: Border.all(color: separatorColor, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,14 +741,19 @@ class NewBookingScreenState extends State<NewBookingScreen> {
               const SizedBox(width: 6),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
+                  color: textColor,
                 ),
               ),
-              const Text(
+              Text(
                 " €",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                ),
               ),
             ],
           ),
@@ -747,20 +774,24 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     bool isMultiline = false,
     Function(String)? onChanged,
   }) {
+    final textColor = themeService.getTextColor();
+
     return _buildLabelWithText(
       label: label,
       child: CupertinoTextField(
         controller: controller,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         placeholder: placeholder,
+        placeholderStyle: TextStyle(color: CupertinoColors.systemGrey),
+        style: TextStyle(color: textColor),
         prefix:
             prefix != null
                 ? Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: Text(
                     prefix,
-                    style: const TextStyle(
-                      color: CupertinoColors.black,
+                    style: TextStyle(
+                      color: textColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -781,8 +812,8 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     suffix,
-                    style: const TextStyle(
-                      color: CupertinoColors.black,
+                    style: TextStyle(
+                      color: textColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -790,8 +821,15 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                 : null,
         keyboardType: keyboardType,
         decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey6,
+          color:
+              themeService.darkMode
+                  ? CupertinoColors.systemGrey6.darkColor
+                  : CupertinoColors.systemGrey6,
           borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: themeService.getSeparatorColor(),
+            width: 0.5,
+          ),
         ),
         maxLines: isMultiline ? 3 : 1,
         minLines: isMultiline ? 3 : 1,
@@ -802,6 +840,8 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
   // Helper method to build a label with a widget
   Widget _buildLabelWithText({required String label, required Widget child}) {
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -809,10 +849,10 @@ class NewBookingScreenState extends State<NewBookingScreen> {
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: CupertinoColors.systemGrey,
+              color: secondaryTextColor,
             ),
           ),
         ),
@@ -828,12 +868,19 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     int min = 1,
     int max = 30,
   }) {
+    final textColor = themeService.getTextColor();
+    final backgroundColor =
+        themeService.darkMode
+            ? CupertinoColors.systemGrey6.darkColor
+            : CupertinoColors.systemGrey6;
+    final separatorColor = themeService.getSeparatorColor();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: CupertinoColors.systemGrey4, width: 0.5),
+        border: Border.all(color: separatorColor, width: 0.5),
       ),
       child: Row(
         children: [
@@ -848,6 +895,8 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                         ? CupertinoTheme.of(
                           context,
                         ).primaryColor.withOpacity(0.1)
+                        : themeService.darkMode
+                        ? CupertinoColors.systemGrey5.darkColor
                         : CupertinoColors.systemGrey5,
                 shape: BoxShape.circle,
               ),
@@ -865,9 +914,10 @@ class NewBookingScreenState extends State<NewBookingScreen> {
             child: Center(
               child: Text(
                 value.toString(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
+                  color: textColor,
                 ),
               ),
             ),
@@ -883,6 +933,8 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                         ? CupertinoTheme.of(
                           context,
                         ).primaryColor.withOpacity(0.1)
+                        : themeService.darkMode
+                        ? CupertinoColors.systemGrey5.darkColor
                         : CupertinoColors.systemGrey5,
                 shape: BoxShape.circle,
               ),
@@ -1057,14 +1109,18 @@ class NewBookingScreenState extends State<NewBookingScreen> {
         durationText = '${hours}h ${minutes}min';
       }
     } else {
-      durationText = '${totalDurationMinutes} min';
+      durationText = '$totalDurationMinutes min';
     }
 
-    return '${activity.minPlayer}-${activity.maxPlayer} pers. - ${durationText} - ${priceText}';
+    return '${activity.minPlayer}-${activity.maxPlayer} pers. - $durationText - $priceText';
   }
 
   // Activity picker modal
   void _showActivityPicker() {
+    final backgroundColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+
     int selectedIndex = 0;
     if (_selectedActivityId != null) {
       final index = _activities.indexWhere((a) => a.id == _selectedActivityId);
@@ -1082,18 +1138,28 @@ class NewBookingScreenState extends State<NewBookingScreen> {
           margin: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
-          color: CupertinoColors.systemBackground,
+          color: backgroundColor,
           child: Column(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CupertinoButton(
-                    child: const Text('Annuler'),
+                    child: Text(
+                      'Annuler',
+                      style: TextStyle(
+                        color: CupertinoTheme.of(context).primaryColor,
+                      ),
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   CupertinoButton(
-                    child: const Text('Confirmer'),
+                    child: Text(
+                      'Confirmer',
+                      style: TextStyle(
+                        color: CupertinoTheme.of(context).primaryColor,
+                      ),
+                    ),
                     onPressed: () {
                       if (_activities.isNotEmpty) {
                         final newActivity = _activities[selectedIndex];
@@ -1122,25 +1188,34 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                   ),
                 ],
               ),
+              Divider(height: 0, color: separatorColor),
               Expanded(
-                child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(
-                    initialItem: selectedIndex,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    textTheme: Theme.of(context).textTheme.copyWith(
+                      bodyMedium: TextStyle(color: textColor),
+                    ),
                   ),
-                  itemExtent: 40,
-                  onSelectedItemChanged: (int index) {
-                    selectedIndex = index;
-                  },
-                  children:
-                      _activities
-                          .map(
-                            (activity) => Center(
-                              child: Text(
-                                '${activity.name} (${activity.type})',
+                  child: CupertinoPicker(
+                    scrollController: FixedExtentScrollController(
+                      initialItem: selectedIndex,
+                    ),
+                    itemExtent: 40,
+                    onSelectedItemChanged: (int index) {
+                      selectedIndex = index;
+                    },
+                    children:
+                        _activities
+                            .map(
+                              (activity) => Center(
+                                child: Text(
+                                  '${activity.name} (${activity.type})',
+                                  style: TextStyle(color: textColor),
+                                ),
                               ),
-                            ),
-                          )
-                          .toList(),
+                            )
+                            .toList(),
+                  ),
                 ),
               ),
             ],
@@ -1235,6 +1310,10 @@ class NewBookingScreenState extends State<NewBookingScreen> {
   }
 
   void _showDatePicker(BuildContext context) {
+    final backgroundColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+
     // Use a custom widget to display month names in French
     showCupertinoModalPopup<void>(
       context: context,
@@ -1245,23 +1324,33 @@ class NewBookingScreenState extends State<NewBookingScreen> {
             margin: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: backgroundColor,
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     CupertinoButton(
-                      child: const Text('Annuler'),
+                      child: Text(
+                        'Annuler',
+                        style: TextStyle(
+                          color: CupertinoTheme.of(context).primaryColor,
+                        ),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                     CupertinoButton(
-                      child: const Text('Confirmer'),
+                      child: Text(
+                        'Confirmer',
+                        style: TextStyle(
+                          color: CupertinoTheme.of(context).primaryColor,
+                        ),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const Divider(height: 0),
+                Divider(height: 0, color: separatorColor),
                 Expanded(
                   child: Localizations.override(
                     context: context,
@@ -1270,29 +1359,35 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                       DefaultCupertinoLocalizations.delegate,
                       DefaultMaterialLocalizations.delegate,
                       DefaultWidgetsLocalizations.delegate,
-                      GlobalCupertinoLocalizations
-                          .delegate, // Add this for French language support
+                      GlobalCupertinoLocalizations.delegate,
                       GlobalMaterialLocalizations.delegate,
                       GlobalWidgetsLocalizations.delegate,
                     ],
                     child: Builder(
                       builder: (BuildContext context) {
-                        return CupertinoDatePicker(
-                          initialDateTime: _selectedDate,
-                          mode: CupertinoDatePickerMode.date,
-                          dateOrder: DatePickerDateOrder.dmy,
-                          use24hFormat: true,
-                          onDateTimeChanged: (DateTime newDateTime) {
-                            setState(() {
-                              _selectedDate = DateTime(
-                                newDateTime.year,
-                                newDateTime.month,
-                                newDateTime.day,
-                                _selectedTime.hour,
-                                _selectedTime.minute,
-                              );
-                            });
-                          },
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            textTheme: Theme.of(context).textTheme.copyWith(
+                              bodyMedium: TextStyle(color: textColor),
+                            ),
+                          ),
+                          child: CupertinoDatePicker(
+                            initialDateTime: _selectedDate,
+                            mode: CupertinoDatePickerMode.date,
+                            dateOrder: DatePickerDateOrder.dmy,
+                            use24hFormat: true,
+                            onDateTimeChanged: (DateTime newDateTime) {
+                              setState(() {
+                                _selectedDate = DateTime(
+                                  newDateTime.year,
+                                  newDateTime.month,
+                                  newDateTime.day,
+                                  _selectedTime.hour,
+                                  _selectedTime.minute,
+                                );
+                              });
+                            },
+                          ),
                         );
                       },
                     ),
@@ -1305,6 +1400,10 @@ class NewBookingScreenState extends State<NewBookingScreen> {
   }
 
   void _showTimePicker(BuildContext context) {
+    final backgroundColor = themeService.getCardColor();
+    final textColor = themeService.getTextColor();
+    final separatorColor = themeService.getSeparatorColor();
+
     // Adjust initial minute to be divisible by minuteInterval (15)
     final minuteInterval = 15;
     final initialMinute =
@@ -1327,23 +1426,33 @@ class NewBookingScreenState extends State<NewBookingScreen> {
             margin: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: backgroundColor,
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     CupertinoButton(
-                      child: const Text('Annuler'),
+                      child: Text(
+                        'Annuler',
+                        style: TextStyle(
+                          color: CupertinoTheme.of(context).primaryColor,
+                        ),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                     CupertinoButton(
-                      child: const Text('Confirmer'),
+                      child: Text(
+                        'Confirmer',
+                        style: TextStyle(
+                          color: CupertinoTheme.of(context).primaryColor,
+                        ),
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const Divider(height: 0),
+                Divider(height: 0, color: separatorColor),
                 Expanded(
                   child: Localizations.override(
                     context: context,
@@ -1358,26 +1467,33 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                     ],
                     child: Builder(
                       builder: (BuildContext context) {
-                        return CupertinoDatePicker(
-                          initialDateTime: initialDateTime,
-                          mode: CupertinoDatePickerMode.time,
-                          use24hFormat: true,
-                          minuteInterval: minuteInterval,
-                          onDateTimeChanged: (DateTime newDateTime) {
-                            setState(() {
-                              _selectedTime = TimeOfDay(
-                                hour: newDateTime.hour,
-                                minute: newDateTime.minute,
-                              );
-                              _selectedDate = DateTime(
-                                _selectedDate.year,
-                                _selectedDate.month,
-                                _selectedDate.day,
-                                newDateTime.hour,
-                                newDateTime.minute,
-                              );
-                            });
-                          },
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            textTheme: Theme.of(context).textTheme.copyWith(
+                              bodyMedium: TextStyle(color: textColor),
+                            ),
+                          ),
+                          child: CupertinoDatePicker(
+                            initialDateTime: initialDateTime,
+                            mode: CupertinoDatePickerMode.time,
+                            use24hFormat: true,
+                            minuteInterval: minuteInterval,
+                            onDateTimeChanged: (DateTime newDateTime) {
+                              setState(() {
+                                _selectedTime = TimeOfDay(
+                                  hour: newDateTime.hour,
+                                  minute: newDateTime.minute,
+                                );
+                                _selectedDate = DateTime(
+                                  _selectedDate.year,
+                                  _selectedDate.month,
+                                  _selectedDate.day,
+                                  newDateTime.hour,
+                                  newDateTime.minute,
+                                );
+                              });
+                            },
+                          ),
                         );
                       },
                     ),

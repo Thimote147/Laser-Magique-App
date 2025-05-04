@@ -63,7 +63,7 @@ class Booking {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('Error parsing date: $e');
+        return DateTime.now();
       }
     }
     return DateTime.now();
@@ -79,7 +79,7 @@ class Booking {
           orElse: () => ActivityType.standard,
         );
       } catch (e) {
-        print('Error parsing activity type: $e');
+        return ActivityType.standard;
       }
     }
     return ActivityType.standard;

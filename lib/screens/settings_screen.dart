@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import '../main.dart'; // For supabase client
+import '../main.dart'; // Pour accéder à supabase et au themeService
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  const SettingsScreen({super.key});
 
   @override
   SettingsScreenState createState() => SettingsScreenState();
@@ -19,6 +19,8 @@ class SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadUserInfo();
+    // Initialisation de l'état du mode sombre
+    _darkModeEnabled = themeService.darkMode;
   }
 
   Future<void> _loadUserInfo() async {
@@ -46,19 +48,25 @@ class SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Utiliser les couleurs appropriées pour le mode actuel (clair ou sombre)
+    final textColor = themeService.getTextColor();
+    final backgroundColor = themeService.getBackgroundColor();
+    final cardColor = themeService.getCardColor();
+    final separatorColor = themeService.getSeparatorColor();
+
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
-      navigationBar: const CupertinoNavigationBar(
-        padding: EdgeInsetsDirectional.only(start: 16, end: 8),
+      backgroundColor: backgroundColor,
+      navigationBar: CupertinoNavigationBar(
+        padding: const EdgeInsetsDirectional.only(start: 16, end: 8),
         middle: null,
-        backgroundColor: CupertinoColors.systemGroupedBackground,
+        backgroundColor: backgroundColor,
         border: null,
         leading: Text(
           'Paramètres',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 25,
-            color: CupertinoColors.black,
+            color: textColor,
             fontFamily: '.SF Pro Display',
           ),
         ),
@@ -78,13 +86,29 @@ class SettingsScreenState extends State<SettingsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildUserInfoSection(),
+                          _buildUserInfoSection(
+                            cardColor,
+                            textColor,
+                            separatorColor,
+                          ),
                           const SizedBox(height: 24),
-                          _buildGeneralSettingsSection(),
+                          _buildGeneralSettingsSection(
+                            cardColor,
+                            textColor,
+                            separatorColor,
+                          ),
                           const SizedBox(height: 24),
-                          _buildAppearanceSection(),
+                          _buildAppearanceSection(
+                            cardColor,
+                            textColor,
+                            separatorColor,
+                          ),
                           const SizedBox(height: 24),
-                          _buildAboutSection(),
+                          _buildAboutSection(
+                            cardColor,
+                            textColor,
+                            separatorColor,
+                          ),
                           const SizedBox(height: 24),
                           _buildSignOutButton(),
                           const SizedBox(height: 30),
@@ -105,84 +129,114 @@ class SettingsScreenState extends State<SettingsScreen> {
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Theme.of(context).primaryColor,
+          color: CupertinoTheme.of(context).primaryColor,
         ),
       ),
     );
   }
 
-  Widget _buildUserInfoSection() {
-    return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: Theme.of(context).primaryColor,
-              child: const Icon(
-                CupertinoIcons.person_fill,
-                size: 30,
-                color: Colors.white,
-              ),
+  Widget _buildUserInfoSection(
+    Color cardColor,
+    Color textColor,
+    Color separatorColor,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: separatorColor,
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: CupertinoTheme.of(context).primaryColor,
+            child: const Icon(
+              CupertinoIcons.person_fill,
+              size: 30,
+              color: Colors.white,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Laser Magique Admin',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Administrateur Laser Magique',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _userEmail ?? 'Not signed in',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _userEmail ?? 'Non connecté',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: themeService.getSecondaryTextColor(),
                   ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () {
-                      // Navigate to profile edit screen
-                    },
-                    child: Text(
-                      'Edit Profile',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () {
+                    // Navigate to profile edit screen
+                  },
+                  child: Text(
+                    'Modifier le profil',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: CupertinoTheme.of(context).primaryColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildGeneralSettingsSection() {
+  Widget _buildGeneralSettingsSection(
+    Color cardColor,
+    Color textColor,
+    Color separatorColor,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('General Settings'),
-        Card(
-          elevation: 0.5,
-          shape: RoundedRectangleBorder(
+        _buildSectionHeader('Paramètres généraux'),
+        Container(
+          decoration: BoxDecoration(
+            color: cardColor,
             borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: separatorColor,
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             children: [
               _buildSettingsItem(
                 icon: CupertinoIcons.bell_fill,
                 title: 'Notifications',
+                textColor: textColor,
                 trailing: CupertinoSwitch(
                   value: _notificationsEnabled,
-                  activeColor: Theme.of(context).primaryColor,
+                  activeTrackColor: CupertinoTheme.of(context).primaryColor,
                   onChanged: (value) {
                     setState(() {
                       _notificationsEnabled = value;
@@ -190,18 +244,20 @@ class SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
               ),
-              const Divider(height: 1, indent: 65),
+              Divider(height: 1, indent: 65, color: separatorColor),
               _buildSettingsItem(
                 icon: CupertinoIcons.time,
-                title: 'Working Hours',
+                title: 'Heures de travail',
+                textColor: textColor,
                 onTap: () {
                   // Navigate to working hours screen
                 },
               ),
-              const Divider(height: 1, indent: 65),
+              Divider(height: 1, indent: 65, color: separatorColor),
               _buildSettingsItem(
                 icon: CupertinoIcons.money_dollar_circle_fill,
-                title: 'Services & Pricing',
+                title: 'Services et tarifs',
+                textColor: textColor,
                 onTap: () {
                   // Navigate to services & pricing screen
                 },
@@ -213,40 +269,45 @@ class SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAppearanceSection() {
+  Widget _buildAppearanceSection(
+    Color cardColor,
+    Color textColor,
+    Color separatorColor,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('Appearance'),
-        Card(
-          elevation: 0.5,
-          shape: RoundedRectangleBorder(
+        _buildSectionHeader('Apparence'),
+        Container(
+          decoration: BoxDecoration(
+            color: cardColor,
             borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: separatorColor,
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             children: [
               _buildSettingsItem(
                 icon: CupertinoIcons.moon_fill,
-                title: 'Dark Mode',
+                title: 'Mode sombre',
+                textColor: textColor,
                 trailing: CupertinoSwitch(
                   value: _darkModeEnabled,
-                  activeColor: Theme.of(context).primaryColor,
-                  onChanged: (value) {
+                  activeTrackColor: CupertinoTheme.of(context).primaryColor,
+                  onChanged: (value) async {
                     setState(() {
                       _darkModeEnabled = value;
                     });
-                    // Implement theme change
+                    // Appliquer le changement de thème
+                    await themeService.setDarkMode(value);
                   },
                 ),
-              ),
-              const Divider(height: 1, indent: 65),
-              _buildSettingsItem(
-                icon: CupertinoIcons.textformat_size,
-                title: 'Text Size',
-                onTap: () {
-                  // Navigate to text size settings
-                },
-              ),
+              )
             ],
           ),
         ),
@@ -254,37 +315,51 @@ class SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAboutSection() {
+  Widget _buildAboutSection(
+    Color cardColor,
+    Color textColor,
+    Color separatorColor,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('About'),
-        Card(
-          elevation: 0.5,
-          shape: RoundedRectangleBorder(
+        _buildSectionHeader('À propos'),
+        Container(
+          decoration: BoxDecoration(
+            color: cardColor,
             borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: separatorColor,
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             children: [
               _buildSettingsItem(
                 icon: CupertinoIcons.info_circle_fill,
-                title: 'App Info',
+                title: 'Infos sur l\'application',
+                textColor: textColor,
                 onTap: () {
                   _showAppInfoDialog();
                 },
               ),
-              const Divider(height: 1, indent: 65),
+              Divider(height: 1, indent: 65, color: separatorColor),
               _buildSettingsItem(
                 icon: CupertinoIcons.doc_text,
-                title: 'Terms of Service',
+                title: 'Conditions d\'utilisation',
+                textColor: textColor,
                 onTap: () {
                   // Navigate to terms screen
                 },
               ),
-              const Divider(height: 1, indent: 65),
+              Divider(height: 1, indent: 65, color: separatorColor),
               _buildSettingsItem(
                 icon: CupertinoIcons.lock_fill,
-                title: 'Privacy Policy',
+                title: 'Politique de confidentialité',
+                textColor: textColor,
                 onTap: () {
                   // Navigate to privacy policy screen
                 },
@@ -299,10 +374,11 @@ class SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSettingsItem({
     required IconData icon,
     required String title,
+    required Color textColor,
     Widget? trailing,
     VoidCallback? onTap,
   }) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -311,30 +387,31 @@ class SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: CupertinoTheme.of(context).primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 24,
-                color: Theme.of(context).primaryColor,
+                color: CupertinoTheme.of(context).primaryColor,
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
+                  color: textColor,
                 ),
               ),
             ),
             trailing ??
-                const Icon(
+                Icon(
                   CupertinoIcons.chevron_right,
                   size: 18,
-                  color: CupertinoColors.systemGrey,
+                  color: themeService.getSecondaryTextColor(),
                 ),
           ],
         ),
@@ -343,22 +420,26 @@ class SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showAppInfoDialog() {
+    final textColor = themeService.getTextColor();
+    final secondaryTextColor = themeService.getSecondaryTextColor();
+
     showCupertinoDialog(
       context: context,
       builder:
           (context) => CupertinoAlertDialog(
-            title: const Text('Laser Magique'),
+            title: Text('Laser Magique', style: TextStyle(color: textColor)),
             content: Column(
               children: [
                 const SizedBox(height: 16),
                 Text(
                   'Version 1.0.0',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                  style: TextStyle(color: secondaryTextColor, fontSize: 14),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Laser Magique App helps beauty salons manage appointments, clients, and services efficiently.',
+                Text(
+                  'L\'application Laser Magique aide les salons de beauté à gérer efficacement les rendez-vous, les clients et les services.',
                   textAlign: TextAlign.center,
+                  style: TextStyle(color: textColor),
                 ),
               ],
             ),
@@ -374,6 +455,14 @@ class SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSignOutButton() {
+    // Les boutons de déconnexion devraient rester rouges en mode sombre
+    final backgroundColor =
+        themeService.darkMode
+            ? const Color(0xFF3B1213) // Rouge foncé en mode sombre
+            : Colors.red.shade50;
+    final borderColor =
+        themeService.darkMode ? Colors.red.shade900 : Colors.red.shade300;
+
     return CupertinoButton(
       padding: EdgeInsets.zero,
       onPressed: _signOut,
@@ -382,12 +471,12 @@ class SettingsScreenState extends State<SettingsScreen> {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.red.shade50,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.red.shade300),
+          border: Border.all(color: borderColor),
         ),
         child: const Text(
-          'Sign Out',
+          'Déconnexion',
           style: TextStyle(
             color: Colors.red,
             fontSize: 16,
