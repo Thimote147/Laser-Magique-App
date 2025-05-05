@@ -182,6 +182,8 @@ class ClientsScreenState extends State<ClientsScreen> {
         middle: null,
         backgroundColor: CupertinoColors.systemGroupedBackground,
         border: null,
+        heroTag: 'clientsScreenMain',
+        transitionBetweenRoutes: false,
         leading: const Text(
           'Clients',
           style: TextStyle(
@@ -486,6 +488,8 @@ class ClientsScreenState extends State<ClientsScreen> {
               middle: Text(client.name),
               backgroundColor: CupertinoColors.systemGroupedBackground,
               border: null,
+              heroTag: 'clientDetailsNavBar',
+              transitionBetweenRoutes: false,
               trailing: CupertinoButton(
                 padding: EdgeInsets.zero,
                 child: const Icon(CupertinoIcons.ellipsis_circle, size: 24),

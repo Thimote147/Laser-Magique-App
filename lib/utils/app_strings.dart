@@ -5,6 +5,7 @@ class AppStrings {
   static const String analytics = 'Statistiques';
   static const String clients = 'Clients';
   static const String settings = 'Paramètres';
+  static const String stock = 'Stock'; // Added for stock management
 
   // Écran Calendrier
   static const String noBookings = 'Aucune réservations pour';
@@ -13,18 +14,18 @@ class AppStrings {
   static const String newBooking = 'Nouveau Rendez-vous';
   static const String createBooking = 'Créer un Rendez-vous';
   static const String fillForm =
-      'Remplissez le formulaire ci-dessous pour créer un nouveau rendez-vous';
+      'Remplissez le formulaire ci-dessous pour créer une nouvelle réservation.';
   static const String customerName = 'Nom du client';
   static const String enterCustomerName = 'Entrez le nom du client';
-  static const String service = 'Service';
-  static const String selectService = 'Sélectionnez un service';
+  static const String service = 'Activité';
+  static const String selectService = 'Sélectionnez une activité';
   static const String date = 'Date';
   static const String time = 'Heure';
   static const String price = 'Prix (€)';
-  static const String createButton = 'Créer le rendez-vous';
-  static const String bookingCreatedSuccess = 'Rendez-vous créé avec succès!';
+  static const String createButton = 'Créer la réservation';
+  static const String bookingCreatedSuccess = 'Réservation créée avec succès!';
   static const String bookingError =
-      'Erreur lors de la création du rendez-vous:';
+      'Erreur lors de la création de la réservation:';
 
   // Services disponibles
   static const String laserSmallArea = 'Épilation Laser - Petite Zone';
@@ -125,4 +126,21 @@ class AppStrings {
   static const String errorOccurred = 'Une erreur s\'est produite';
   static const String retry = 'Réessayer';
   static const String ok = 'OK';
+
+  // Stock Management Screen
+  static const String stockManagement = 'Gestion de Stock';
+  static const String addItem = 'Ajouter un article';
+  static const String editItem = 'Modifier un article';
+  static const String deleteItem = 'Supprimer l\'article';
+  static const String itemName = 'Nom de l\'article';
+  static const String itemPrice = 'Prix (€)';
+  static const String itemQuantity = 'Quantité';
+  static const String save = 'Enregistrer';
+  static const String searchItems = 'Rechercher des articles';
+  static const String noItemsYet = 'Aucun article dans le stock';
+  static const String noItemsMatch = 'Aucun article ne correspond à votre recherche';
+  static const String deleteConfirmationItem = 'Êtes-vous sûr de vouloir supprimer cet article? Cette action ne peut pas être annulée.';
+  static const String lowStock = 'Stock Bas';
+  static const String inStock = 'En Stock';
+  static const String outOfStock = 'Épuisé';
 }

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'screens/new_booking_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/stock_screen.dart'; // Import the stock screen
 import 'utils/app_strings.dart';
 import 'utils/theme_service.dart';
 import 'pages/booking_details_page.dart'; // Ajout de cette importation
@@ -138,7 +139,12 @@ class MainScreenState extends State<MainScreen> {
                 controller: _pageController,
                 onPageChanged: _onPageChanged,
                 physics: const NeverScrollableScrollPhysics(), // Disable swipe
-                children: const [HomePage(), AnalyticsPage(), SettingsScreen()],
+                children: const [
+                  HomePage(),
+                  AnalyticsPage(),
+                  StockScreen(),
+                  SettingsScreen(),
+                ],
               ),
             ),
             Positioned(
@@ -167,6 +173,10 @@ class MainScreenState extends State<MainScreen> {
                     BottomNavigationBarItem(
                       icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
                       label: AppStrings.analytics,
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(CupertinoIcons.cube_box),
+                      label: AppStrings.stock,
                     ),
                     BottomNavigationBarItem(
                       icon: const Icon(CupertinoIcons.settings),
@@ -674,33 +684,34 @@ class AnalyticsPageState extends State<AnalyticsPage>
             fontFamily: '.SF Pro Display',
           ),
         ),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _fetchAnalyticsData,
-          child: Icon(CupertinoIcons.refresh, color: textColor),
-        ),
       ),
       child: SafeArea(
         child:
-            _isLoading
+            _isLoading && _bookings.isEmpty
                 ? const Center(child: CupertinoActivityIndicator())
-                : ListView(
+                : CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: BouncingScrollPhysics(),
                   ),
-                  padding: const EdgeInsets.only(top: 8, bottom: 20),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSummaryCards(),
-                          const SizedBox(height: 20),
-                          _buildPopularServicesList(),
-                          const SizedBox(height: 20),
-                          _buildRecentBookingsList(),
-                        ],
+                  slivers: [
+                    CupertinoSliverRefreshControl(
+                      onRefresh: _fetchAnalyticsData,
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            _buildSummaryCards(),
+                            const SizedBox(height: 20),
+                            _buildPopularServicesList(),
+                            const SizedBox(height: 20),
+                            _buildRecentBookingsList(),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -827,7 +838,7 @@ class AnalyticsPageState extends State<AnalyticsPage>
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Services populaires',
+                  'Activités populaires',
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w600,

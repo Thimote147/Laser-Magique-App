@@ -117,6 +117,8 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
         middle: Text(AppStrings.bookingDetails),
         backgroundColor: CupertinoColors.systemGroupedBackground,
         border: null,
+        heroTag: UniqueKey(),
+        transitionBetweenRoutes: false,
       ),
       child:
           _isLoading

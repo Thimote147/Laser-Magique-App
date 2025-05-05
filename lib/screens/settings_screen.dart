@@ -61,6 +61,8 @@ class SettingsScreenState extends State<SettingsScreen> {
         middle: null,
         backgroundColor: backgroundColor,
         border: null,
+        heroTag: 'settingsScreenNavBar',
+        transitionBetweenRoutes: false,
         leading: Text(
           'Paramètres',
           style: TextStyle(
@@ -307,7 +309,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                     await themeService.setDarkMode(value);
                   },
                 ),
-              )
+              ),
             ],
           ),
         ),
