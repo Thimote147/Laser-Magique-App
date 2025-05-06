@@ -3,6 +3,9 @@ import 'package:flutter/cupertino.dart';
 import '../main.dart'; // Pour accéder à supabase et au themeService
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'legal/terms_conditions_screen.dart';
+import 'legal/privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -381,7 +384,11 @@ class SettingsScreenState extends State<SettingsScreen> {
                 title: 'Conditions d\'utilisation',
                 textColor: textColor,
                 onTap: () {
-                  // Navigate to terms screen
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => const TermsConditionsScreen(),
+                    ),
+                  );
                 },
               ),
               Divider(height: 1, indent: 65, color: separatorColor),
@@ -390,7 +397,11 @@ class SettingsScreenState extends State<SettingsScreen> {
                 title: 'Politique de confidentialité',
                 textColor: textColor,
                 onTap: () {
-                  // Navigate to privacy policy screen
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => const PrivacyPolicyScreen(),
+                    ),
+                  );
                 },
               ),
             ],
@@ -453,24 +464,79 @@ class SettingsScreenState extends State<SettingsScreen> {
   void _showAppInfoDialog() {
     final textColor = themeService.getTextColor();
     final secondaryTextColor = themeService.getSecondaryTextColor();
+    final backgroundColor = themeService.getCardColor();
 
     showCupertinoDialog(
       context: context,
       builder:
           (context) => CupertinoAlertDialog(
-            title: Text('Laser Magique', style: TextStyle(color: textColor)),
+            title: Text(
+              'Laser Magique',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             content: Column(
               children: [
                 const SizedBox(height: 16),
-                Text(
-                  'Version 1.0.0',
-                  style: TextStyle(color: secondaryTextColor, fontSize: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: CupertinoTheme.of(
+                      context,
+                    ).primaryColor.withOpacity(0.1),
+                  ),
+                  child: Icon(
+                    CupertinoIcons.gamecontroller_fill,
+                    size: 40,
+                    color: CupertinoTheme.of(context).primaryColor,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'L\'application Laser Magique aide les salons de beauté à gérer efficacement les rendez-vous, les clients et les services.',
+                  'Version 0.1.0',
+                  style: TextStyle(
+                    color: secondaryTextColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Laser Magique est votre application de gestion pour les réservations et sessions de laser game.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: textColor),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Planifiez vos sessions, gérez vos joueurs et analysez les performances du Laser-Magique.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: textColor),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      CupertinoIcons.mail,
+                      size: 16,
+                      color: secondaryTextColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'info@lasermagique.com',
+                      style: TextStyle(color: secondaryTextColor, fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '© ${DateTime.now().year} Laser Magique. Tous droits réservés.',
+                  style: TextStyle(color: secondaryTextColor, fontSize: 12),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),

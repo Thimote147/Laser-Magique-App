@@ -8,6 +8,9 @@ class AuthService extends ChangeNotifier {
   // Current user
   User? _currentUser;
 
+  // User's role
+  String? _userRole;
+
   // Current session
   Session? _currentSession;
 
@@ -17,6 +20,7 @@ class AuthService extends ChangeNotifier {
   // Getters
   User? get currentUser => _currentUser;
   Session? get currentSession => _currentSession;
+  String? get userRole => _userRole;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;
 
@@ -27,8 +31,13 @@ class AuthService extends ChangeNotifier {
       _currentSession = _supabase.auth.currentSession;
       _currentUser = _supabase.auth.currentUser;
 
+      // Fetch user role if user is authenticated
+      if (_currentUser != null) {
+        await _fetchUserRole(_currentUser!.id);
+      }
+
       // Listen for auth state changes
-      _supabase.auth.onAuthStateChange.listen((data) {
+      _supabase.auth.onAuthStateChange.listen((data) async {
         final AuthChangeEvent event = data.event;
         final Session? session = data.session;
 
@@ -36,16 +45,23 @@ class AuthService extends ChangeNotifier {
           case AuthChangeEvent.signedIn:
             _currentUser = session?.user;
             _currentSession = session;
+            if (_currentUser != null) {
+              await _fetchUserRole(_currentUser!.id);
+            }
             notifyListeners();
             break;
           case AuthChangeEvent.signedOut:
             _currentUser = null;
             _currentSession = null;
+            _userRole = null;
             notifyListeners();
             break;
           case AuthChangeEvent.userUpdated:
             _currentUser = session?.user;
             _currentSession = session;
+            if (_currentUser != null) {
+              await _fetchUserRole(_currentUser!.id);
+            }
             notifyListeners();
             break;
           case AuthChangeEvent.passwordRecovery:
@@ -63,13 +79,50 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // Fetch user role from the database
+  Future<void> _fetchUserRole(String userId) async {
+    try {
+      final response =
+          await _supabase
+              .from('users')
+              .select('role')
+              .eq('user_id', userId)
+              .single();
+
+      _userRole = response['role'];
+    } catch (e) {
+      _userRole = null;
+      print('Error fetching user role: $e');
+    }
+  }
+
+  // Check if user has required role (member or admin)
+  bool hasRequiredRole() {
+    return _userRole == 'member' || _userRole == 'admin';
+  }
+
   // Sign in with email and password
   Future<void> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
     try {
-      await _supabase.auth.signInWithPassword(email: email, password: password);
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (response.user != null) {
+        // Fetch the user's role
+        await _fetchUserRole(response.user!.id);
+
+        // Check if the user has the required role
+        if (!hasRequiredRole()) {
+          // If not, sign them out and throw an exception
+          await _supabase.auth.signOut();
+          throw Exception('Access denied: insufficient permissions');
+        }
+      }
     } catch (e) {
       throw Exception('Failed to sign in: ${e.toString()}');
     }

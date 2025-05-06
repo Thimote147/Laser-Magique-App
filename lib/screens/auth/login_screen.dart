@@ -65,13 +65,21 @@ class _LoginScreenState extends State<LoginScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
+
         // Navigate to home page on successful login
         if (mounted) {
           Navigator.of(context).pushReplacementNamed('/home');
         }
       } catch (e) {
         setState(() {
-          _errorMessage = e.toString();
+          // Check if it's an access denied error
+          if (e.toString().contains('Permissions insuffisantes') ||
+              e.toString().contains('Accès refusé')) {
+            _errorMessage =
+                'Accès refusé: Vous n\'avez pas les autorisations nécessaires. Seuls les membres et administrateurs peuvent accéder à cette application.';
+          } else {
+            _errorMessage = e.toString().replaceAll('Exception: ', '');
+          }
         });
       } finally {
         if (mounted) {

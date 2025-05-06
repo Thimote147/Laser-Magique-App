@@ -21,16 +21,41 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
   List<WorkHour> _workHours = [];
   double _totalAmount = 0;
   String _totalHours = '00:00';
+  bool _isAdmin = false; // To track if user has admin role
+  bool _showAllUsers = false; // Toggle between personal and all users views
+  Map<String, bool> _expandedUsers = {}; // Track expanded state for each user
 
   @override
   void initState() {
     super.initState();
+    _checkAdminStatus();
     _loadWorkHours();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+  }
+
+  // Check if the current user has admin role
+  Future<void> _checkAdminStatus() async {
+    try {
+      final workHoursService = Provider.of<WorkHoursService>(
+        context,
+        listen: false,
+      );
+      final isAdmin = await workHoursService.isCurrentUserAdmin();
+
+      setState(() {
+        _isAdmin = isAdmin;
+      });
+    } catch (e) {
+      // If there's an error, assume user is not admin
+      setState(() {
+        _isAdmin = false;
+        _showAllUsers = false;
+      });
+    }
   }
 
   Future<void> _loadWorkHours() async {
@@ -43,14 +68,30 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
         context,
         listen: false,
       );
-      final hours = await workHoursService.getPersonalHours(
-        _selectedMonth,
-        _selectedYear,
-      );
+
+      // Decide which method to call based on the view mode
+      final List<WorkHour> hours =
+          _showAllUsers
+              ? await workHoursService.getAllUsersHours(
+                _selectedMonth,
+                _selectedYear,
+              )
+              : await workHoursService.getPersonalHours(
+                _selectedMonth,
+                _selectedYear,
+              );
 
       // Sort work hours by descending date and time
       hours.sort((a, b) {
-        // First compare by date (descending)
+        // First sort by user name if in admin mode
+        if (_showAllUsers) {
+          int nameCompare = a.userName.compareTo(b.userName);
+          if (nameCompare != 0) {
+            return nameCompare;
+          }
+        }
+
+        // Then compare by date (descending)
         int dateCompare = b.date.compareTo(a.date);
         if (dateCompare != 0) {
           return dateCompare;
@@ -63,6 +104,20 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
       setState(() {
         _workHours = hours;
         _calculateTotals();
+
+        // Initialize all users as collapsed by default
+        if (_showAllUsers) {
+          final Set<String> uniqueUsers =
+              hours
+                  .where((h) => h.hourId.isNotEmpty)
+                  .map((h) => h.userName)
+                  .toSet();
+
+          // Set all users to collapsed (false) state
+          for (var user in uniqueUsers) {
+            _expandedUsers[user] = false;
+          }
+        }
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,6 +133,18 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     }
   }
 
+  // Toggle between personal and all users views
+  void _toggleViewMode() {
+    if (!_isAdmin) return; // Only admins can toggle
+
+    setState(() {
+      _showAllUsers = !_showAllUsers;
+    });
+
+    // Reload work hours with the new view mode
+    _loadWorkHours();
+  }
+
   void _calculateTotals() {
     double totalAmount = 0;
     int totalMinutes = 0;
@@ -85,40 +152,37 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     for (var hour in _workHours) {
       totalAmount += hour.amount;
 
-      // Parse the hours and add to total
+      // Parse the nbr_hours format (HH:MM or HH:MM:SS)
       final parts = hour.nbrHours.split(':');
-      if (parts.length == 3) {
-        final hours = int.tryParse(parts[0]) ?? 0;
-        final minutes = int.tryParse(parts[1]) ?? 0;
-        totalMinutes += (hours * 60) + minutes;
+      if (parts.length >= 2) {
+        totalMinutes += int.parse(parts[0]) * 60 + int.parse(parts[1]);
       }
     }
 
-    final totalHours = totalMinutes ~/ 60;
-    final remainingMinutes = totalMinutes % 60;
-
     setState(() {
       _totalAmount = totalAmount;
+
+      // Format total minutes back to HH:MM format
+      final hours = totalMinutes ~/ 60;
+      final minutes = totalMinutes % 60;
       _totalHours =
-          '${totalHours.toString().padLeft(2, '0')}:${remainingMinutes.toString().padLeft(2, '0')}';
+          '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
     });
   }
 
   Future<void> _deleteWorkHour(WorkHour workHour) async {
-    final confirmed = await showCupertinoDialog(
+    final bool? confirmed = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) {
-        final textColor = themeService.getTextColor();
+      builder: (BuildContext context) {
         return CupertinoAlertDialog(
-          title: Text('Confirmation', style: TextStyle(color: textColor)),
-          content: Text(
-            'Êtes-vous sûr de vouloir supprimer ces heures de travail?',
-            style: TextStyle(color: textColor),
+          title: const Text('Confirmation'),
+          content: const Text(
+            'Voulez-vous vraiment supprimer ces heures de travail ?',
           ),
-          actions: [
+          actions: <CupertinoDialogAction>[
             CupertinoDialogAction(
-              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Annuler'),
+              onPressed: () => Navigator.of(context).pop(false),
             ),
             CupertinoDialogAction(
               isDestructiveAction: true,
@@ -260,6 +324,42 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     return workHours;
   }
 
+  // Create a grouped structure of work hours by user
+  Map<String, List<WorkHour>> _groupWorkHoursByUser() {
+    Map<String, List<WorkHour>> groupedHours = {};
+
+    for (var hour in _workHours) {
+      if (!groupedHours.containsKey(hour.userName)) {
+        groupedHours[hour.userName] = [];
+      }
+      groupedHours[hour.userName]?.add(hour);
+    }
+
+    return groupedHours;
+  }
+
+  // Calculate total hours and amount for a specific user
+  Map<String, dynamic> _calculateUserTotals(List<WorkHour> userHours) {
+    int totalMinutes = 0;
+    double totalAmount = 0;
+
+    for (var hour in userHours.where((h) => h.hourId.isNotEmpty)) {
+      totalAmount += hour.amount;
+
+      final parts = hour.nbrHours.split(':');
+      if (parts.length >= 2) {
+        totalMinutes += int.parse(parts[0]) * 60 + int.parse(parts[1]);
+      }
+    }
+
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    final totalHours =
+        '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+
+    return {'hours': totalHours, 'amount': totalAmount};
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get theme colors from themeService
@@ -283,10 +383,29 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
           ),
           backgroundColor: backgroundColor,
           border: Border(bottom: BorderSide(color: separatorColor, width: 0.5)),
-          trailing: CupertinoButton(
-            padding: EdgeInsets.zero,
-            child: Icon(CupertinoIcons.add, color: primaryColor, size: 28),
-            onPressed: _showAddWorkHourDialog,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Only show the toggle button for admin users
+              if (_isAdmin)
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: _toggleViewMode,
+                  child: Icon(
+                    _showAllUsers
+                        ? CupertinoIcons.person_fill
+                        : CupertinoIcons.person_2_fill,
+                    color: primaryColor,
+                    size: 24,
+                  ),
+                ),
+              const SizedBox(width: 8),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: _showAddWorkHourDialog,
+                child: Icon(CupertinoIcons.add, color: primaryColor, size: 28),
+              ),
+            ],
           ),
           // Give it a globally unique heroTag to prevent conflicts
           heroTag: UniqueKey(),
@@ -300,105 +419,106 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                 bottom: false, // Don't add padding at the bottom
                 child: Column(
                   children: [
-                    // Summary card
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: separatorColor,
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              cardColor,
-                              themeService.darkMode
-                                  ? CupertinoTheme.of(
-                                    context,
-                                  ).primaryColor.withOpacity(0.15)
-                                  : CupertinoTheme.of(
-                                    context,
-                                  ).primaryColor.withOpacity(0.07),
+                    // Only show Summary card in personal view
+                    if (!_showAllUsers)
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: separatorColor,
+                                blurRadius: 5,
+                                offset: const Offset(0, 2),
+                              ),
                             ],
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                cardColor,
+                                themeService.darkMode
+                                    ? CupertinoTheme.of(
+                                      context,
+                                    ).primaryColor.withOpacity(0.15)
+                                    : CupertinoTheme.of(
+                                      context,
+                                    ).primaryColor.withOpacity(0.07),
+                              ],
+                            ),
                           ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Résumé du mois',
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w600,
-                                      color: textColor,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: primaryColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      '${_workHours.length} session${_workHours.length > 1 ? 's' : ''}',
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Résumé du mois',
                                       style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: primaryColor,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w600,
+                                        color: textColor,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildSummaryItem(
-                                    icon: CupertinoIcons.clock,
-                                    title: 'Total des heures',
-                                    value: _totalHours,
-                                    textColor: textColor,
-                                    secondaryTextColor: secondaryTextColor,
-                                    primaryColor: primaryColor,
-                                  ),
-                                  Container(
-                                    height: 40,
-                                    width: 1,
-                                    color: separatorColor.withOpacity(0.5),
-                                  ),
-                                  _buildSummaryItem(
-                                    icon: CupertinoIcons.money_euro,
-                                    title: 'Montant total',
-                                    value:
-                                        '${_totalAmount.toStringAsFixed(2)} €',
-                                    textColor: textColor,
-                                    secondaryTextColor: secondaryTextColor,
-                                    primaryColor: primaryColor,
-                                  ),
-                                ],
-                              ),
-                            ],
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '${_workHours.length} session${_workHours.length > 1 ? 's' : ''}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  children: [
+                                    _buildSummaryItem(
+                                      icon: CupertinoIcons.clock,
+                                      title: 'Total des heures',
+                                      value: _totalHours,
+                                      textColor: textColor,
+                                      secondaryTextColor: secondaryTextColor,
+                                      primaryColor: primaryColor,
+                                    ),
+                                    Container(
+                                      height: 40,
+                                      width: 1,
+                                      color: separatorColor.withOpacity(0.5),
+                                    ),
+                                    _buildSummaryItem(
+                                      icon: CupertinoIcons.money_euro,
+                                      title: 'Montant total',
+                                      value:
+                                          '${_totalAmount.toStringAsFixed(2)} €',
+                                      textColor: textColor,
+                                      secondaryTextColor: secondaryTextColor,
+                                      primaryColor: primaryColor,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
                     // Work hours list with pull-to-refresh
                     Expanded(
@@ -432,274 +552,61 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                       }
                                     },
                                   ),
-                                  // List of work hours
+
+                                  // List of work hours by user
                                   SliverList(
-                                    delegate: SliverChildBuilderDelegate((
-                                      context,
-                                      index,
-                                    ) {
-                                      final workHour = _workHours[index];
-                                      return Container(
-                                        // ...existing work hour item code...
-                                        margin: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: cardColor,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: separatorColor,
-                                              blurRadius: 5,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                          border: Border.all(
-                                            color: primaryColor.withOpacity(
-                                              0.1,
-                                            ),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: CupertinoButton(
-                                          padding: EdgeInsets.zero,
-                                          onPressed: null,
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(16.0),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                // Work hour item content...
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                8,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: primaryColor
-                                                                .withOpacity(
-                                                                  0.1,
-                                                                ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  8,
-                                                                ),
-                                                          ),
-                                                          child: Icon(
-                                                            CupertinoIcons
-                                                                .calendar,
-                                                            color: primaryColor,
-                                                            size: 18,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 10,
-                                                        ),
-                                                        Text(
-                                                          DateFormat(
-                                                            'EEEE d MMMM',
-                                                            'fr_FR',
-                                                          ).format(
-                                                            workHour.date,
-                                                          ),
-                                                          style: TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            fontSize: 16,
-                                                            color: textColor,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 10,
-                                                            vertical: 4,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: primaryColor
-                                                            .withOpacity(0.1),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                      ),
-                                                      child: Text(
-                                                        '${workHour.amount.toStringAsFixed(2)} €',
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 15,
-                                                          color: primaryColor,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 12),
-                                                Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                6,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color:
-                                                                secondaryTextColor
-                                                                    .withOpacity(
-                                                                      0.1,
-                                                                    ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  6,
-                                                                ),
-                                                          ),
-                                                          child: Icon(
-                                                            CupertinoIcons
-                                                                .clock,
-                                                            color:
-                                                                secondaryTextColor,
-                                                            size: 14,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        RichText(
-                                                          text: TextSpan(
-                                                            style: TextStyle(
-                                                              color:
-                                                                  secondaryTextColor,
-                                                              fontSize: 14,
-                                                            ),
-                                                            children: [
-                                                              TextSpan(
-                                                                text:
-                                                                    '${_formatTime(workHour.beginning)} - ${_formatTime(workHour.ending)}',
-                                                                style: const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                ),
-                                                              ),
-                                                              TextSpan(
-                                                                text:
-                                                                    ' (${_formatWorkHours(workHour.nbrHours)})',
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    Row(
-                                                      children: [
-                                                        // Edit button
-                                                        CupertinoButton(
-                                                          padding:
-                                                              EdgeInsets.zero,
-                                                          minSize: 0,
-                                                          child: Container(
-                                                            margin:
-                                                                const EdgeInsets.only(
-                                                                  right: 8,
-                                                                ),
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                  6,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              color: primaryColor
-                                                                  .withOpacity(
-                                                                    0.1,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    6,
-                                                                  ),
-                                                            ),
-                                                            child: Icon(
-                                                              CupertinoIcons
-                                                                  .pencil,
-                                                              color:
-                                                                  primaryColor,
-                                                              size: 16,
-                                                            ),
-                                                          ),
-                                                          onPressed:
-                                                              () =>
-                                                                  _showEditWorkHourDialog(
-                                                                    workHour,
-                                                                  ),
-                                                        ),
-                                                        // Delete button
-                                                        CupertinoButton(
-                                                          padding:
-                                                              EdgeInsets.zero,
-                                                          minSize: 0,
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                  6,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              color: CupertinoColors
-                                                                  .systemRed
-                                                                  .withOpacity(
-                                                                    0.1,
-                                                                  ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    6,
-                                                                  ),
-                                                            ),
-                                                            child: Icon(
-                                                              CupertinoIcons
-                                                                  .delete,
-                                                              color:
-                                                                  themeService
-                                                                          .darkMode
-                                                                      ? CupertinoColors
-                                                                          .systemRed
-                                                                          .darkColor
-                                                                      : CupertinoColors
-                                                                          .systemRed,
-                                                              size: 16,
-                                                            ),
-                                                          ),
-                                                          onPressed:
-                                                              () =>
-                                                                  _deleteWorkHour(
-                                                                    workHour,
-                                                                  ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }, childCount: _workHours.length),
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        if (!_showAllUsers || !_isAdmin) {
+                                          // Personal view - show individual entries
+                                          if (index >= _workHours.length)
+                                            return null;
+
+                                          final workHour = _workHours[index];
+                                          return _buildWorkHourItem(
+                                            workHour,
+                                            textColor,
+                                            cardColor,
+                                            primaryColor,
+                                            secondaryTextColor,
+                                            separatorColor,
+                                          );
+                                        } else {
+                                          // Admin view - show user summaries with expandable details
+                                          Map<String, List<WorkHour>>
+                                          groupedHours =
+                                              _groupWorkHoursByUser();
+                                          List<String> userNames =
+                                              groupedHours.keys.toList();
+
+                                          if (index >= userNames.length)
+                                            return null;
+
+                                          String userName = userNames[index];
+                                          List<WorkHour> userHours =
+                                              groupedHours[userName] ?? [];
+                                          Map<String, dynamic> totals =
+                                              _calculateUserTotals(userHours);
+
+                                          return _buildUserSummaryItem(
+                                            userName: userName,
+                                            userHours: userHours,
+                                            totalHours: totals['hours'],
+                                            totalAmount: totals['amount'],
+                                            textColor: textColor,
+                                            cardColor: cardColor,
+                                            primaryColor: primaryColor,
+                                            secondaryTextColor:
+                                                secondaryTextColor,
+                                            separatorColor: separatorColor,
+                                          );
+                                        }
+                                      },
+                                      childCount:
+                                          _showAllUsers && _isAdmin
+                                              ? _groupWorkHoursByUser().length
+                                              : _workHours.length,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -730,7 +637,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CupertinoButton(
-                    padding: const EdgeInsets.only(left: 16),
+                    padding: const EdgeInsets.only(left: 32),
                     minSize: 0, // Remove minimum height constraint
                     child: Icon(
                       CupertinoIcons.chevron_left,
@@ -747,7 +654,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     ),
                   ),
                   CupertinoButton(
-                    padding: const EdgeInsets.only(right: 16),
+                    padding: const EdgeInsets.only(right: 32),
                     minSize: 0, // Remove minimum height constraint
                     child: Icon(
                       CupertinoIcons.chevron_right,
@@ -759,6 +666,407 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserSummaryItem({
+    required String userName,
+    required List<WorkHour> userHours,
+    required String totalHours,
+    required double totalAmount,
+    required Color textColor,
+    required Color cardColor,
+    required Color primaryColor,
+    required Color secondaryTextColor,
+    required Color separatorColor,
+  }) {
+    // Get expanded state for this user
+    final isExpanded = _expandedUsers[userName] ?? false;
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, top: 8, right: 16, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // User header card with summary information
+          Container(
+            decoration: BoxDecoration(
+              color: primaryColor,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: separatorColor,
+                  blurRadius: 3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _expandedUsers[userName] = !isExpanded;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // User name with icon
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                CupertinoIcons.person_fill,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              userName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Toggle icon
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Icon(
+                            isExpanded
+                                ? CupertinoIcons.chevron_up
+                                : CupertinoIcons.chevron_down,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Totals row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Total hours
+                        Column(
+                          children: [
+                            Text(
+                              'Total heures',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                totalHours,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Separator
+                        Container(
+                          height: 30,
+                          width: 1,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+
+                        // Total amount
+                        Column(
+                          children: [
+                            Text(
+                              'Montant total',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${totalAmount.toStringAsFixed(2)} €',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Only show details if expanded
+          if (isExpanded)
+            Column(
+              children:
+                  userHours
+                      .where(
+                        (hour) => hour.hourId.isNotEmpty,
+                      ) // Filter out placeholders
+                      .map(
+                        (workHour) => Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: _buildWorkHourItem(
+                            workHour,
+                            textColor,
+                            cardColor,
+                            primaryColor,
+                            secondaryTextColor,
+                            separatorColor,
+                          ),
+                        ),
+                      )
+                      .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkHourItem(
+    WorkHour workHour,
+    Color textColor,
+    Color cardColor,
+    Color primaryColor,
+    Color secondaryTextColor,
+    Color separatorColor,
+  ) {
+    // If this is a placeholder entry (no hourId)
+    if (workHour.hourId.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: separatorColor, width: 1),
+        ),
+        child: Center(
+          child: Text(
+            'Aucune heure de travail ce mois-ci',
+            style: TextStyle(
+              color: secondaryTextColor,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Regular work hour item
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: separatorColor,
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+        border: Border.all(color: primaryColor.withOpacity(0.1), width: 1),
+      ),
+      child: CupertinoButton(
+        padding: EdgeInsets.zero,
+        onPressed: null,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Work hour item content...
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          CupertinoIcons.calendar,
+                          color: primaryColor,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        DateFormat(
+                          'EEEE d MMMM',
+                          'fr_FR',
+                        ).format(workHour.date),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${workHour.amount.toStringAsFixed(2)} €',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: secondaryTextColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          CupertinoIcons.clock,
+                          color: secondaryTextColor,
+                          size: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            color: secondaryTextColor,
+                            fontSize: 14,
+                          ),
+                          children: [
+                            TextSpan(
+                              text:
+                                  '${_formatTime(workHour.beginning)} - ${_formatTime(workHour.ending)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' (${_formatWorkHours(workHour.nbrHours)})',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      // Edit button
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        minSize: 0,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            CupertinoIcons.pencil,
+                            color: primaryColor,
+                            size: 16,
+                          ),
+                        ),
+                        onPressed: () => _showEditWorkHourDialog(workHour),
+                      ),
+                      // Delete button
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        minSize: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.systemRed.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            CupertinoIcons.delete,
+                            color:
+                                themeService.darkMode
+                                    ? CupertinoColors.systemRed.darkColor
+                                    : CupertinoColors.systemRed,
+                            size: 16,
+                          ),
+                        ),
+                        onPressed: () => _deleteWorkHour(workHour),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

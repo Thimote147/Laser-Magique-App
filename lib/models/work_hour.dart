@@ -1,4 +1,3 @@
-
 class WorkHour {
   final String hourId;
   final DateTime date;
@@ -6,6 +5,7 @@ class WorkHour {
   final String ending;
   final String nbrHours;
   final double amount;
+  String userName = ''; // Added to store the user's name for admin view
 
   WorkHour({
     required this.hourId,
@@ -14,6 +14,7 @@ class WorkHour {
     required this.ending,
     required this.nbrHours,
     required this.amount,
+    this.userName = '', // Default empty string
   });
 
   factory WorkHour.fromJson(Map<String, dynamic> json) {
@@ -24,6 +25,8 @@ class WorkHour {
       ending: json['ending'],
       nbrHours: json['nbr_hours'],
       amount: json['amount'].toDouble(),
+      userName:
+          json['firstname'] as String? ?? '', // Include userName if available
     );
   }
 
@@ -35,6 +38,7 @@ class WorkHour {
       'ending': ending,
       'nbr_hours': nbrHours,
       'amount': amount,
+      // userName is not included in toJson as it's only for UI display
     };
   }
 }
