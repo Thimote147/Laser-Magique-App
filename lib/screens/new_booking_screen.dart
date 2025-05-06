@@ -1020,14 +1020,22 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     final activity = _getSelectedActivity();
     if (activity == null) return 1;
 
-    // If firstPrice and secondPrice are null/zero, minimum is 3 parties
-    if (activity.firstPrice <= 0 &&
-        activity.secondPrice <= 0 &&
-        activity.thirdPrice > 0) {
+    // If firstPrice is available, minimum is 1 party
+    if (activity.firstPrice > 0) {
+      print('First price available: ${activity.firstPrice}');
+      return 1;
+    }
+    // If secondPrice is available but not firstPrice, minimum is 2 parties
+    else if (activity.secondPrice > 0) {
+      print('Second price available: ${activity.secondPrice}');
+      return 2;
+    }
+    // If only thirdPrice is available, minimum is 3 parties
+    else if (activity.thirdPrice > 0) {
       return 3;
     }
 
-    return 1;
+    return 1; // Default fallback
   }
 
   // Existing methods
@@ -1298,14 +1306,34 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
   // Helper method to set the appropriate number of parties based on activity type
   void _setPartiesForActivity(Activity activity) {
-    // Reset to default value first
-    _numberOfParties = 1;
-
-    // For activities with only thirdPrice (like birthday packages)
-    if (activity.firstPrice <= 0 &&
+    // First check the available price tiers and determine the minimum parties
+    if (activity.firstPrice > 0) {
+      // If firstPrice is available, set to 1 party
+      _numberOfParties = 1;
+    } else if (activity.firstPrice <= 0 && activity.secondPrice > 0) {
+      // If only secondPrice is available (no firstPrice), set to 2 parties
+      _numberOfParties = 2;
+    } else if (activity.firstPrice <= 0 &&
         activity.secondPrice <= 0 &&
         activity.thirdPrice > 0) {
-      _numberOfParties = 3; // These activities require minimum 3 parties
+      // If only thirdPrice is available (no firstPrice, no secondPrice), set to 3 parties
+      _numberOfParties = 3;
+    } else {
+      // Fallback case if no pricing is defined (shouldn't happen, but just in case)
+      _numberOfParties = 1;
+    }
+
+    // Special handling for Social Deal activities
+    if (activity.type.toLowerCase() == 'social deal') {
+      // For Social Deal activities, set deposit equal to total
+      // We'll update the deposit field after the total is calculated
+      Future.delayed(Duration.zero, () {
+        // Use a microtask to ensure the total is calculated first
+        setState(() {
+          _deposit = _total;
+          _depositController.text = _total.toStringAsFixed(2);
+        });
+      });
     }
   }
 

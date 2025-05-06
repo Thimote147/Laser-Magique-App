@@ -23,7 +23,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
   String _totalHours = '00:00';
   bool _isAdmin = false; // To track if user has admin role
   bool _showAllUsers = false; // Toggle between personal and all users views
-  Map<String, bool> _expandedUsers = {}; // Track expanded state for each user
+  final Map<String, bool> _expandedUsers = {}; // Track expanded state for each user
 
   @override
   void initState() {
@@ -559,8 +559,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                       (context, index) {
                                         if (!_showAllUsers || !_isAdmin) {
                                           // Personal view - show individual entries
-                                          if (index >= _workHours.length)
+                                          if (index >= _workHours.length) {
                                             return null;
+                                          }
 
                                           final workHour = _workHours[index];
                                           return _buildWorkHourItem(
@@ -579,8 +580,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                           List<String> userNames =
                                               groupedHours.keys.toList();
 
-                                          if (index >= userNames.length)
+                                          if (index >= userNames.length) {
                                             return null;
+                                          }
 
                                           String userName = userNames[index];
                                           List<WorkHour> userHours =

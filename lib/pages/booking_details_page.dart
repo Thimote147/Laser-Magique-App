@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import '../models/booking_details.dart';
+import '../models/food.dart'; // Add import for FoodItem class
 import '../main.dart'; // Pour accéder à l'instance Supabase
 import 'edit_booking_page.dart'; // Import the new edit page
 
@@ -16,7 +17,7 @@ class BookingDetailsPage extends StatefulWidget {
 
 class BookingDetailsPageState extends State<BookingDetailsPage> {
   bool _isLoading = true;
-  final bool _dataChanged = false;
+  bool _dataChanged = false; // Changed from final to mutable
   BookingDetails? _bookingDetails;
 
   // Controllers for editing text fields
@@ -51,25 +52,98 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
+      // Fetch booking details
       final response = await supabase.rpc(
         'get_booking_details',
         params: {'p_activity_booking_id': widget.bookingId},
       );
 
       if (response != null && response.isNotEmpty) {
+        final bookingDetails = BookingDetails.fromJson(response[0]);
+
+        // Fetch consumptions using the get_conso function
+        final consumptionsResponse = await supabase.rpc(
+          'get_conso',
+          params: {'actual_booking_id': bookingDetails.booking.bookingId},
+        );
+
+        // Convert consumption items and add them to the booking details
+        if (consumptionsResponse != null) {
+          final consumptionsList =
+              (consumptionsResponse as List)
+                  .map(
+                    (item) => FoodItem(
+                      id: item['food_id'],
+                      name: item['name'],
+                      price:
+                          _parseDouble(item['price']) /
+                          _parseInt(item['quantity']), // Get unit price
+                      quantity: _parseInt(item['quantity']),
+                    ),
+                  )
+                  .toList();
+
+          // Add consumptions to booking details
+          bookingDetails.consumptions.clear();
+          bookingDetails.consumptions.addAll(consumptionsList);
+
+          // Store the original activity price separately before adding consumptions
+          double originalActivityPrice = bookingDetails.booking.total;
+
+          // Store this original price in the bookingDetails object for future reference
+          bookingDetails.activityPrice = originalActivityPrice;
+
+          // Calculate the total amount including consumptions
+          double consumptionsTotal = bookingDetails.consumptionsTotal;
+
+          // Update the booking with combined total
+          final updatedBooking = BookingInfo(
+            bookingId: bookingDetails.booking.bookingId,
+            firstname: bookingDetails.booking.firstname,
+            lastname: bookingDetails.booking.lastname,
+            date: bookingDetails.booking.date,
+            nbrPers: bookingDetails.booking.nbrPers,
+            nbrParties: bookingDetails.booking.nbrParties,
+            email: bookingDetails.booking.email,
+            phoneNumber: bookingDetails.booking.phoneNumber,
+            notes: bookingDetails.booking.notes,
+            total:
+                originalActivityPrice +
+                consumptionsTotal, // Update total to include consumptions
+            amount:
+                (originalActivityPrice + consumptionsTotal) -
+                (bookingDetails.booking.deposit +
+                    (bookingDetails.booking.cardPayment ?? 0) +
+                    (bookingDetails.booking.cashPayment ??
+                        0)), // Recalculate amount
+            deposit: bookingDetails.booking.deposit,
+            isCancelled: bookingDetails.booking.isCancelled,
+            cardPayment: bookingDetails.booking.cardPayment,
+            cashPayment: bookingDetails.booking.cashPayment,
+          );
+
+          // Update the booking details with the new booking info
+          bookingDetails.booking = updatedBooking;
+        }
+
         setState(() {
-          _bookingDetails = BookingDetails.fromJson(response[0]);
+          _bookingDetails = bookingDetails;
           _isLoading = false;
         });
       } else {
         setState(() {
+          _bookingDetails = null;
           _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
+        _bookingDetails = null;
         _isLoading = false;
       });
+      if (mounted) {
+        _showCupertinoToast('Erreur: $e', isError: true);
+      }
     }
   }
 
@@ -367,6 +441,68 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                   title: 'Activité',
                   icon: CupertinoIcons.game_controller_solid,
                   child: _buildActivityInfoSection(),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Consumptions section - Add new section here
+                _buildCompactSection(
+                  title: 'Consommations',
+                  icon: CupertinoIcons.cart_fill,
+                  trailing: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: _showAddConsumptionDialog,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            CupertinoTheme.of(context).primaryColor,
+                            CupertinoTheme.of(context).primaryColor.withBlue(
+                              (CupertinoTheme.of(context).primaryColor.blue +
+                                      40)
+                                  .clamp(0, 255),
+                            ),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: CupertinoTheme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            CupertinoIcons.plus,
+                            color: CupertinoColors.white,
+                            size: 16,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Ajouter',
+                            style: TextStyle(
+                              color: CupertinoColors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  child: _buildConsumptionSection(),
                 ),
 
                 const SizedBox(height: 16),
@@ -787,10 +923,40 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     final cardPayment = _bookingDetails!.booking.cardPayment;
     final cashPayment = _bookingDetails!.booking.cashPayment;
 
+    // Calculate consumption total
+    final consumptionsTotal = _bookingDetails!.consumptionsTotal;
+
+    // Calculate activity price (total minus consumptions)
+    final activityPrice = total - consumptionsTotal;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Prix et acompte (switched positions)
+        // Activity price and consumptions
+        Row(
+          children: [
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.game_controller,
+                'Prix activité',
+                currencyFormat.format(activityPrice),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildInfoItem(
+                CupertinoIcons.cart_fill,
+                'Consommations',
+                currencyFormat.format(consumptionsTotal),
+                isHighlighted: consumptionsTotal > 0,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Deposit and total
         Row(
           children: [
             Expanded(
@@ -815,7 +981,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
         const SizedBox(height: 12),
 
-        // Restant à payer (moved from above)
+        // Restant à payer
         _buildInfoItem(
           CupertinoIcons.money_euro,
           'Restant à payer',
@@ -1289,13 +1455,13 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       context: context,
       builder:
           (BuildContext context) => CupertinoAlertDialog(
-            title: const Text('Remettre la réservation'),
+            title: const Text('Confirmer la réactivation'),
             content: const Text(
-              'Voulez-vous réactiver cette réservation annulée?',
+              'Voulez-vous vraiment réactiver cette réservation?',
             ),
             actions: <CupertinoDialogAction>[
               CupertinoDialogAction(
-                child: const Text('Annuler'),
+                child: const Text('Retour'),
                 onPressed: () {
                   Navigator.pop(context);
                 },
@@ -1306,7 +1472,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                   Navigator.pop(context);
                   _reinstateBooking();
                 },
-                child: const Text('Réactiver'),
+                child: const Text('Confirmer'),
               ),
             ],
           ),
@@ -1339,5 +1505,906 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       if (!context.mounted) return;
       _showCupertinoToast('Erreur lors de la réactivation: $e', isError: true);
     }
+  }
+
+  // New method to build the consumption section
+  Widget _buildConsumptionSection() {
+    final currencyFormat = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: '€',
+      decimalDigits: 2,
+    );
+
+    if (_bookingDetails!.consumptions.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        alignment: Alignment.center,
+        child: Text(
+          'Aucune consommation',
+          style: TextStyle(color: themeService.getSecondaryTextColor()),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Column headers
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text(
+                  'Produit',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: themeService.getSecondaryTextColor(),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Qté',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: themeService.getSecondaryTextColor(),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Total',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: themeService.getSecondaryTextColor(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 40), // Space for delete button
+            ],
+          ),
+        ),
+
+        const Divider(height: 1),
+
+        // List of consumption items
+        ...List.generate(_bookingDetails!.consumptions.length, (index) {
+          final item = _bookingDetails!.consumptions[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12.0),
+            child: Row(
+              children: [
+                // Item name and price
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${currencyFormat.format(item.price)} / unité',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: themeService.getSecondaryTextColor(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Quantity with +/- controls
+                Expanded(
+                  flex: 2,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Decrease quantity button
+                      GestureDetector(
+                        onTap: () {
+                          _updateConsumptionQuantity(
+                            item.id,
+                            item.quantity - 1,
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(5), // Reduced padding
+                          decoration: BoxDecoration(
+                            color: themeService.getSeparatorColor().withOpacity(
+                              0.2,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.minus,
+                            size: 14,
+                            color: CupertinoColors.systemGrey,
+                          ),
+                        ),
+                      ),
+
+                      // Quantity display - Decreased horizontal padding
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          '${item.quantity}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+
+                      // Increase quantity button
+                      GestureDetector(
+                        onTap: () {
+                          _updateConsumptionQuantity(
+                            item.id,
+                            item.quantity + 1,
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(5), // Reduced padding
+                          decoration: BoxDecoration(
+                            color: CupertinoTheme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            CupertinoIcons.plus,
+                            size: 14,
+                            color: CupertinoTheme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Total price
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    currencyFormat.format(item.price * item.quantity),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+
+                // Delete button
+                CupertinoButton(
+                  padding: const EdgeInsets.only(left: 8),
+                  minSize: 24,
+                  child: const Icon(
+                    CupertinoIcons.delete,
+                    size: 18,
+                    color: CupertinoColors.systemRed,
+                  ),
+                  onPressed: () => _removeConsumption(item.id),
+                ),
+              ],
+            ),
+          );
+        }),
+
+        // Total
+        const Divider(),
+        Padding(
+          padding: const EdgeInsets.only(top: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              Text(
+                currencyFormat.format(_bookingDetails!.consumptionsTotal),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: CupertinoTheme.of(context).primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Method to update the quantity of a consumption item
+  void _updateConsumptionQuantity(String itemId, int newQuantity) async {
+    if (newQuantity <= 0) {
+      // If the new quantity is zero or negative, remove the item completely
+      _removeConsumption(itemId);
+      return;
+    }
+
+    final FoodItem? item = _bookingDetails!.getConsumptionById(itemId);
+    if (item == null) return;
+
+    // Check if we're increasing or decreasing quantity
+    bool isIncreasing = newQuantity > item.quantity;
+
+    // Optimistically update the UI immediately
+    setState(() {
+      final index = _bookingDetails!.consumptions.indexWhere(
+        (i) => i.id == itemId,
+      );
+      if (index != -1) {
+        // Create a new FoodItem with updated quantity
+        final updatedItem = _bookingDetails!.consumptions[index].copyWith(
+          quantity: newQuantity,
+        );
+        // Replace the item in the list
+        _bookingDetails!.consumptions[index] = updatedItem;
+
+        // Update the booking total immediately
+        _updateBookingTotalLocally();
+      }
+    });
+
+    // Then perform the server update in the background
+    try {
+      if (isIncreasing) {
+        // Increasing quantity - use the insert_conso function
+        await supabase.rpc(
+          'insert_conso',
+          params: {
+            'actual_booking_id': _bookingDetails!.booking.bookingId,
+            'actual_food_id': itemId,
+          },
+        );
+      } else {
+        // Decreasing quantity - use the delete_conso function
+        await supabase.rpc(
+          'delete_conso',
+          params: {
+            'actual_booking_id': _bookingDetails!.booking.bookingId,
+            'actual_food_id': itemId,
+          },
+        );
+      }
+
+      // Update the booking total in the database
+      await _updateBookingTotalInDatabase();
+
+      // Mark data as changed
+      _dataChanged = true;
+
+      // Don't refresh the screen - we already updated the UI optimistically
+      // Remove the call to _fetchBookingDetails()
+
+      // Show a toast confirmation if needed
+      if (mounted) {
+        _showCupertinoToast('Quantité mise à jour avec succès');
+      }
+    } catch (e) {
+      // If there was an error, show error message and refresh to get correct state
+      if (mounted) {
+        _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
+        // Only refresh in case of an error to ensure data consistency
+        await _fetchBookingDetails();
+      }
+    }
+  }
+
+  // Method to only refresh consumption data without rebuilding the entire UI
+  Future<void> _refreshConsumptionsOnly() async {
+    try {
+      // Fetch only consumptions using the get_conso function
+      final consumptionsResponse = await supabase.rpc(
+        'get_conso',
+        params: {'actual_booking_id': _bookingDetails!.booking.bookingId},
+      );
+
+      // Convert consumption items and update the existing booking details
+      if (consumptionsResponse != null && mounted) {
+        final consumptionsList =
+            (consumptionsResponse as List)
+                .map(
+                  (item) => FoodItem(
+                    id: item['food_id'],
+                    name: item['name'],
+                    price:
+                        _parseDouble(item['price']) /
+                        _parseInt(item['quantity']), // Get unit price
+                    quantity: _parseInt(item['quantity']),
+                  ),
+                )
+                .toList();
+
+        // Update state with new consumption data
+        setState(() {
+          _bookingDetails!.consumptions.clear();
+          _bookingDetails!.consumptions.addAll(consumptionsList);
+        });
+      }
+    } catch (e) {
+      // Silently handle error as this is a background refresh
+      print('Error refreshing consumptions: $e');
+    }
+  }
+
+  // Method to remove a consumption item
+  void _removeConsumption(String itemId) {
+    showCupertinoDialog(
+      context: context,
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: const Text('Supprimer cet article'),
+            content: const Text(
+              'Voulez-vous vraiment supprimer cet article des consommations ?',
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Annuler'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () async {
+                  Navigator.pop(context);
+
+                  setState(() {
+                    _isLoading = true;
+                  });
+
+                  try {
+                    // Get the item to be removed
+                    final item = _bookingDetails!.getConsumptionById(itemId);
+                    if (item == null) return;
+
+                    // Optimistically update UI first for responsive experience
+                    setState(() {
+                      _bookingDetails!.consumptions.removeWhere(
+                        (i) => i.id == itemId,
+                      );
+
+                      // Update the booking total immediately
+                      _updateBookingTotalLocally();
+
+                      _isLoading = false;
+                    });
+
+                    // Then perform the server update in the background
+                    for (int i = 0; i < item.quantity; i++) {
+                      await supabase.rpc(
+                        'delete_conso',
+                        params: {
+                          'actual_booking_id':
+                              _bookingDetails!.booking.bookingId,
+                          'actual_food_id': itemId,
+                        },
+                      );
+                    }
+
+                    // Update the booking total in the database
+                    await _updateBookingTotalInDatabase();
+
+                    _dataChanged = true;
+
+                    // Don't refresh the screen - we already updated the UI
+                    // Remove the call to _fetchBookingDetails()
+
+                    if (mounted) {
+                      _showCupertinoToast('Article supprimé avec succès');
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      _showCupertinoToast(
+                        'Erreur lors de la suppression: $e',
+                        isError: true,
+                      );
+
+                      // In case of error, we still need to refresh to get the correct state
+                      await _fetchBookingDetails();
+                    }
+                  }
+                },
+                child: const Text('Supprimer'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // Method to show the dialog to add new consumption items
+  void _showAddConsumptionDialog() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => _buildAddConsumptionModal(),
+    );
+  }
+
+  // Build the modal to add new consumption items
+  Widget _buildAddConsumptionModal() {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.only(top: 12),
+          decoration: BoxDecoration(
+            color: themeService.getBackgroundColor(),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    const Text(
+                      'Ajouter une consommation',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Divider
+              Container(
+                height: 1,
+                color: themeService.getSeparatorColor(),
+                margin: const EdgeInsets.symmetric(vertical: 8),
+              ),
+
+              // Search field
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: CupertinoSearchTextField(
+                  placeholder: 'Rechercher un produit',
+                  onChanged: (value) {
+                    // Implement search functionality
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // List of food items
+              Expanded(child: _buildFoodItemsList(setState)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Method to build the list of food items
+  Widget _buildFoodItemsList(StateSetter modalSetState) {
+    return FutureBuilder<List<FoodItem>>(
+      future: _fetchFoodItems(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CupertinoActivityIndicator());
+        } else if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Erreur lors du chargement: ${snapshot.error}',
+              style: const TextStyle(color: CupertinoColors.systemRed),
+            ),
+          );
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('Aucun produit disponible'));
+        }
+
+        final foodItems = snapshot.data!;
+        final currencyFormat = NumberFormat.currency(
+          locale: 'fr_FR',
+          symbol: '€',
+          decimalDigits: 2,
+        );
+
+        return ListView.separated(
+          itemCount: foodItems.length,
+          separatorBuilder:
+              (context, index) =>
+                  Divider(height: 1, color: themeService.getSeparatorColor()),
+          itemBuilder: (context, index) {
+            final item = foodItems[index];
+            // Track if request is in progress to prevent multiple calls
+            final isLoading = ValueNotifier<bool>(false);
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  // Item name and price
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          currencyFormat.format(item.price),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: themeService.getSecondaryTextColor(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Quantity controls
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Decrease quantity button - not implemented in this modal
+                      // (handled in main view after adding)
+                      const SizedBox(width: 8),
+
+                      // Add button
+                      ValueListenableBuilder<bool>(
+                        valueListenable: isLoading,
+                        builder: (context, loading, _) {
+                          return CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: CupertinoTheme.of(context).primaryColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.plus,
+                                    size: 16,
+                                    color: CupertinoColors.white,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Ajouter',
+                                    style: TextStyle(
+                                      color: CupertinoColors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            onPressed: () async {
+                              isLoading.value = true;
+                              await _addConsumption(item.copyWith(quantity: 1));
+                              isLoading.value = false;
+                              // Remove the Navigator.pop call to keep the modal open
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Method to fetch food items from the Supabase database
+  Future<List<FoodItem>> _fetchFoodItems() async {
+    try {
+      final response = await supabase.from('food').select().order('name');
+
+      return (response as List)
+          .map(
+            (item) => FoodItem(
+              id: item['food_id'],
+              name: item['name'],
+              price:
+                  (item['price'] is int)
+                      ? (item['price'] as int).toDouble()
+                      : item['price'],
+              quantity: 0, // Initialize with zero quantity for UI
+            ),
+          )
+          .toList();
+    } catch (e) {
+      throw 'Erreur lors du chargement des produits: $e';
+    }
+  }
+
+  // Method to add a consumption to the booking
+  Future<void> _addConsumption(FoodItem item) async {
+    // Optimistically update UI first for a responsive experience
+    setState(() {
+      // Check if item already exists in consumptions
+      final existingIndex = _bookingDetails!.consumptions.indexWhere(
+        (element) => element.id == item.id,
+      );
+
+      if (existingIndex != -1) {
+        // Update existing item
+        final updatedItem = _bookingDetails!.consumptions[existingIndex]
+            .copyWith(
+              quantity:
+                  _bookingDetails!.consumptions[existingIndex].quantity + 1,
+            );
+        _bookingDetails!.consumptions[existingIndex] = updatedItem;
+      } else {
+        // Add new item with quantity 1
+        _bookingDetails!.consumptions.add(item.copyWith(quantity: 1));
+      }
+
+      // Mettre à jour immédiatement les totaux de la réservation localement
+      _updateBookingTotalLocally();
+    });
+
+    try {
+      // Make the API call in the background
+      await supabase.rpc(
+        'insert_conso',
+        params: {
+          'actual_booking_id': _bookingDetails!.booking.bookingId,
+          'actual_food_id': item.id,
+        },
+      );
+
+      _dataChanged = true;
+
+      // Update the booking total in the database
+      await _updateBookingTotalInDatabase();
+
+      // Refresh consumption data in the background without blocking UI
+      _refreshConsumptionsOnly();
+
+      // Show success toast
+      if (mounted) {
+        _showCupertinoToast('Consommation ajoutée');
+      }
+    } catch (e) {
+      // In case of error, refresh to restore correct state
+      _refreshConsumptionsOnly();
+      if (mounted) {
+        _showCupertinoToast('Erreur lors de l\'ajout: $e', isError: true);
+      }
+    }
+  }
+
+  // Method to update consumptions in the database
+  Future<void> _updateConsumptionsInDatabase() async {
+    try {
+      // Convert the consumptions list to JSON
+      final consumptionsJson =
+          _bookingDetails!.consumptions.map((item) => item.toJson()).toList();
+
+      // Update in database using Supabase
+      await supabase.from('booking_consumptions').upsert([
+        {
+          'booking_id': _bookingDetails!.booking.bookingId,
+          'consumptions': consumptionsJson,
+        },
+      ]);
+
+      // Show success message
+      if (mounted) {
+        _showCupertinoToast('Consommations mises à jour');
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
+      }
+    }
+  }
+
+  // Method to update the booking total with consumption costs
+  Future<void> _updateBookingTotal() async {
+    try {
+      // Get the current booking total (without adding consumptions)
+      double currentTotal = _bookingDetails!.booking.total;
+
+      // Calculate amount to pay (without including consumptions)
+      double newAmount =
+          currentTotal -
+          (_bookingDetails!.booking.deposit +
+              (_bookingDetails!.booking.cardPayment ?? 0) +
+              (_bookingDetails!.booking.cashPayment ?? 0));
+
+      // Update only the amount in the database (keeping the same total)
+      await supabase
+          .from('bookings')
+          .update({'amount': newAmount})
+          .eq('booking_id', _bookingDetails!.booking.bookingId);
+
+      // Update the local booking object
+      setState(() {
+        // Create a new booking info object with updated amount
+        final updatedBooking = BookingInfo(
+          bookingId: _bookingDetails!.booking.bookingId,
+          firstname: _bookingDetails!.booking.firstname,
+          lastname: _bookingDetails!.booking.lastname,
+          date: _bookingDetails!.booking.date,
+          nbrPers: _bookingDetails!.booking.nbrPers,
+          nbrParties: _bookingDetails!.booking.nbrParties,
+          email: _bookingDetails!.booking.email,
+          phoneNumber: _bookingDetails!.booking.phoneNumber,
+          notes: _bookingDetails!.booking.notes,
+          total: currentTotal, // Keep the original total
+          amount: newAmount, // Update only the amount
+          deposit: _bookingDetails!.booking.deposit,
+          isCancelled: _bookingDetails!.booking.isCancelled,
+          cardPayment: _bookingDetails!.booking.cardPayment,
+          cashPayment: _bookingDetails!.booking.cashPayment,
+        );
+
+        // Replace the booking info in the booking details
+        _bookingDetails = BookingDetails(
+          activityBookingId: _bookingDetails!.activityBookingId,
+          booking: updatedBooking,
+          activity: _bookingDetails!.activity,
+          pricing: _bookingDetails!.pricing,
+          createdAt: _bookingDetails!.createdAt,
+          updatedAt: _bookingDetails!.updatedAt,
+          consumptions: _bookingDetails!.consumptions,
+        );
+      });
+    } catch (e) {
+      print('Error updating booking total: $e');
+      // Silently handle error as this is a background update
+      // We don't want to disturb the user if this fails
+    }
+  }
+
+  // Update booking total locally without waiting for database
+  void _updateBookingTotalLocally() {
+    // Utiliser la propriété activityPrice stockée pour calculer correctement
+    double activityPrice = _bookingDetails!.activityPrice;
+
+    // S'assurer que activityPrice est initialisé
+    if (activityPrice <= 0) {
+      // Si pour une raison quelconque activityPrice n'est pas défini, utiliser la valeur de base
+      activityPrice = _bookingDetails!.booking.total;
+    }
+
+    // Calculer le total des consommations
+    double consumptionsTotal = _bookingDetails!.consumptionsTotal;
+
+    // Calculer le nouveau total en additionnant le prix de l'activité et les consommations
+    double newTotal = activityPrice + consumptionsTotal;
+
+    // Calculer le nouveau montant à payer (solde restant)
+    double newAmount =
+        newTotal -
+        (_bookingDetails!.booking.deposit +
+            (_bookingDetails!.booking.cardPayment ?? 0) +
+            (_bookingDetails!.booking.cashPayment ?? 0));
+
+    // Vérifier que le montant n'est pas négatif
+    if (newAmount < 0) newAmount = 0;
+
+    // Mettre à jour les totaux dans l'UI immédiatement
+    setState(() {
+      // Créer un nouveau object booking avec les valeurs mises à jour
+      final updatedBooking = BookingInfo(
+        bookingId: _bookingDetails!.booking.bookingId,
+        firstname: _bookingDetails!.booking.firstname,
+        lastname: _bookingDetails!.booking.lastname,
+        date: _bookingDetails!.booking.date,
+        nbrPers: _bookingDetails!.booking.nbrPers,
+        nbrParties: _bookingDetails!.booking.nbrParties,
+        email: _bookingDetails!.booking.email,
+        phoneNumber: _bookingDetails!.booking.phoneNumber,
+        notes: _bookingDetails!.booking.notes,
+        total: newTotal,
+        amount: newAmount,
+        deposit: _bookingDetails!.booking.deposit,
+        isCancelled: _bookingDetails!.booking.isCancelled,
+        cardPayment: _bookingDetails!.booking.cardPayment,
+        cashPayment: _bookingDetails!.booking.cashPayment,
+      );
+
+      // Mettre à jour l'objet booking details
+      _bookingDetails = BookingDetails(
+        activityBookingId: _bookingDetails!.activityBookingId,
+        booking: updatedBooking,
+        activity: _bookingDetails!.activity,
+        pricing: _bookingDetails!.pricing,
+        createdAt: _bookingDetails!.createdAt,
+        updatedAt: _bookingDetails!.updatedAt,
+        consumptions: _bookingDetails!.consumptions,
+        activityPrice:
+            activityPrice, // Conserver le prix original de l'activité
+      );
+    });
+  }
+
+  // Update booking total in the database only
+  Future<void> _updateBookingTotalInDatabase() async {
+    try {
+      // Calculate new total: original activity price + consumptions total
+      double originalTotal =
+          _bookingDetails!.booking.total - _bookingDetails!.consumptionsTotal;
+      double newTotal = originalTotal + _bookingDetails!.consumptionsTotal;
+
+      // Calculate new amount to pay
+      double newAmount =
+          newTotal -
+          (_bookingDetails!.booking.deposit +
+              (_bookingDetails!.booking.cardPayment ?? 0) +
+              (_bookingDetails!.booking.cashPayment ?? 0));
+
+      // Update the booking total and amount in the database
+      await supabase
+          .from('bookings')
+          .update({'total': newTotal, 'amount': newAmount})
+          .eq('booking_id', _bookingDetails!.booking.bookingId);
+    } catch (e) {
+      print('Error updating booking total in database: $e');
+    }
+  }
+
+  // Helper methods for parsing values
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
   }
 }

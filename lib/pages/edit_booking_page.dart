@@ -1045,6 +1045,14 @@ class EditBookingPageState extends State<EditBookingPage> {
           widget.bookingDetails.pricing.thirdPrice > 0) {
         return 3; // If only thirdPrice is available, minimum is 3 parties
       }
+
+      // Check the pricing in the original booking details
+      if (widget.bookingDetails.pricing.firstPrice > 0) {
+        return 1; // If firstPrice is available, minimum is 1 party
+      } else if (widget.bookingDetails.pricing.secondPrice > 0) {
+        return 2; // If secondPrice is available but not firstPrice, minimum is 2 parties
+      }
+
       return 1; // Default minimum
     }
 
@@ -1055,8 +1063,16 @@ class EditBookingPageState extends State<EditBookingPage> {
         double secondPrice = activity['second_price']?.toDouble() ?? 0.0;
         double thirdPrice = activity['third_price']?.toDouble() ?? 0.0;
 
+        // If firstPrice is available, minimum is 1 party
+        if (firstPrice > 0) {
+          return 1;
+        }
+        // If secondPrice is available but not firstPrice, minimum is 2 parties
+        else if (secondPrice > 0) {
+          return 2;
+        }
         // For activities with only thirdPrice (like birthday packages)
-        if (firstPrice <= 0 && secondPrice <= 0 && thirdPrice > 0) {
+        else if (thirdPrice > 0) {
           return 3; // These activities require minimum 3 parties
         }
         break;
@@ -1136,8 +1152,34 @@ class EditBookingPageState extends State<EditBookingPage> {
                               _numberOfPeople = maxPlayers;
                             }
 
-                            // Adjust number of parties if necessary
-                            if (_numberOfGames < minParties) {
+                            // Get pricing information for the activity
+                            double firstPrice = 0.0;
+                            double secondPrice = 0.0;
+                            double thirdPrice = 0.0;
+
+                            for (var activity in _availableActivities) {
+                              if (activity['activity_id'] ==
+                                  _selectedActivityId) {
+                                firstPrice =
+                                    activity['first_price']?.toDouble() ?? 0.0;
+                                secondPrice =
+                                    activity['second_price']?.toDouble() ?? 0.0;
+                                thirdPrice =
+                                    activity['third_price']?.toDouble() ?? 0.0;
+                                break;
+                              }
+                            }
+
+                            // Set appropriate number of games based on available prices
+                            if (firstPrice <= 0 &&
+                                secondPrice <= 0 &&
+                                thirdPrice > 0) {
+                              // Birthday packages: minimum 3 parties
+                              _numberOfGames = 3;
+                            } else if (firstPrice <= 0 && secondPrice > 0) {
+                              // If only secondPrice and thirdPrice are available
+                              _numberOfGames = 2;
+                            } else if (minParties > _numberOfGames) {
                               _numberOfGames = minParties;
                             }
 

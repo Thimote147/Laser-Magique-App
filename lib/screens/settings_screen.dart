@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import '../main.dart'; // Pour accéder à supabase et au themeService
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'legal/terms_conditions_screen.dart';
 import 'legal/privacy_policy_screen.dart';
 

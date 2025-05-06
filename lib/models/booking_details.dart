@@ -1,14 +1,19 @@
 import 'package:intl/intl.dart';
+import 'food.dart'; // Import the food model
 
 /// Modèle représentant les détails complets d'une réservation
 /// basé sur la fonction SQL get_booking_details
 class BookingDetails {
   final String activityBookingId;
-  final BookingInfo booking;
+  BookingInfo booking; // Removed final to allow updates
   final ActivityInfo activity;
   final PricingInfo pricing;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<FoodItem> consumptions; // Add consumptions field
+
+  // Nouvelle propriété pour stocker le prix de l'activité séparément des consommations
+  double activityPrice = 0;
 
   BookingDetails({
     required this.activityBookingId,
@@ -17,9 +22,22 @@ class BookingDetails {
     required this.pricing,
     required this.createdAt,
     required this.updatedAt,
+    this.consumptions = const [], // Default to empty list
+    this.activityPrice = 0, // Default to zero
   });
 
   factory BookingDetails.fromJson(Map<String, dynamic> json) {
+    List<FoodItem> consumptionsList = [];
+
+    // Parse consumptions if they exist
+    if (json['consumptions'] != null) {
+      if (json['consumptions'] is List) {
+        consumptionsList =
+            (json['consumptions'] as List)
+                .map((item) => FoodItem.fromJson(item))
+                .toList();
+      }
+    }
 
     return BookingDetails(
       activityBookingId: json['activity_booking_id']?.toString() ?? '',
@@ -34,7 +52,64 @@ class BookingDetails {
           json['updated_at'] != null
               ? DateTime.parse(json['updated_at'].toString())
               : DateTime.now(),
+      consumptions: consumptionsList,
     );
+  }
+
+  // Add method to calculate total consumption amount
+  double get consumptionsTotal {
+    double total = 0;
+    for (var item in consumptions) {
+      total += item.price * item.quantity;
+    }
+    return total;
+  }
+
+  // Add method to add a new food item to consumptions
+  void addConsumption(FoodItem item) {
+    // Check if item already exists
+    final existingItemIndex = consumptions.indexWhere(
+      (element) => element.id == item.id,
+    );
+    if (existingItemIndex != -1) {
+      // Update quantity if item exists
+      final updatedItem = consumptions[existingItemIndex].copyWith(
+        quantity: consumptions[existingItemIndex].quantity + item.quantity,
+      );
+      consumptions[existingItemIndex] = updatedItem;
+    } else {
+      // Add new item
+      consumptions.add(item);
+    }
+  }
+
+  // Add method to update a food item in consumptions
+  void updateConsumption(String itemId, int quantity) {
+    final index = consumptions.indexWhere((element) => element.id == itemId);
+    if (index != -1) {
+      if (quantity <= 0) {
+        // Remove item if quantity is 0 or less
+        consumptions.removeAt(index);
+      } else {
+        // Update quantity
+        final updatedItem = consumptions[index].copyWith(quantity: quantity);
+        consumptions[index] = updatedItem;
+      }
+    }
+  }
+
+  // Add method to remove a food item from consumptions
+  void removeConsumption(String itemId) {
+    consumptions.removeWhere((item) => item.id == itemId);
+  }
+
+  // Get a consumption item by ID
+  FoodItem? getConsumptionById(String id) {
+    try {
+      return consumptions.firstWhere((item) => item.id == id);
+    } catch (e) {
+      return null;
+    }
   }
 
   /// Returns a formatted string representation of the date and time
@@ -95,6 +170,10 @@ Carte: ${booking.cardPayment != null ? currencyFormat.format(booking.cardPayment
 Espèces: ${booking.cashPayment != null ? currencyFormat.format(booking.cashPayment!) : 'Non'}
 Annulé: ${booking.isCancelled ? 'Oui' : 'Non'}
 
+CONSOMMATIONS
+------------
+Total des consommations: ${currencyFormat.format(consumptionsTotal)}
+
 CRÉATION
 -------
 Créé le: ${dateFormat.format(createdAt)}
@@ -127,6 +206,7 @@ Mis à jour: ${dateFormat.format(updatedAt)}
       'Prix': currencyFormat.format(booking.amount),
       'Acompte': currencyFormat.format(booking.deposit),
       'Total': currencyFormat.format(booking.total),
+      'Total des consommations': currencyFormat.format(consumptionsTotal),
       'Paiement Carte':
           booking.cardPayment != null
               ? currencyFormat.format(booking.cardPayment!)
@@ -211,7 +291,6 @@ class BookingInfo {
   }
 
   factory BookingInfo.fromJson(Map<String, dynamic> json) {
-
     // No need to decode json as it's already a Map<String, dynamic>
     Map<String, dynamic> dataMap = json;
 
@@ -302,7 +381,6 @@ class ActivityInfo {
   ActivityInfo({required this.activityId, required this.name});
 
   factory ActivityInfo.fromJson(Map<String, dynamic> json) {
-
     // No need to decode json as it's already a Map<String, dynamic>
     Map<String, dynamic> dataMap = json;
 
@@ -336,7 +414,6 @@ class PricingInfo {
   });
 
   factory PricingInfo.fromJson(Map<String, dynamic> json) {
-
     // No need to decode json as it's already a Map<String, dynamic>
     Map<String, dynamic> dataMap = json;
 

@@ -772,7 +772,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                 ),
                               );
                             }).toList();
-                          }).toList(),
+                          }),
 
                           // Current time indicator if selected day is today
                           if (isSameDay(_selectedDay, DateTime.now()))
@@ -887,8 +887,9 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
     final double top = currentMinutesSinceDayStart * (slotHeight / 60);
 
     // Only show if time is in the visible range
-    if (currentMinutesSinceDayStart < 0 || now.hour > 22)
+    if (currentMinutesSinceDayStart < 0 || now.hour > 22) {
       return const SizedBox.shrink();
+    }
 
     return Positioned(
       top: top,
@@ -2152,6 +2153,6 @@ class BookingModel {
 // Extension method to capitalize first letter of a string
 extension StringExtension on String {
   String capitalize() {
-    return "${this[0].toUpperCase()}${this.substring(1)}";
+    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
