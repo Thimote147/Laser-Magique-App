@@ -329,37 +329,10 @@ class EditBookingPageState extends State<EditBookingPage> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
-    // Check if booking date is in the past
-    final DateTime now = DateTime.now();
-    final bool isDateInPast = _selectedDate.isBefore(now);
-
-    // If date is in the past, show a message and don't allow modification
-    if (isDateInPast) {
-      _showCupertinoToast(
-        'Impossible de modifier une date passée',
-        isError: true,
-      );
-      return;
-    }
-
     final DateTime? picked = await showCupertinoModalPopup<DateTime>(
       context: context,
       builder: (BuildContext context) {
-        // Ensure the date is not before current
-        DateTime currentDate = DateTime.now();
         DateTime selectedDate = _selectedDate;
-
-        // Make sure initial date is not before minimum date
-        if (selectedDate.isBefore(currentDate)) {
-          selectedDate = DateTime(
-            currentDate.year,
-            currentDate.month,
-            currentDate.day,
-            selectedDate.hour,
-            selectedDate.minute,
-          );
-        }
-
         final bgColor =
             themeService.darkMode
                 ? CupertinoColors.systemBackground.darkColor
@@ -407,8 +380,8 @@ class EditBookingPageState extends State<EditBookingPage> {
               Expanded(
                 child: CupertinoDatePicker(
                   initialDateTime: selectedDate,
-                  minimumDate: currentDate,
-                  maximumDate: currentDate.add(const Duration(days: 365)),
+                  // No minimum date to allow selecting past dates
+                  maximumDate: DateTime.now().add(const Duration(days: 365)),
                   mode: CupertinoDatePickerMode.date,
                   onDateTimeChanged: (DateTime newDate) {
                     selectedDate = newDate;
@@ -430,25 +403,6 @@ class EditBookingPageState extends State<EditBookingPage> {
   }
 
   Future<void> _selectTime(BuildContext context) async {
-    // Check if booking is in the past
-    final DateTime now = DateTime.now();
-    final DateTime bookingDateTime = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
-    );
-
-    // If date/time is in the past, don't allow modification
-    if (bookingDateTime.isBefore(now)) {
-      _showCupertinoToast(
-        'Impossible de modifier une heure passée',
-        isError: true,
-      );
-      return;
-    }
-
     final TimeOfDay? picked = await showCupertinoModalPopup<TimeOfDay>(
       context: context,
       builder: (BuildContext context) {
@@ -462,27 +416,6 @@ class EditBookingPageState extends State<EditBookingPage> {
           _selectedTime.hour,
           adjustedMinutes,
         );
-
-        // If selected date is today, ensure time is not in the past
-        if (_selectedDate.year == now.year &&
-            _selectedDate.month == now.month &&
-            _selectedDate.day == now.day) {
-          // Round up current time to next 15 min interval
-          int currentMinutes = now.minute;
-          int roundedMinutes = ((currentMinutes + 14) ~/ 15) * 15;
-          DateTime minimumTime = DateTime(
-            now.year,
-            now.month,
-            now.day,
-            roundedMinutes == 60 ? now.hour + 1 : now.hour,
-            roundedMinutes == 60 ? 0 : roundedMinutes,
-          );
-
-          // If selected time is before minimum time, adjust it
-          if (selectedDateTime.isBefore(minimumTime)) {
-            selectedDateTime = minimumTime;
-          }
-        }
 
         final bgColor =
             themeService.darkMode
@@ -536,12 +469,7 @@ class EditBookingPageState extends State<EditBookingPage> {
               Expanded(
                 child: CupertinoDatePicker(
                   initialDateTime: selectedDateTime,
-                  minimumDate:
-                      _selectedDate.year == now.year &&
-                              _selectedDate.month == now.month &&
-                              _selectedDate.day == now.day
-                          ? now
-                          : null,
+                  // No minimum date constraint for past time selection
                   mode: CupertinoDatePickerMode.time,
                   use24hFormat: true,
                   minuteInterval: 15,

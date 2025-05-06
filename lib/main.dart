@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // Add this import for global localizations
+import 'dart:math'; // Import for max function
 import 'screens/auth/auth_wrapper.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/profile_screen.dart';
@@ -271,6 +272,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
   DateTime _focusedDay = DateTime.now();
   List<BookingModel> _bookings = [];
   bool _isLoading = false;
+  bool _isDayView = false; // New state to track the current view mode
 
   @override
   bool get wantKeepAlive => true;
@@ -354,55 +356,736 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
             fontFamily: '.SF Pro Display',
           ),
         ),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () {
-            // Add new booking
-            Navigator.push(
-              context,
-              CupertinoPageRoute(
-                builder:
-                    (context) => NewBookingScreen(initialDate: _selectedDay),
-              ),
-            ).then((value) {
-              // Refresh bookings if a new booking was added
-              if (value == true) {
-                refreshBookings();
-              }
-            });
-          },
-          child: Icon(
-            CupertinoIcons.add,
-            size: 28,
-            color: CupertinoTheme.of(context).primaryColor,
-          ),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Calendar section is not scrollable
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
+            // Toggle between calendar and day view
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () {
+                setState(() {
+                  _isDayView = !_isDayView;
+                });
+              },
+              child: Icon(
+                _isDayView
+                    ? CupertinoIcons.calendar
+                    : CupertinoIcons.calendar_today,
+                size: 24,
+                color: CupertinoTheme.of(context).primaryColor,
               ),
-              child: _buildCalendar(),
             ),
-
-            // Only bookings list is scrollable
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: 16.0,
-                  right: 16.0,
-                  bottom:
-                      60.0, // Added bottom padding to account for the tab bar height
-                ),
-                child: _buildBookingsList(textColor, secondaryTextColor),
+            const SizedBox(width: 16),
+            // Add new booking
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () {
+                // Add new booking
+                Navigator.push(
+                  context,
+                  CupertinoPageRoute(
+                    builder:
+                        (context) =>
+                            NewBookingScreen(initialDate: _selectedDay),
+                  ),
+                ).then((value) {
+                  // Refresh bookings if a new booking was added
+                  if (value == true) {
+                    refreshBookings();
+                  }
+                });
+              },
+              child: Icon(
+                CupertinoIcons.add,
+                size: 28,
+                color: CupertinoTheme.of(context).primaryColor,
               ),
             ),
           ],
+        ),
+      ),
+      child: SafeArea(
+        child:
+            _isDayView
+                ? _buildDayView(textColor, secondaryTextColor)
+                : _buildCalendarView(textColor, secondaryTextColor),
+      ),
+    );
+  }
+
+  Widget _buildCalendarView(Color textColor, Color secondaryTextColor) {
+    return Column(
+      children: [
+        // Calendar section is not scrollable
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: _buildCalendar(),
+        ),
+
+        // Only bookings list is scrollable
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              bottom:
+                  60.0, // Added bottom padding to account for the tab bar height
+            ),
+            child: _buildBookingsList(textColor, secondaryTextColor),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayView(Color textColor, Color secondaryTextColor) {
+    final bookingsForSelectedDay = _getBookingsForSelectedDay();
+    final cardColor = themeService.getCardColor();
+
+    return Column(
+      children: [
+        // Date selector
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: themeService.getSeparatorColor(),
+                  blurRadius: 10,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      setState(() {
+                        _selectedDay = _selectedDay.subtract(
+                          const Duration(days: 1),
+                        );
+                      });
+                    },
+                    child: Icon(
+                      CupertinoIcons.chevron_left,
+                      color: CupertinoTheme.of(context).primaryColor,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () async {
+                      // Show date picker
+                      final DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDay,
+                        firstDate: DateTime(2023),
+                        lastDate: DateTime(2025, 12, 31),
+                        builder: (BuildContext context, Widget? child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.light(
+                                primary:
+                                    CupertinoTheme.of(context).primaryColor,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null && picked != _selectedDay) {
+                        setState(() {
+                          _selectedDay = picked;
+                        });
+                      }
+                    },
+                    child: Column(
+                      children: [
+                        Text(
+                          DateFormat(
+                            'EEEE',
+                            'fr_FR',
+                          ).format(_selectedDay).capitalize(),
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                        Text(
+                          DateFormat(
+                            'd MMMM yyyy',
+                            'fr_FR',
+                          ).format(_selectedDay),
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: secondaryTextColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      setState(() {
+                        _selectedDay = _selectedDay.add(
+                          const Duration(days: 1),
+                        );
+                      });
+                    },
+                    child: Icon(
+                      CupertinoIcons.chevron_right,
+                      color: CupertinoTheme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Calendar day view with time slots
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(
+              top: 8.0,
+              left: 16.0,
+              right: 16.0,
+              bottom: 60.0, // Added bottom padding for the tab bar
+            ),
+            child: _buildDayCalendarView(
+              textColor,
+              secondaryTextColor,
+              bookingsForSelectedDay,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayCalendarView(
+    Color textColor,
+    Color secondaryTextColor,
+    List<BookingModel> bookings,
+  ) {
+    final cardColor = themeService.getCardColor();
+    final separatorColor = themeService.getSeparatorColor();
+
+    // Define time range
+    final startHour = 8; // 8 AM
+    final endHour = 22; // 10 PM
+
+    // Slot height in logical pixels (increased for better readability)
+    final double slotHeight =
+        90.0; // Increased from 60.0 to 90.0 for larger time slots
+    final double halfHourHeight =
+        slotHeight / 2; // Adjusted to match new slotHeight
+    final double timeColumnWidth = 50.0;
+
+    // Calculate the total height required (14 hours * 60 pixels per hour)
+    final double totalHeight = (endHour - startHour + 1) * slotHeight;
+
+    // Group overlapping bookings to handle them properly
+    final Map<int, List<BookingModel>> bookingsByTimeSlot =
+        _groupOverlappingBookings(bookings);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(color: separatorColor, blurRadius: 10, spreadRadius: 0),
+        ],
+      ),
+      child:
+          bookings.isEmpty
+              ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      CupertinoIcons.calendar_badge_minus,
+                      size: 50,
+                      color: secondaryTextColor,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      AppStrings.noBookings,
+                      style: TextStyle(fontSize: 16, color: secondaryTextColor),
+                    ),
+                  ],
+                ),
+              )
+              : CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  CupertinoSliverRefreshControl(onRefresh: _fetchBookings),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: totalHeight,
+                      child: Stack(
+                        children: [
+                          // Time column
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            bottom: 0,
+                            width: timeColumnWidth,
+                            child: Column(
+                              children: List.generate(
+                                (endHour - startHour + 1),
+                                (index) {
+                                  final hour = startHour + index;
+                                  return _buildTimeLabel(
+                                    hour,
+                                    slotHeight,
+                                    secondaryTextColor,
+                                    separatorColor,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+
+                          // Horizontal lines for each hour
+                          ...List.generate(
+                            (endHour - startHour + 1) * 2 +
+                                1, // +1 for the last line
+                            (index) {
+                              return Positioned(
+                                top: index * halfHourHeight,
+                                left: timeColumnWidth,
+                                right: 0,
+                                height: 0.5,
+                                child: Container(
+                                  color:
+                                      index % 2 == 0
+                                          ? separatorColor
+                                          : separatorColor.withOpacity(
+                                            0.5,
+                                          ), // Dimmer line for half hours
+                                ),
+                              );
+                            },
+                          ),
+
+                          // Bookings - draw each group of overlapping bookings
+                          ...bookingsByTimeSlot.entries.expand((entry) {
+                            final overlappingBookings = entry.value;
+                            final int bookingsCount =
+                                overlappingBookings.length;
+
+                            // Calculate available width for all bookings with additional right margin
+                            final double availableWidth =
+                                MediaQuery.of(context).size.width -
+                                timeColumnWidth -
+                                36; // Increased right margin (16 left + 20 right) to prevent overflow
+
+                            // Define minimum width per booking card and padding between cards
+                            final double minBookingWidth =
+                                70.0; // Reduced minimum width
+                            final double horizontalPadding = 2.0;
+
+                            // Calculate actual booking width based on available space and number of bookings
+                            double bookingWidth;
+
+                            if (bookingsCount == 1) {
+                              // For single booking, use available width minus margin
+                              bookingWidth = availableWidth - 4;
+                            } else {
+                              // For multiple bookings, ensure no overflow by calculating width precisely
+                              // Distribute available width evenly, accounting for spacing between cards
+                              final double totalSpacingWidth =
+                                  horizontalPadding * (bookingsCount - 1);
+                              bookingWidth =
+                                  (availableWidth - totalSpacingWidth) /
+                                  bookingsCount;
+
+                              // Apply minimum width if needed, but ensure total width doesn't exceed available
+                              if (bookingWidth < minBookingWidth) {
+                                // If we can't fit all cards at minimum width, we'll need to make them narrower
+                                if (minBookingWidth * bookingsCount +
+                                        totalSpacingWidth >
+                                    availableWidth) {
+                                  bookingWidth =
+                                      (availableWidth - totalSpacingWidth) /
+                                      bookingsCount;
+                                } else {
+                                  bookingWidth = minBookingWidth;
+                                }
+                              }
+                            }
+
+                            return overlappingBookings.asMap().entries.map((
+                              bookingEntry,
+                            ) {
+                              final int bookingIndex = bookingEntry.key;
+                              final BookingModel booking = bookingEntry.value;
+
+                              // Calculate position and size of booking
+                              final bookingStartMinutes =
+                                  (booking.date.hour - startHour) * 60 +
+                                  booking.date.minute;
+                              final bookingDurationMinutes =
+                                  booking.duration * booking.nbrParties;
+
+                              // Calculate top position
+                              final double top =
+                                  bookingStartMinutes * (slotHeight / 60);
+
+                              // Calculate height based on total duration (duration * nbrParties)
+                              final double height =
+                                  bookingDurationMinutes * (slotHeight / 60);
+
+                              // Calculate left position based on booking index in the overlapping group
+                              // Make sure even the last card stays within bounds
+                              final double bookingLeft =
+                                  timeColumnWidth +
+                                  1 + // reduced from 2 to 1 to save space
+                                  (bookingWidth + horizontalPadding) *
+                                      bookingIndex;
+
+                              return Positioned(
+                                top: top,
+                                left: bookingLeft,
+                                width: bookingWidth,
+                                height: max(
+                                  height,
+                                  30.0,
+                                ), // Ensure minimum height
+                                child: _buildCalendarBookingCard(
+                                  booking,
+                                  textColor,
+                                  secondaryTextColor,
+                                ),
+                              );
+                            }).toList();
+                          }).toList(),
+
+                          // Current time indicator if selected day is today
+                          if (isSameDay(_selectedDay, DateTime.now()))
+                            _buildCurrentTimeIndicator(
+                              startHour,
+                              slotHeight,
+                              timeColumnWidth,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+    );
+  }
+
+  // Helper method to group overlapping bookings
+  Map<int, List<BookingModel>> _groupOverlappingBookings(
+    List<BookingModel> bookings,
+  ) {
+    if (bookings.isEmpty) return {};
+
+    // Sort bookings by start time
+    final sortedBookings = [...bookings]
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    // Map to store groups of overlapping bookings
+    // The key is a unique group identifier (incrementing integer)
+    final Map<int, List<BookingModel>> bookingGroups = {};
+    int groupCounter = 0;
+
+    // For each booking, find if it overlaps with any existing group
+    for (final booking in sortedBookings) {
+      bool foundOverlap = false;
+
+      // Try to add to an existing group if it overlaps
+      for (final entry in bookingGroups.entries) {
+        final group = entry.value;
+        // Check if this booking overlaps with any booking in the group
+        bool overlapsWithGroup = group.any((existingBooking) {
+          return _bookingsOverlap(booking, existingBooking);
+        });
+
+        if (overlapsWithGroup) {
+          // Add to existing group
+          group.add(booking);
+          foundOverlap = true;
+          break;
+        }
+      }
+
+      // If no overlap found, create a new group
+      if (!foundOverlap) {
+        bookingGroups[groupCounter] = [booking];
+        groupCounter++;
+      }
+    }
+
+    return bookingGroups;
+  }
+
+  // Helper method to check if two bookings overlap
+  bool _bookingsOverlap(BookingModel a, BookingModel b) {
+    // a starts before b ends AND b starts before a ends = overlap
+    return a.date.isBefore(b.endTime) && b.date.isBefore(a.endTime);
+  }
+
+  Widget _buildTimeLabel(
+    int hour,
+    double slotHeight,
+    Color secondaryTextColor,
+    Color separatorColor,
+  ) {
+    final timeFormatted = DateFormat(
+      'HH:00',
+    ).format(DateTime(2023, 1, 1, hour, 0));
+
+    return SizedBox(
+      height: slotHeight,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              right: 8.0,
+              top: 4.0,
+            ), // Added top padding for better alignment
+            child: Text(
+              timeFormatted,
+              style: TextStyle(
+                fontSize: 14, // Increased from 12 to 14
+                fontWeight: FontWeight.w600, // Increased weight
+                color: secondaryTextColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentTimeIndicator(
+    int startHour,
+    double slotHeight,
+    double timeColumnWidth,
+  ) {
+    final now = DateTime.now();
+
+    // Calculate position from start of day in minutes
+    final currentMinutesSinceDayStart =
+        (now.hour - startHour) * 60 + now.minute;
+    final double top = currentMinutesSinceDayStart * (slotHeight / 60);
+
+    // Only show if time is in the visible range
+    if (currentMinutesSinceDayStart < 0 || now.hour > 22)
+      return const SizedBox.shrink();
+
+    return Positioned(
+      top: top,
+      left: timeColumnWidth - 6,
+      right: 0,
+      child: Row(
+        children: [
+          // Larger indicator circle with a subtle shadow effect
+          Container(
+            width: 16, // Increased from 12 to 16
+            height: 16, // Increased from 12 to 16
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemRed,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: CupertinoColors.systemRed.withOpacity(0.4),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          // Thicker line
+          Expanded(
+            child: Container(
+              height: 2.0, // Increased from 1.5 to 2.0
+              color: CupertinoColors.systemRed,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarBookingCard(
+    BookingModel booking,
+    Color textColor,
+    Color secondaryTextColor,
+  ) {
+    final primaryColor = CupertinoTheme.of(context).primaryColor;
+
+    return GestureDetector(
+      onTap: () => _navigateToBookingDetails(booking.id),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
+        decoration: BoxDecoration(
+          color:
+              booking.isCancelled
+                  ? CupertinoColors.systemRed.withOpacity(0.1)
+                  : primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color:
+                booking.isCancelled
+                    ? CupertinoColors.systemRed.withOpacity(0.5)
+                    : primaryColor.withOpacity(0.5),
+            width: 1.5,
+          ),
+        ),
+        // Use fit: BoxFit.fill to make sure content fills available space
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate available height to properly size content
+            final availableHeight = constraints.maxHeight;
+            // Only show the bottom section if we have enough space
+            final bool showBottomSection = availableHeight > 45;
+
+            return Padding(
+              padding: const EdgeInsets.all(
+                4.0,
+              ), // Reduced padding from 6.0 to 4.0
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with time - larger icon and text
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        CupertinoIcons.clock,
+                        size: 13, // Reduced from 14 to 13
+                        color:
+                            booking.isCancelled
+                                ? CupertinoColors.systemRed
+                                : primaryColor,
+                      ),
+                      const SizedBox(width: 2), // Reduced from 4 to 2
+                      Flexible(
+                        child: Text(
+                          booking.formattedTimeRange(),
+                          style: TextStyle(
+                            fontSize: 12, // Reduced from 13 to 12
+                            fontWeight: FontWeight.w600,
+                            color:
+                                booking.isCancelled
+                                    ? CupertinoColors.systemRed
+                                    : primaryColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 2), // Reduced from 3 to 2
+                  // Client name - always show this
+                  Flexible(
+                    child: Text(
+                      "${booking.firstName} ${booking.lastName}",
+                      style: TextStyle(
+                        fontSize: 13, // Reduced from 14 to 13
+                        fontWeight: FontWeight.w600,
+                        color:
+                            booking.isCancelled
+                                ? secondaryTextColor
+                                : textColor,
+                        decoration:
+                            booking.isCancelled
+                                ? TextDecoration.lineThrough
+                                : null,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+
+                  // Only show bottom details if there's enough space
+                  if (showBottomSection)
+                    Flexible(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1, // Reduced from 2 to 1
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    booking.isCancelled
+                                        ? CupertinoColors.systemGrey
+                                            .withOpacity(0.1)
+                                        : primaryColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                booking.groupType,
+                                style: TextStyle(
+                                  fontSize: 11, // Reduced from 12 to 11
+                                  fontWeight: FontWeight.w500,
+                                  color:
+                                      booking.isCancelled
+                                          ? secondaryTextColor
+                                          : primaryColor,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.person_2,
+                                size: 12, // Reduced from 14 to 12
+                                color:
+                                    booking.isCancelled
+                                        ? secondaryTextColor.withOpacity(0.7)
+                                        : secondaryTextColor,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${booking.nbrPers}',
+                                style: TextStyle(
+                                  fontSize: 11, // Reduced from 12 to 11
+                                  fontWeight: FontWeight.w500,
+                                  color:
+                                      booking.isCancelled
+                                          ? secondaryTextColor.withOpacity(0.7)
+                                          : secondaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -1463,5 +2146,12 @@ class BookingModel {
       }
     }
     return DateTime.now();
+  }
+}
+
+// Extension method to capitalize first letter of a string
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${this.substring(1)}";
   }
 }
