@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../main.dart'; // Pour accéder à supabase et au themeService
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,6 +16,8 @@ class SettingsScreenState extends State<SettingsScreen> {
   String? _userEmail;
   bool _notificationsEnabled = true;
   bool _darkModeEnabled = false;
+  String _firstName = '';
+  String _lastName = '';
 
   @override
   void initState() {
@@ -35,14 +39,31 @@ class SettingsScreenState extends State<SettingsScreen> {
         setState(() {
           _userEmail = user.email;
         });
+
+        // Fetch user data from the users table
+        final response =
+            await supabase
+                .from('users')
+                .select()
+                .eq('user_id', user.id)
+                .single();
+
+        if (mounted) {
+          setState(() {
+            _firstName = response['firstname'] ?? '';
+            _lastName = response['lastname'] ?? '';
+          });
+        }
       }
     } catch (e) {
       // Handle error
       print('Error loading user info: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -172,7 +193,9 @@ class SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Administrateur Laser Magique',
+                  _firstName.isNotEmpty || _lastName.isNotEmpty
+                      ? '$_firstName $_lastName'
+                      : 'Utilisateur',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -191,6 +214,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                 GestureDetector(
                   onTap: () {
                     // Navigate to profile edit screen
+                    Navigator.of(context).pushNamed('/profile');
                   },
                   child: Text(
                     'Modifier le profil',
@@ -252,7 +276,10 @@ class SettingsScreenState extends State<SettingsScreen> {
                 title: 'Heures de travail',
                 textColor: textColor,
                 onTap: () {
-                  // Navigate to working hours screen
+                  print('🔍 DEBUG: Work hours button tapped');
+                  // Navigate to work hours screen
+                  Navigator.of(context).pushNamed('/work-hours');
+                  print('🔍 DEBUG: After pushing /work-hours route');
                 },
               ),
               Divider(height: 1, indent: 65, color: separatorColor),
@@ -380,9 +407,11 @@ class SettingsScreenState extends State<SettingsScreen> {
     Widget? trailing,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
+      child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
@@ -490,11 +519,40 @@ class SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _signOut() async {
-    await supabase.auth.signOut();
+    // Capture the BuildContext before any async operations
+    // and store a navigator reference
+    final navigator = Navigator.of(context);
 
-    if (!context.mounted) return;
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
 
-    // Navigate to login or reset app state
-    // This would depend on how your authentication flow is set up
+      // Sign out using the auth service
+      await authService.signOut();
+
+      // Check if widget is still mounted before using context
+      if (!mounted) return;
+
+      // Use captured navigator to navigate away
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+    } catch (e) {
+      // Only show error dialog if the widget is still mounted
+      if (!mounted) return;
+
+      // Show error dialog
+      showCupertinoDialog(
+        context: context,
+        builder:
+            (context) => CupertinoAlertDialog(
+              title: const Text('Error'),
+              content: Text('Failed to sign out: ${e.toString()}'),
+              actions: [
+                CupertinoDialogAction(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+      );
+    }
   }
 }

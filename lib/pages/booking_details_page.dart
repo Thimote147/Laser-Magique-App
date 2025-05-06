@@ -62,13 +62,11 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           _isLoading = false;
         });
       } else {
-        print('No booking details found for ID: ${widget.bookingId}');
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error fetching booking details: $e');
       setState(() {
         _isLoading = false;
       });
@@ -213,7 +211,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
           // Delete Button
           Expanded(
-            flex: isCancelled ? 2 : 1, // Take more space when in cancelled state (modify button is hidden)
+            flex:
+                isCancelled
+                    ? 2
+                    : 1, // Take more space when in cancelled state (modify button is hidden)
             child: Container(
               decoration: BoxDecoration(
                 border: Border.all(
@@ -272,9 +273,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                       Navigator.push(
                         context,
                         CupertinoPageRoute(
-                          builder: (context) => EditBookingPage(
-                            bookingDetails: _bookingDetails!,
-                          ),
+                          builder:
+                              (context) => EditBookingPage(
+                                bookingDetails: _bookingDetails!,
+                              ),
                         ),
                       ).then((result) {
                         if (result == true || result == 'deleted') {
@@ -1104,13 +1106,11 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
   void _launchEmail(String email) {
     // Implémenter la logique pour lancer l'application mail
-    print('Launching email: $email');
     // Vous pourriez utiliser le package url_launcher ici
   }
 
   void _launchPhone(String phoneNumber) {
     // Implémenter la logique pour lancer l'application téléphone
-    print('Launching phone: $phoneNumber');
     // Vous pourriez utiliser le package url_launcher ici
   }
 
@@ -1218,7 +1218,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       _showCupertinoToast('Réservation supprimée avec succès');
       Navigator.pop(context, {'status': 'deleted', 'refreshCalendar': true});
     } catch (e) {
-      print('Error deleting booking: $e');
       setState(() {
         _isLoading = false;
       });
@@ -1276,7 +1275,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       _showCupertinoToast('Réservation annulée avec succès');
       Navigator.pop(context, {'status': 'cancelled', 'refreshCalendar': true});
     } catch (e) {
-      print('Error cancelling booking: $e');
       setState(() {
         _isLoading = false;
       });
@@ -1334,7 +1332,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       _showCupertinoToast('Réservation réactivée avec succès');
       await _fetchBookingDetails();
     } catch (e) {
-      print('Error reinstating booking: $e');
       setState(() {
         _isLoading = false;
       });

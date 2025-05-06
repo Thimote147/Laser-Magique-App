@@ -5,12 +5,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // Add this import for global localizations
+import 'screens/auth/auth_wrapper.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/profile_screen.dart';
 import 'screens/new_booking_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/stock_screen.dart'; // Import the stock screen
+import 'screens/stock_screen.dart';
+import 'screens/work_hours/work_hours_screen.dart';
+import 'services/auth_service.dart';
+import 'services/work_hours_service.dart';
 import 'utils/app_strings.dart';
 import 'utils/theme_service.dart';
-import 'pages/booking_details_page.dart'; // Ajout de cette importation
+import 'utils/protected_route.dart';
+import 'pages/booking_details_page.dart';
 
 // Global Supabase client instance
 late final SupabaseClient supabase;
@@ -52,11 +61,17 @@ class LaserMagiqueApp extends StatefulWidget {
 }
 
 class LaserMagiqueAppState extends State<LaserMagiqueApp> {
+  // Auth service instance
+  final AuthService _authService = AuthService();
+
   @override
   void initState() {
     super.initState();
     // Écouter les changements de thème
     themeService.addListener(_onThemeChanged);
+
+    // Initialize auth service
+    _authService.initialize();
   }
 
   @override
@@ -73,17 +88,54 @@ class LaserMagiqueAppState extends State<LaserMagiqueApp> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoApp(
-      navigatorKey: navigatorKey,
-      title: AppStrings.appName,
-      debugShowCheckedModeBanner: false,
-      localizationsDelegates: const [
-        DefaultMaterialLocalizations.delegate,
-        DefaultCupertinoLocalizations.delegate,
-        DefaultWidgetsLocalizations.delegate,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => _authService),
+        Provider<WorkHoursService>(
+          create:
+              (_) => WorkHoursService(
+                baseUrl: dotenv.env['SUPABASE_URL'] ?? '',
+                authService: _authService,
+              ),
+        ),
       ],
-      theme: themeService.getTheme(),
-      home: const MainScreen(),
+      child: CupertinoApp(
+        navigatorKey: navigatorKey,
+        title: AppStrings.appName,
+        debugShowCheckedModeBanner: false,
+        localizationsDelegates: const [
+          DefaultMaterialLocalizations.delegate,
+          DefaultCupertinoLocalizations.delegate,
+          DefaultWidgetsLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        theme: themeService.getTheme(),
+        initialRoute: '/',
+        onGenerateRoute: (settings) {
+          switch (settings.name) {
+            case '/':
+              return CupertinoPageRoute(builder: (_) => const AuthWrapper());
+            case '/login':
+              return CupertinoPageRoute(builder: (_) => const LoginScreen());
+            case '/home':
+              return CupertinoPageRoute(
+                builder: (_) => const ProtectedRoute(child: MainScreen()),
+              );
+            case '/profile':
+              return CupertinoPageRoute(
+                builder: (_) => const ProtectedRoute(child: ProfileScreen()),
+              );
+            case '/work-hours':
+              return CupertinoPageRoute(
+                builder: (_) => const ProtectedRoute(child: WorkHoursScreen()),
+              );
+            default:
+              return CupertinoPageRoute(builder: (_) => const AuthWrapper());
+          }
+        },
+      ),
     );
   }
 }
@@ -99,18 +151,32 @@ class MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
 
-  // Make this static so it can be accessed from anywhere
-  static final MainScreenState _instance = MainScreenState._internal();
-  factory MainScreenState() => _instance;
-  MainScreenState._internal();
-
-  // Getter to access the PageController
-  static PageController get pageController => _instance._pageController;
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  // Fetch user data from the users table using the current authenticated user's UUID
+  Future<void> _fetchUserData() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+
+    if (user == null) return;
+
+    try {
+      // Query the users table using the auth user's UUID
+      await supabase.from('users').select().eq('user_id', user.id).single();
+      // Not storing response since it's not used
+    } catch (e) {
+      // Error handling without storing the error
+    }
   }
 
   void _onPageChanged(int index) {
@@ -233,7 +299,6 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching bookings: $e');
       setState(() {
         _isLoading = false;
       });
@@ -408,10 +473,14 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                         : CupertinoColors.systemRed,
               ),
               outsideTextStyle: TextStyle(
-                color: themeService.getSecondaryTextColor().withOpacity(0.6),
+                color: themeService.getSecondaryTextColor().withOpacity(
+                  0.6,
+                ), // Replaced withAlpha with withOpacity
               ),
               todayDecoration: BoxDecoration(
-                color: CupertinoColors.systemGrey3.withOpacity(0.3),
+                color: CupertinoColors.systemGrey3.withOpacity(
+                  0.3,
+                ), // Replaced withAlpha with withOpacity
                 shape: BoxShape.circle,
               ),
               todayTextStyle: TextStyle(
@@ -655,7 +724,6 @@ class AnalyticsPageState extends State<AnalyticsPage>
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching analytics data: $e');
       setState(() {
         _isLoading = false;
       });
@@ -776,7 +844,9 @@ class AnalyticsPageState extends State<AnalyticsPage>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withOpacity(
+                    0.1,
+                  ), // Changed from withAlpha(25) to withOpacity(0.1)
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -995,9 +1065,9 @@ class AnalyticsPageState extends State<AnalyticsPage>
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: _getStatusColor(
-                              booking.status,
-                            ).withOpacity(0.1),
+                            color: _getStatusColor(booking.status).withOpacity(
+                              0.1,
+                            ), // Replaced withAlpha with withOpacity
                             borderRadius: BorderRadius.circular(21),
                           ),
                           alignment: Alignment.center,
@@ -1155,10 +1225,12 @@ class BookingListItem extends StatelessWidget {
             left: BorderSide(
               color:
                   booking.isCancelled
-                      ? CupertinoColors.systemRed.withOpacity(0.5)
-                      : CupertinoTheme.of(
-                        context,
-                      ).primaryColor.withOpacity(0.7),
+                      ? CupertinoColors.systemRed.withOpacity(
+                        0.5,
+                      ) // Replaced withAlpha with withOpacity
+                      : CupertinoTheme.of(context).primaryColor.withOpacity(
+                        0.7,
+                      ), // Replaced withAlpha with withOpacity
               width: 4.0,
             ),
           ),
@@ -1175,10 +1247,12 @@ class BookingListItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color:
                     booking.isCancelled
-                        ? CupertinoColors.systemRed.withOpacity(0.1)
-                        : CupertinoTheme.of(
-                          context,
-                        ).primaryColor.withOpacity(0.1),
+                        ? CupertinoColors.systemRed.withOpacity(
+                          0.1,
+                        ) // Replaced withAlpha with withOpacity
+                        : CupertinoTheme.of(context).primaryColor.withOpacity(
+                          0.1,
+                        ), // Replaced withAlpha with withOpacity
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
@@ -1384,7 +1458,8 @@ class BookingModel {
       try {
         return DateTime.parse(value);
       } catch (e) {
-        print('Error parsing date: $e');
+        // Silently handle parsing errors
+        return DateTime.now();
       }
     }
     return DateTime.now();

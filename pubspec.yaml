@@ -53,6 +53,8 @@ dependencies:
   shared_preferences: ^2.5.3
 
   uuid: any
+  provider: ^6.1.5
+  http: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -78,6 +80,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - .env
+    - assets/images/
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

@@ -1911,12 +1911,12 @@ class _StockScreenState extends State<StockScreen>
                               CupertinoButton(
                                 padding: EdgeInsets.zero,
                                 minSize: 0,
+                                onPressed: _toggleLowStockFilter,
                                 child: Icon(
                                   CupertinoIcons.xmark_circle_fill,
                                   color: CupertinoColors.systemOrange,
                                   size: 20,
                                 ),
-                                onPressed: _toggleLowStockFilter,
                               ),
                             ],
                           ),
