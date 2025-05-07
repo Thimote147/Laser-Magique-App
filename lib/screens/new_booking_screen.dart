@@ -875,6 +875,17 @@ class NewBookingScreenState extends State<NewBookingScreen> {
             : CupertinoColors.systemGrey6;
     final separatorColor = themeService.getSeparatorColor();
 
+    // Limit max parties to 3 for Social Deal activities
+    if (_selectedActivityId != null) {
+      final activity = _getSelectedActivity();
+      if (activity != null && activity.type.toLowerCase() == 'social deal') {
+        // Set maximum to 3 parties for Social Deal type activities
+        if (max > 3) {
+          max = 3;
+        }
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -1022,12 +1033,10 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
     // If firstPrice is available, minimum is 1 party
     if (activity.firstPrice > 0) {
-      print('First price available: ${activity.firstPrice}');
       return 1;
     }
     // If secondPrice is available but not firstPrice, minimum is 2 parties
     else if (activity.secondPrice > 0) {
-      print('Second price available: ${activity.secondPrice}');
       return 2;
     }
     // If only thirdPrice is available, minimum is 3 parties
@@ -1275,11 +1284,10 @@ class NewBookingScreenState extends State<NewBookingScreen> {
         // Update total value and controller
         _total = calculatedTotal;
         _totalController.text = _total.toStringAsFixed(2);
-
-        // Make sure deposit is properly initialized (default to 0.00)
-        if (_depositController.text.isEmpty) {
-          _depositController.text = "0.00";
-        }
+        
+        // Automatically set deposit equal to total
+        _deposit = calculatedTotal;
+        _depositController.text = calculatedTotal.toStringAsFixed(2);
       });
     }
   }

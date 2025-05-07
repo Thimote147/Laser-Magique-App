@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import '../models/booking_details.dart';
-import '../models/food.dart'; // Add import for FoodItem class
-import '../main.dart'; // Pour accéder à l'instance Supabase
-import 'edit_booking_page.dart'; // Import the new edit page
+import '../models/food.dart';
+import '../main.dart';
+import '../services/booking_service.dart'; // Import the new service
+import 'edit_booking_page.dart';
 
 class BookingDetailsPage extends StatefulWidget {
   final String bookingId;
@@ -16,8 +17,10 @@ class BookingDetailsPage extends StatefulWidget {
 }
 
 class BookingDetailsPageState extends State<BookingDetailsPage> {
+  final BookingService _bookingService =
+      BookingService.instance; // Add booking service
   bool _isLoading = true;
-  bool _dataChanged = false; // Changed from final to mutable
+  bool _dataChanged = false;
   BookingDetails? _bookingDetails;
 
   // Controllers for editing text fields
@@ -52,79 +55,14 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
-      // Fetch booking details
-      final response = await supabase.rpc(
-        'get_booking_details',
-        params: {'p_activity_booking_id': widget.bookingId},
+      // Use booking service to fetch the booking details
+      final bookingDetails = await _bookingService.fetchBookingDetails(
+        widget.bookingId,
       );
 
-      if (response != null && response.isNotEmpty) {
-        final bookingDetails = BookingDetails.fromJson(response[0]);
-
-        // Fetch consumptions using the get_conso function
-        final consumptionsResponse = await supabase.rpc(
-          'get_conso',
-          params: {'actual_booking_id': bookingDetails.booking.bookingId},
-        );
-
-        // Convert consumption items and add them to the booking details
-        if (consumptionsResponse != null) {
-          final consumptionsList =
-              (consumptionsResponse as List)
-                  .map(
-                    (item) => FoodItem(
-                      id: item['food_id'],
-                      name: item['name'],
-                      price:
-                          _parseDouble(item['price']) /
-                          _parseInt(item['quantity']), // Get unit price
-                      quantity: _parseInt(item['quantity']),
-                    ),
-                  )
-                  .toList();
-
-          // Add consumptions to booking details
-          bookingDetails.consumptions.clear();
-          bookingDetails.consumptions.addAll(consumptionsList);
-
-          // Store the original activity price separately before adding consumptions
-          double originalActivityPrice = bookingDetails.booking.total;
-
-          // Store this original price in the bookingDetails object for future reference
-          bookingDetails.activityPrice = originalActivityPrice;
-
-          // Calculate the total amount including consumptions
-          double consumptionsTotal = bookingDetails.consumptionsTotal;
-
-          // Update the booking with combined total
-          final updatedBooking = BookingInfo(
-            bookingId: bookingDetails.booking.bookingId,
-            firstname: bookingDetails.booking.firstname,
-            lastname: bookingDetails.booking.lastname,
-            date: bookingDetails.booking.date,
-            nbrPers: bookingDetails.booking.nbrPers,
-            nbrParties: bookingDetails.booking.nbrParties,
-            email: bookingDetails.booking.email,
-            phoneNumber: bookingDetails.booking.phoneNumber,
-            notes: bookingDetails.booking.notes,
-            total:
-                originalActivityPrice +
-                consumptionsTotal, // Update total to include consumptions
-            amount:
-                (originalActivityPrice + consumptionsTotal) -
-                (bookingDetails.booking.deposit +
-                    (bookingDetails.booking.cardPayment ?? 0) +
-                    (bookingDetails.booking.cashPayment ??
-                        0)), // Recalculate amount
-            deposit: bookingDetails.booking.deposit,
-            isCancelled: bookingDetails.booking.isCancelled,
-            cardPayment: bookingDetails.booking.cardPayment,
-            cashPayment: bookingDetails.booking.cashPayment,
-          );
-
-          // Update the booking details with the new booking info
-          bookingDetails.booking = updatedBooking;
-        }
+      if (bookingDetails != null) {
+        // Fetch and process consumptions using the service
+        await _bookingService.fetchAndProcessConsumptions(bookingDetails);
 
         setState(() {
           _bookingDetails = bookingDetails;
@@ -194,6 +132,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
     final backgroundColor = themeService.getCardColor();
     final borderColor = themeService.getSeparatorColor();
+    
+    // Check if booking has consumptions
+    final bool hasConsumptions = _bookingDetails != null && 
+        _bookingDetails!.consumptions.isNotEmpty;
 
     // Define border radius constant to ensure consistency
     const double buttonBorderRadius = 8.0;
@@ -202,24 +144,27 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     final cancelButtonColor =
         isCancelled
             ? CupertinoColors.activeBlue.withOpacity(0.8)
-            : themeService.darkMode
-            ? CupertinoColors.systemGrey5.darkColor
-            : CupertinoColors
-                .systemGrey6; // Lighter background for better contrast
+            : hasConsumptions 
+              ? CupertinoColors.systemGrey4 // Disabled color
+              : themeService.darkMode
+                ? CupertinoColors.systemGrey5.darkColor
+                : CupertinoColors.systemGrey6; // Lighter background for better contrast
 
     // Define a more visible border color for the cancel button
     final cancelBorderColor =
         isCancelled
             ? CupertinoColors.activeBlue
-            : CupertinoColors.systemRed.withOpacity(
-              0.6,
-            ); // More visible red tint for border
+            : hasConsumptions
+              ? CupertinoColors.systemGrey
+              : CupertinoColors.systemRed.withOpacity(0.6); // More visible red tint for border
 
     // Define more prominent text color for the cancel button
     final cancelTextColor =
         isCancelled
             ? CupertinoColors.white
-            : CupertinoColors.systemRed; // Red text for better visibility
+            : hasConsumptions
+              ? CupertinoColors.systemGrey
+              : CupertinoColors.systemRed; // Red text for better visibility
 
     return Container(
       decoration: BoxDecoration(
@@ -270,13 +215,15 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  onPressed: () {
-                    if (isCancelled) {
-                      _showReinstateConfirmation();
-                    } else {
-                      _showCancelConfirmation();
-                    }
-                  },
+                  onPressed: hasConsumptions && !isCancelled 
+                    ? () => _showCantCancelDialog() // Show explanation dialog when has consumptions
+                    : () {
+                        if (isCancelled) {
+                          _showReinstateConfirmation();
+                        } else {
+                          _showCancelConfirmation();
+                        }
+                      },
                 ),
               ),
             ),
@@ -382,6 +329,9 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
     final formattedDate = dateFormatter.format(_bookingDetails!.booking.date);
     final formattedTime = timeFormatter.format(_bookingDetails!.booking.date);
+    
+    // Get cancellation status
+    final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
 
     // Calculer l'heure de fin
     final endTime = _bookingDetails!.booking.date.add(
@@ -445,67 +395,68 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
                 const SizedBox(height: 16),
 
-                // Consumptions section - Add new section here
-                _buildCompactSection(
-                  title: 'Consommations',
-                  icon: CupertinoIcons.cart_fill,
-                  trailing: CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: _showAddConsumptionDialog,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            CupertinoTheme.of(context).primaryColor,
-                            CupertinoTheme.of(context).primaryColor.withBlue(
-                              (CupertinoTheme.of(context).primaryColor.blue +
-                                      40)
-                                  .clamp(0, 255),
+                // Consumptions section - Only show when not cancelled
+                if (!isCancelled) ...[
+                  _buildCompactSection(
+                    title: 'Consommations',
+                    icon: CupertinoIcons.cart_fill,
+                    trailing: CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: _showAddConsumptionDialog,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              CupertinoTheme.of(context).primaryColor,
+                              CupertinoTheme.of(context).primaryColor.withBlue(
+                                (CupertinoTheme.of(context).primaryColor.blue +
+                                        40)
+                                    .clamp(0, 255),
+                              ),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: CupertinoTheme.of(
+                                context,
+                              ).primaryColor.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
                             ),
                           ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: CupertinoTheme.of(
-                              context,
-                            ).primaryColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(
-                            CupertinoIcons.plus,
-                            color: CupertinoColors.white,
-                            size: 16,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Ajouter',
-                            style: TextStyle(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(
+                              CupertinoIcons.plus,
                               color: CupertinoColors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              size: 16,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 4),
+                            Text(
+                              'Ajouter',
+                              style: TextStyle(
+                                color: CupertinoColors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                    child: _buildConsumptionSection(),
                   ),
-                  child: _buildConsumptionSection(),
-                ),
-
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                ],
 
                 // Payment section
                 _buildCompactSection(
@@ -926,8 +877,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     // Calculate consumption total
     final consumptionsTotal = _bookingDetails!.consumptionsTotal;
 
-    // Calculate activity price (total minus consumptions)
-    final activityPrice = total - consumptionsTotal;
+    // Calculate activity price correctly using the pricing model
+    double activityPrice = _calculateActivityPrice();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -986,6 +937,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           CupertinoIcons.money_euro,
           'Restant à payer',
           currencyFormat.format(amount),
+          isHighlighted: true,
+          highlightColor: amount == 0 ? CupertinoColors.activeGreen : null,
         ),
 
         const SizedBox(height: 16),
@@ -1027,6 +980,11 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         ),
       ],
     );
+  }
+
+  // New helper method to calculate activity price correctly based on pricing model
+  double _calculateActivityPrice() {
+    return _bookingService.calculateActivityPrice(_bookingDetails!);
   }
 
   // Widget pour afficher une méthode de paiement avec son statut
@@ -1170,6 +1128,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     String value, {
     bool isHighlighted = false,
     VoidCallback? onTap,
+    Color? highlightColor,
   }) {
     final textColor = themeService.getTextColor();
     final secondaryTextColor = themeService.getSecondaryTextColor();
@@ -1179,14 +1138,29 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
             : CupertinoColors.systemGrey6;
     final borderColor = themeService.getSeparatorColor();
 
+    // Use provided highlight color or default to primary color
+    final Color activeColor = highlightColor ?? CupertinoTheme.of(context).primaryColor;
+    
+    // If amount is 0 and we're highlighting with green, change the background color as well
+    final bool isGreenZeroAmount = isHighlighted && 
+        highlightColor == CupertinoColors.activeGreen;
+    
+    final Color containerBgColor = isGreenZeroAmount 
+        ? CupertinoColors.activeGreen.withOpacity(0.1)
+        : backgroundColor;
+        
+    final Color containerBorderColor = isGreenZeroAmount
+        ? CupertinoColors.activeGreen.withOpacity(0.3)
+        : borderColor;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: containerBgColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: borderColor, width: 0.5),
+          border: Border.all(color: containerBorderColor, width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1200,10 +1174,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               children: [
                 Icon(
                   icon,
-                  color:
-                      isHighlighted
-                          ? CupertinoTheme.of(context).primaryColor
-                          : secondaryTextColor,
+                  color: isHighlighted ? activeColor : secondaryTextColor,
                   size: 16,
                 ),
                 const SizedBox(width: 6),
@@ -1212,16 +1183,18 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                     value,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight:
-                          isHighlighted ? FontWeight.w600 : FontWeight.w500,
-                      color:
-                          isHighlighted
-                              ? CupertinoTheme.of(context).primaryColor
-                              : textColor,
+                      fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.w500,
+                      color: isHighlighted ? activeColor : textColor,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (isGreenZeroAmount)
+                  Icon(
+                    CupertinoIcons.checkmark_circle_fill,
+                    color: CupertinoColors.activeGreen,
+                    size: 16,
+                  ),
               ],
             ),
           ],
@@ -1371,10 +1344,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
-      await supabase.rpc(
-        'delete_booking',
-        params: {'p_activity_booking_id': _bookingDetails!.activityBookingId},
-      );
+      // Use booking service to delete the booking
+      await _bookingService.deleteBooking(_bookingDetails!.activityBookingId);
 
       setState(() {
         _isLoading = false;
@@ -1428,10 +1399,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
-      await supabase
-          .from('bookings')
-          .update({'is_cancelled': true})
-          .eq('booking_id', _bookingDetails!.booking.bookingId);
+      // Use booking service to cancel the booking
+      await _bookingService.cancelBooking(_bookingDetails!.booking.bookingId);
 
       setState(() {
         _isLoading = false;
@@ -1485,10 +1454,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     });
 
     try {
-      await supabase
-          .from('bookings')
-          .update({'is_cancelled': false})
-          .eq('booking_id', _bookingDetails!.booking.bookingId);
+      // Use booking service to reinstate the booking
+      await _bookingService.reinstateBooking(_bookingDetails!.booking.bookingId);
 
       setState(() {
         _isLoading = false;
@@ -1735,19 +1702,103 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
   // Method to update the quantity of a consumption item
   void _updateConsumptionQuantity(String itemId, int newQuantity) async {
-    if (newQuantity <= 0) {
-      // If the new quantity is zero or negative, remove the item completely
-      _removeConsumption(itemId);
-      return;
-    }
-
     final FoodItem? item = _bookingDetails!.getConsumptionById(itemId);
     if (item == null) return;
 
-    // Check if we're increasing or decreasing quantity
-    bool isIncreasing = newQuantity > item.quantity;
+    // Check if we're decreasing to zero or negative
+    if (newQuantity <= 0) {
+      // If the new quantity is zero or negative, remove the item completely
+      double activityPrice = _bookingDetails!.activityPrice;
+      
+      // Update UI immediately to show the item is removed
+      setState(() {
+        // Remove the item from the list
+        _bookingDetails!.consumptions.removeWhere((i) => i.id == itemId);
+        
+        // Calculate new consumption total from all remaining items
+        double newConsumptionsTotal = 0;
+        for (var consumption in _bookingDetails!.consumptions) {
+          newConsumptionsTotal += consumption.price * consumption.quantity;
+        }
+        
+        // Create updated booking with new totals
+        final updatedBooking = BookingInfo(
+          bookingId: _bookingDetails!.booking.bookingId,
+          firstname: _bookingDetails!.booking.firstname,
+          lastname: _bookingDetails!.booking.lastname,
+          date: _bookingDetails!.booking.date,
+          nbrPers: _bookingDetails!.booking.nbrPers,
+          nbrParties: _bookingDetails!.booking.nbrParties,
+          email: _bookingDetails!.booking.email,
+          phoneNumber: _bookingDetails!.booking.phoneNumber,
+          notes: _bookingDetails!.booking.notes,
+          total: activityPrice + newConsumptionsTotal, // Key formula: activityPrice + consumptionsTotal
+          amount: (activityPrice + newConsumptionsTotal) -
+              (_bookingDetails!.booking.deposit +
+                  (_bookingDetails!.booking.cardPayment ?? 0) +
+                  (_bookingDetails!.booking.cashPayment ?? 0)),
+          deposit: _bookingDetails!.booking.deposit,
+          isCancelled: _bookingDetails!.booking.isCancelled,
+          cardPayment: _bookingDetails!.booking.cardPayment,
+          cashPayment: _bookingDetails!.booking.cashPayment,
+        );
+        
+        // Update booking details with new data
+        _bookingDetails = BookingDetails(
+          activityBookingId: _bookingDetails!.activityBookingId,
+          booking: updatedBooking,
+          activity: _bookingDetails!.activity,
+          pricing: _bookingDetails!.pricing, 
+          createdAt: _bookingDetails!.createdAt,
+          updatedAt: _bookingDetails!.updatedAt,
+          consumptions: _bookingDetails!.consumptions,
+          activityPrice: activityPrice,
+        );
+      });
+      
+      // Now remove the item in the database
+      try {
+        await _bookingService.removeConsumption(
+          _bookingDetails!.booking.bookingId,
+          itemId
+        );
+        
+        // Calculate consumption total from current items
+        double newConsumptionsTotal = 0;
+        for (var consumption in _bookingDetails!.consumptions) {
+          newConsumptionsTotal += consumption.price * consumption.quantity;
+        }
+        
+        // Update booking total in database
+        await _bookingService.updateBookingTotalInDatabase(
+          _bookingDetails!.booking.bookingId,
+          activityPrice,
+          newConsumptionsTotal,
+          _bookingDetails!.booking.deposit,
+          _bookingDetails!.booking.cardPayment,
+          _bookingDetails!.booking.cashPayment
+        );
+        
+        _dataChanged = true;
+        
+        if (mounted) {
+          _showCupertinoToast('Article supprimé');
+        }
+      } catch (e) {
+        if (mounted) {
+          _showCupertinoToast('Erreur lors de la suppression: $e', isError: true);
+          await _fetchBookingDetails(); // Refresh to get correct state
+        }
+      }
+      return;
+    }
 
-    // Optimistically update the UI immediately
+    // Store the quantity change info
+    bool isIncreasing = newQuantity > item.quantity;
+    int oldQuantity = item.quantity;
+    double activityPrice = _bookingDetails!.activityPrice;
+    
+    // Update the UI immediately with a full recalculation
     setState(() {
       final index = _bookingDetails!.consumptions.indexWhere(
         (i) => i.id == itemId,
@@ -1759,42 +1810,84 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         );
         // Replace the item in the list
         _bookingDetails!.consumptions[index] = updatedItem;
-
-        // Update the booking total immediately
-        _updateBookingTotalLocally();
+        
+        // Calculate the true consumption total from all items
+        double newConsumptionsTotal = 0;
+        for (var consumption in _bookingDetails!.consumptions) {
+          newConsumptionsTotal += consumption.price * consumption.quantity;
+        }
+        
+        // Update the booking object with new totals
+        final updatedBooking = BookingInfo(
+          bookingId: _bookingDetails!.booking.bookingId,
+          firstname: _bookingDetails!.booking.firstname,
+          lastname: _bookingDetails!.booking.lastname,
+          date: _bookingDetails!.booking.date,
+          nbrPers: _bookingDetails!.booking.nbrPers,
+          nbrParties: _bookingDetails!.booking.nbrParties,
+          email: _bookingDetails!.booking.email,
+          phoneNumber: _bookingDetails!.booking.phoneNumber,
+          notes: _bookingDetails!.booking.notes,
+          total: activityPrice + newConsumptionsTotal,
+          amount: (activityPrice + newConsumptionsTotal) -
+              (_bookingDetails!.booking.deposit +
+                  (_bookingDetails!.booking.cardPayment ?? 0) +
+                  (_bookingDetails!.booking.cashPayment ?? 0)),
+          deposit: _bookingDetails!.booking.deposit,
+          isCancelled: _bookingDetails!.booking.isCancelled,
+          cardPayment: _bookingDetails!.booking.cardPayment,
+          cashPayment: _bookingDetails!.booking.cashPayment,
+        );
+        
+        // Update the booking details with new booking info
+        _bookingDetails = BookingDetails(
+          activityBookingId: _bookingDetails!.activityBookingId,
+          booking: updatedBooking,
+          activity: _bookingDetails!.activity,
+          pricing: _bookingDetails!.pricing,
+          createdAt: _bookingDetails!.createdAt,
+          updatedAt: _bookingDetails!.updatedAt,
+          consumptions: _bookingDetails!.consumptions,
+          activityPrice: activityPrice,
+        );
       }
     });
 
     // Then perform the server update in the background
     try {
       if (isIncreasing) {
-        // Increasing quantity - use the insert_conso function
-        await supabase.rpc(
-          'insert_conso',
-          params: {
-            'actual_booking_id': _bookingDetails!.booking.bookingId,
-            'actual_food_id': itemId,
-          },
+        // Increasing quantity - use BookingService
+        await _bookingService.updateConsumptionQuantity(
+          _bookingDetails!.booking.bookingId,
+          itemId,
+          oldQuantity + 1
         );
       } else {
-        // Decreasing quantity - use the delete_conso function
-        await supabase.rpc(
-          'delete_conso',
-          params: {
-            'actual_booking_id': _bookingDetails!.booking.bookingId,
-            'actual_food_id': itemId,
-          },
+        // Decreasing quantity - use BookingService
+        await _bookingService.decreaseConsumptionQuantity(
+          _bookingDetails!.booking.bookingId,
+          itemId
         );
       }
 
-      // Update the booking total in the database
-      await _updateBookingTotalInDatabase();
+      // Calculate consumption total from current items
+      double newConsumptionsTotal = 0;
+      for (var consumption in _bookingDetails!.consumptions) {
+        newConsumptionsTotal += consumption.price * consumption.quantity;
+      }
+
+      // Update booking total in database
+      await _bookingService.updateBookingTotalInDatabase(
+        _bookingDetails!.booking.bookingId,
+        activityPrice,
+        newConsumptionsTotal,
+        _bookingDetails!.booking.deposit,
+        _bookingDetails!.booking.cardPayment,
+        _bookingDetails!.booking.cashPayment
+      );
 
       // Mark data as changed
       _dataChanged = true;
-
-      // Don't refresh the screen - we already updated the UI optimistically
-      // Remove the call to _fetchBookingDetails()
 
       // Show a toast confirmation if needed
       if (mounted) {
@@ -1851,84 +1944,111 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   void _removeConsumption(String itemId) {
     showCupertinoDialog(
       context: context,
-      builder:
-          (context) => CupertinoAlertDialog(
-            title: const Text('Supprimer cet article'),
-            content: const Text(
-              'Voulez-vous vraiment supprimer cet article des consommations ?',
-            ),
-            actions: [
-              CupertinoDialogAction(
-                child: const Text('Annuler'),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              ),
-              CupertinoDialogAction(
-                isDestructiveAction: true,
-                onPressed: () async {
-                  Navigator.pop(context);
-
-                  setState(() {
-                    _isLoading = true;
-                  });
-
-                  try {
-                    // Get the item to be removed
-                    final item = _bookingDetails!.getConsumptionById(itemId);
-                    if (item == null) return;
-
-                    // Optimistically update UI first for responsive experience
-                    setState(() {
-                      _bookingDetails!.consumptions.removeWhere(
-                        (i) => i.id == itemId,
-                      );
-
-                      // Update the booking total immediately
-                      _updateBookingTotalLocally();
-
-                      _isLoading = false;
-                    });
-
-                    // Then perform the server update in the background
-                    for (int i = 0; i < item.quantity; i++) {
-                      await supabase.rpc(
-                        'delete_conso',
-                        params: {
-                          'actual_booking_id':
-                              _bookingDetails!.booking.bookingId,
-                          'actual_food_id': itemId,
-                        },
-                      );
-                    }
-
-                    // Update the booking total in the database
-                    await _updateBookingTotalInDatabase();
-
-                    _dataChanged = true;
-
-                    // Don't refresh the screen - we already updated the UI
-                    // Remove the call to _fetchBookingDetails()
-
-                    if (mounted) {
-                      _showCupertinoToast('Article supprimé avec succès');
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      _showCupertinoToast(
-                        'Erreur lors de la suppression: $e',
-                        isError: true,
-                      );
-
-                      // In case of error, we still need to refresh to get the correct state
-                      await _fetchBookingDetails();
-                    }
-                  }
-                },
-                child: const Text('Supprimer'),
-              ),
-            ],
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Supprimer cet article'),
+        content: const Text(
+          'Voulez-vous vraiment supprimer cet article des consommations ?',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Annuler'),
+            onPressed: () {
+              Navigator.pop(context);
+            },
           ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              // Get the item to be removed before removing it from the list
+              final item = _bookingDetails!.getConsumptionById(itemId);
+              if (item == null) return;
+              
+              // Calculate the price to subtract from totals
+              double itemTotalPrice = item.price * item.quantity;
+              double activityPrice = _bookingDetails!.activityPrice;
+              double currentConsumptionsTotal = _bookingDetails!.consumptionsTotal;
+              double newConsumptionsTotal = currentConsumptionsTotal - itemTotalPrice;
+              
+              // Update UI immediately for better user experience
+              setState(() {
+                // Remove the item from the list
+                _bookingDetails!.consumptions.removeWhere((i) => i.id == itemId);
+                
+                // Update booking with new totals
+                final updatedBooking = BookingInfo(
+                  bookingId: _bookingDetails!.booking.bookingId,
+                  firstname: _bookingDetails!.booking.firstname,
+                  lastname: _bookingDetails!.booking.lastname,
+                  date: _bookingDetails!.booking.date,
+                  nbrPers: _bookingDetails!.booking.nbrPers,
+                  nbrParties: _bookingDetails!.booking.nbrParties,
+                  email: _bookingDetails!.booking.email,
+                  phoneNumber: _bookingDetails!.booking.phoneNumber,
+                  notes: _bookingDetails!.booking.notes,
+                  total: activityPrice + newConsumptionsTotal,
+                  amount: (activityPrice + newConsumptionsTotal) -
+                      (_bookingDetails!.booking.deposit +
+                          (_bookingDetails!.booking.cardPayment ?? 0) +
+                          (_bookingDetails!.booking.cashPayment ?? 0)),
+                  deposit: _bookingDetails!.booking.deposit,
+                  isCancelled: _bookingDetails!.booking.isCancelled,
+                  cardPayment: _bookingDetails!.booking.cardPayment,
+                  cashPayment: _bookingDetails!.booking.cashPayment,
+                );
+                
+                // Update the booking details object
+                _bookingDetails = BookingDetails(
+                  activityBookingId: _bookingDetails!.activityBookingId,
+                  booking: updatedBooking,
+                  activity: _bookingDetails!.activity,
+                  pricing: _bookingDetails!.pricing,
+                  createdAt: _bookingDetails!.createdAt,
+                  updatedAt: _bookingDetails!.updatedAt,
+                  consumptions: _bookingDetails!.consumptions,
+                  activityPrice: activityPrice,
+                );
+              });
+
+              try {
+                // Now update the database
+                await _bookingService.removeConsumption(
+                  _bookingDetails!.booking.bookingId,
+                  itemId
+                );
+
+                // Update the booking total in the database
+                await _bookingService.updateBookingTotalInDatabase(
+                  _bookingDetails!.booking.bookingId,
+                  activityPrice,
+                  newConsumptionsTotal,
+                  _bookingDetails!.booking.deposit,
+                  _bookingDetails!.booking.cardPayment,
+                  _bookingDetails!.booking.cashPayment
+                );
+
+                _dataChanged = true;
+
+                if (mounted) {
+                  _showCupertinoToast('Article supprimé avec succès');
+                }
+              } catch (e) {
+                if (mounted) {
+                  _showCupertinoToast(
+                    'Erreur lors de la suppression: $e',
+                    isError: true,
+                  );
+
+                  // In case of error, refresh to get the correct state
+                  await _fetchBookingDetails();
+                }
+              }
+            },
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1942,6 +2062,9 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
   // Build the modal to add new consumption items
   Widget _buildAddConsumptionModal() {
+    // Add a search term state variable
+    String searchTerm = '';
+
     return StatefulBuilder(
       builder: (context, setState) {
         return Container(
@@ -1990,21 +2113,22 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                 margin: const EdgeInsets.symmetric(vertical: 8),
               ),
 
-              // Search field
+              // Search field - Updated to update searchTerm
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: CupertinoSearchTextField(
                   placeholder: 'Rechercher un produit',
                   onChanged: (value) {
-                    // Implement search functionality
+                    // Update search term and rebuild widget with setState
+                    setState(() {
+                      searchTerm = value.toLowerCase();
+                    });
                   },
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              // List of food items
-              Expanded(child: _buildFoodItemsList(setState)),
+              // List of food items - now passing searchTerm
+              Expanded(child: _buildFoodItemsList(setState, searchTerm)),
             ],
           ),
         );
@@ -2012,8 +2136,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     );
   }
 
-  // Method to build the list of food items
-  Widget _buildFoodItemsList(StateSetter modalSetState) {
+  // Method to build the list of food items - Updated to include search filtering
+  Widget _buildFoodItemsList(StateSetter modalSetState, String searchTerm) {
     return FutureBuilder<List<FoodItem>>(
       future: _fetchFoodItems(),
       builder: (context, snapshot) {
@@ -2030,59 +2154,92 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           return const Center(child: Text('Aucun produit disponible'));
         }
 
-        final foodItems = snapshot.data!;
+        // Filter food items based on search term
+        final allFoodItems = snapshot.data!;
+        final foodItems =
+            searchTerm.isEmpty
+                ? allFoodItems
+                : allFoodItems
+                    .where(
+                      (item) => item.name.toLowerCase().contains(searchTerm),
+                    )
+                    .toList();
+
+        // Show a message when no search results are found
+        if (foodItems.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  CupertinoIcons.search,
+                  size: 64,
+                  color: CupertinoColors.systemGrey.withOpacity(0.5),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Aucun produit trouvé',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: CupertinoColors.systemGrey,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         final currencyFormat = NumberFormat.currency(
           locale: 'fr_FR',
           symbol: '€',
           decimalDigits: 2,
         );
 
-        return ListView.separated(
+        // Removing any potential padding that might create space
+        return ListView.builder(
+          padding: EdgeInsets.zero, // Remove any default padding
           itemCount: foodItems.length,
-          separatorBuilder:
-              (context, index) =>
-                  Divider(height: 1, color: themeService.getSeparatorColor()),
           itemBuilder: (context, index) {
             final item = foodItems[index];
             // Track if request is in progress to prevent multiple calls
             final isLoading = ValueNotifier<bool>(false);
 
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  // Item name and price
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          currencyFormat.format(item.price),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: themeService.getSecondaryTextColor(),
-                          ),
-                        ),
-                      ],
-                    ),
+            return Column(
+              children: [
+                if (index > 0)
+                  Divider(height: 1, color: themeService.getSeparatorColor()),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-
-                  // Quantity controls
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Row(
                     children: [
-                      // Decrease quantity button - not implemented in this modal
-                      // (handled in main view after adding)
-                      const SizedBox(width: 8),
+                      // Item name and price
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              currencyFormat.format(item.price),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: themeService.getSecondaryTextColor(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
 
                       // Add button
                       ValueListenableBuilder<bool>(
@@ -2090,27 +2247,48 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                         builder: (context, loading, _) {
                           return CupertinoButton(
                             padding: EdgeInsets.zero,
+                            onPressed:
+                                loading
+                                    ? null
+                                    : () async {
+                                      isLoading.value = true;
+                                      await _addConsumption(
+                                        item.copyWith(quantity: 1),
+                                      );
+                                      isLoading.value = false;
+                                    },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 10,
                               ),
                               decoration: BoxDecoration(
-                                color: CupertinoTheme.of(context).primaryColor,
+                                color:
+                                    loading
+                                        ? CupertinoColors.systemGrey
+                                        : CupertinoTheme.of(
+                                          context,
+                                        ).primaryColor,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    CupertinoIcons.plus,
-                                    size: 16,
-                                    color: CupertinoColors.white,
-                                  ),
-                                  SizedBox(width: 6),
+                                  if (loading)
+                                    const CupertinoActivityIndicator(
+                                      radius: 8,
+                                      color: CupertinoColors.white,
+                                    )
+                                  else
+                                    const Icon(
+                                      CupertinoIcons.plus,
+                                      size: 16,
+                                      color: CupertinoColors.white,
+                                    ),
+                                  const SizedBox(width: 6),
                                   Text(
-                                    'Ajouter',
-                                    style: TextStyle(
+                                    loading ? 'Ajout...' : 'Ajouter',
+                                    style: const TextStyle(
                                       color: CupertinoColors.white,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -2118,19 +2296,13 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                                 ],
                               ),
                             ),
-                            onPressed: () async {
-                              isLoading.value = true;
-                              await _addConsumption(item.copyWith(quantity: 1));
-                              isLoading.value = false;
-                              // Remove the Navigator.pop call to keep the modal open
-                            },
                           );
                         },
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         );
@@ -2138,24 +2310,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     );
   }
 
-  // Method to fetch food items from the Supabase database
+  // Method to fetch food items using the BookingService
   Future<List<FoodItem>> _fetchFoodItems() async {
     try {
-      final response = await supabase.from('food').select().order('name');
-
-      return (response as List)
-          .map(
-            (item) => FoodItem(
-              id: item['food_id'],
-              name: item['name'],
-              price:
-                  (item['price'] is int)
-                      ? (item['price'] as int).toDouble()
-                      : item['price'],
-              quantity: 0, // Initialize with zero quantity for UI
-            ),
-          )
-          .toList();
+      return await _bookingService.getFoodItems();
     } catch (e) {
       throw 'Erreur lors du chargement des produits: $e';
     }
@@ -2163,110 +2321,48 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
   // Method to add a consumption to the booking
   Future<void> _addConsumption(FoodItem item) async {
-    // Optimistically update UI first for a responsive experience
-    setState(() {
-      // Check if item already exists in consumptions
-      final existingIndex = _bookingDetails!.consumptions.indexWhere(
-        (element) => element.id == item.id,
-      );
-
-      if (existingIndex != -1) {
-        // Update existing item
-        final updatedItem = _bookingDetails!.consumptions[existingIndex]
-            .copyWith(
-              quantity:
-                  _bookingDetails!.consumptions[existingIndex].quantity + 1,
-            );
-        _bookingDetails!.consumptions[existingIndex] = updatedItem;
-      } else {
-        // Add new item with quantity 1
-        _bookingDetails!.consumptions.add(item.copyWith(quantity: 1));
-      }
-
-      // Mettre à jour immédiatement les totaux de la réservation localement
-      _updateBookingTotalLocally();
-    });
-
     try {
-      // Make the API call in the background
-      await supabase.rpc(
-        'insert_conso',
-        params: {
-          'actual_booking_id': _bookingDetails!.booking.bookingId,
-          'actual_food_id': item.id,
-        },
+      // Use the BookingService to add the consumption
+      await _bookingService.addConsumption(
+        _bookingDetails!.booking.bookingId, 
+        item
       );
 
+      // Calculate activity price correctly
+      double activityPrice = _bookingDetails!.activityPrice > 0
+          ? _bookingDetails!.activityPrice
+          : _bookingService.calculateActivityPrice(_bookingDetails!);
+      
+      // Update the consumptions list to get the current state
+      await _refreshConsumptionsOnly();
+      
+      // Calculate the true consumption total from the items we have
+      double newConsumptionsTotal = 0;
+      for (var consumption in _bookingDetails!.consumptions) {
+        newConsumptionsTotal += consumption.price * consumption.quantity;
+      }
+      
+      // Calculate correct total as activityPrice + consumptionsTotal
+      double newTotal = activityPrice + newConsumptionsTotal;
+      double newAmount = newTotal - (_bookingDetails!.booking.deposit +
+          (_bookingDetails!.booking.cardPayment ?? 0) +
+          (_bookingDetails!.booking.cashPayment ?? 0));
+
+      // Update the booking total in database with the correct values
+      await _bookingService.updateBookingTotalInDatabase(
+        _bookingDetails!.booking.bookingId,
+        activityPrice,
+        newConsumptionsTotal,
+        _bookingDetails!.booking.deposit,
+        _bookingDetails!.booking.cardPayment,
+        _bookingDetails!.booking.cashPayment
+      );
+
+      // Mark data as changed
       _dataChanged = true;
 
-      // Update the booking total in the database
-      await _updateBookingTotalInDatabase();
-
-      // Refresh consumption data in the background without blocking UI
-      _refreshConsumptionsOnly();
-
-      // Show success toast
-      if (mounted) {
-        _showCupertinoToast('Consommation ajoutée');
-      }
-    } catch (e) {
-      // In case of error, refresh to restore correct state
-      _refreshConsumptionsOnly();
-      if (mounted) {
-        _showCupertinoToast('Erreur lors de l\'ajout: $e', isError: true);
-      }
-    }
-  }
-
-  // Method to update consumptions in the database
-  Future<void> _updateConsumptionsInDatabase() async {
-    try {
-      // Convert the consumptions list to JSON
-      final consumptionsJson =
-          _bookingDetails!.consumptions.map((item) => item.toJson()).toList();
-
-      // Update in database using Supabase
-      await supabase.from('booking_consumptions').upsert([
-        {
-          'booking_id': _bookingDetails!.booking.bookingId,
-          'consumptions': consumptionsJson,
-        },
-      ]);
-
-      // Show success message
-      if (mounted) {
-        _showCupertinoToast('Consommations mises à jour');
-      }
-    } catch (e) {
-      // Show error message
-      if (mounted) {
-        _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
-      }
-    }
-  }
-
-  // Method to update the booking total with consumption costs
-  Future<void> _updateBookingTotal() async {
-    try {
-      // Get the current booking total (without adding consumptions)
-      double currentTotal = _bookingDetails!.booking.total;
-
-      // Calculate amount to pay (without including consumptions)
-      double newAmount =
-          currentTotal -
-          (_bookingDetails!.booking.deposit +
-              (_bookingDetails!.booking.cardPayment ?? 0) +
-              (_bookingDetails!.booking.cashPayment ?? 0));
-
-      // Update only the amount in the database (keeping the same total)
-      await supabase
-          .from('bookings')
-          .update({'amount': newAmount})
-          .eq('booking_id', _bookingDetails!.booking.bookingId);
-
-      // Update the local booking object
+      // Update the UI with the correct totals
       setState(() {
-        // Create a new booking info object with updated amount
         final updatedBooking = BookingInfo(
           bookingId: _bookingDetails!.booking.bookingId,
           firstname: _bookingDetails!.booking.firstname,
@@ -2277,15 +2373,15 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           email: _bookingDetails!.booking.email,
           phoneNumber: _bookingDetails!.booking.phoneNumber,
           notes: _bookingDetails!.booking.notes,
-          total: currentTotal, // Keep the original total
-          amount: newAmount, // Update only the amount
+          total: newTotal,
+          amount: newAmount,
           deposit: _bookingDetails!.booking.deposit,
           isCancelled: _bookingDetails!.booking.isCancelled,
           cardPayment: _bookingDetails!.booking.cardPayment,
           cashPayment: _bookingDetails!.booking.cashPayment,
         );
 
-        // Replace the booking info in the booking details
+        // Update the booking details object
         _bookingDetails = BookingDetails(
           activityBookingId: _bookingDetails!.activityBookingId,
           booking: updatedBooking,
@@ -2294,100 +2390,20 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           createdAt: _bookingDetails!.createdAt,
           updatedAt: _bookingDetails!.updatedAt,
           consumptions: _bookingDetails!.consumptions,
+          activityPrice: activityPrice,
         );
       });
+
+      // Show success toast
+      if (mounted) {
+        _showCupertinoToast('Consommation ajoutée');
+      }
     } catch (e) {
-      print('Error updating booking total: $e');
-      // Silently handle error as this is a background update
-      // We don't want to disturb the user if this fails
-    }
-  }
-
-  // Update booking total locally without waiting for database
-  void _updateBookingTotalLocally() {
-    // Utiliser la propriété activityPrice stockée pour calculer correctement
-    double activityPrice = _bookingDetails!.activityPrice;
-
-    // S'assurer que activityPrice est initialisé
-    if (activityPrice <= 0) {
-      // Si pour une raison quelconque activityPrice n'est pas défini, utiliser la valeur de base
-      activityPrice = _bookingDetails!.booking.total;
-    }
-
-    // Calculer le total des consommations
-    double consumptionsTotal = _bookingDetails!.consumptionsTotal;
-
-    // Calculer le nouveau total en additionnant le prix de l'activité et les consommations
-    double newTotal = activityPrice + consumptionsTotal;
-
-    // Calculer le nouveau montant à payer (solde restant)
-    double newAmount =
-        newTotal -
-        (_bookingDetails!.booking.deposit +
-            (_bookingDetails!.booking.cardPayment ?? 0) +
-            (_bookingDetails!.booking.cashPayment ?? 0));
-
-    // Vérifier que le montant n'est pas négatif
-    if (newAmount < 0) newAmount = 0;
-
-    // Mettre à jour les totaux dans l'UI immédiatement
-    setState(() {
-      // Créer un nouveau object booking avec les valeurs mises à jour
-      final updatedBooking = BookingInfo(
-        bookingId: _bookingDetails!.booking.bookingId,
-        firstname: _bookingDetails!.booking.firstname,
-        lastname: _bookingDetails!.booking.lastname,
-        date: _bookingDetails!.booking.date,
-        nbrPers: _bookingDetails!.booking.nbrPers,
-        nbrParties: _bookingDetails!.booking.nbrParties,
-        email: _bookingDetails!.booking.email,
-        phoneNumber: _bookingDetails!.booking.phoneNumber,
-        notes: _bookingDetails!.booking.notes,
-        total: newTotal,
-        amount: newAmount,
-        deposit: _bookingDetails!.booking.deposit,
-        isCancelled: _bookingDetails!.booking.isCancelled,
-        cardPayment: _bookingDetails!.booking.cardPayment,
-        cashPayment: _bookingDetails!.booking.cashPayment,
-      );
-
-      // Mettre à jour l'objet booking details
-      _bookingDetails = BookingDetails(
-        activityBookingId: _bookingDetails!.activityBookingId,
-        booking: updatedBooking,
-        activity: _bookingDetails!.activity,
-        pricing: _bookingDetails!.pricing,
-        createdAt: _bookingDetails!.createdAt,
-        updatedAt: _bookingDetails!.updatedAt,
-        consumptions: _bookingDetails!.consumptions,
-        activityPrice:
-            activityPrice, // Conserver le prix original de l'activité
-      );
-    });
-  }
-
-  // Update booking total in the database only
-  Future<void> _updateBookingTotalInDatabase() async {
-    try {
-      // Calculate new total: original activity price + consumptions total
-      double originalTotal =
-          _bookingDetails!.booking.total - _bookingDetails!.consumptionsTotal;
-      double newTotal = originalTotal + _bookingDetails!.consumptionsTotal;
-
-      // Calculate new amount to pay
-      double newAmount =
-          newTotal -
-          (_bookingDetails!.booking.deposit +
-              (_bookingDetails!.booking.cardPayment ?? 0) +
-              (_bookingDetails!.booking.cashPayment ?? 0));
-
-      // Update the booking total and amount in the database
-      await supabase
-          .from('bookings')
-          .update({'total': newTotal, 'amount': newAmount})
-          .eq('booking_id', _bookingDetails!.booking.bookingId);
-    } catch (e) {
-      print('Error updating booking total in database: $e');
+      // In case of error, refresh to restore correct state
+      await _fetchBookingDetails();
+      if (mounted) {
+        _showCupertinoToast('Erreur lors de l\'ajout: $e', isError: true);
+      }
     }
   }
 
@@ -2406,5 +2422,27 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     if (value is String) return int.tryParse(value) ?? 0;
     if (value is double) return value.toInt();
     return 0;
+  }
+
+  // Method to show dialog explaining why bookings with consumptions cannot be cancelled
+  Future<void> _showCantCancelDialog() async {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text('Action impossible'),
+        content: const Text(
+          'Impossible d\'annuler une réservation qui contient des consommations. Veuillez supprimer toutes les consommations avant d\'annuler la réservation.'
+        ),
+        actions: <CupertinoDialogAction>[
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Compris'),
+          ),
+        ],
+      ),
+    );
   }
 }

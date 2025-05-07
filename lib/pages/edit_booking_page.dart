@@ -90,6 +90,11 @@ class EditBookingPageState extends State<EditBookingPage> {
     // Load available activities
     _fetchActivities();
 
+    // Special handling for Social Deal - set deposit equal to total
+    if (widget.bookingDetails.pricing.type.toLowerCase() == 'social deal') {
+      _depositController.text = _totalController.text;
+    }
+
     // Add listeners to detect changes
     _addChangeListeners();
   }
@@ -926,14 +931,50 @@ class EditBookingPageState extends State<EditBookingPage> {
           label: 'Nombre de parties',
           value: _numberOfGames,
           onIncrement: () {
+            // Check if this is a Social Deal activity before allowing increment
+            bool isSocialDeal = false;
+            if (_selectedActivityId != null) {
+              for (var activity in _availableActivities) {
+                if (activity['activity_id'] == _selectedActivityId) {
+                  String activityType = activity['type'] ?? '';
+                  if (activityType.toLowerCase() == 'social deal') {
+                    isSocialDeal = true;
+                    // For Social Deal, don't allow more than 3 parties
+                    if (_numberOfGames >= 3) {
+                      return;
+                    }
+                  }
+                  break;
+                }
+              }
+            }
+            
             setState(() {
               _numberOfGames++;
               _hasChanges = true;
               // Update total price when number of games changes
               _updateTotalPrice();
+              
+              // For Social Deal, set deposit equal to total after price update
+              if (isSocialDeal) {
+                _depositController.text = _totalController.text;
+              }
             });
           },
           onDecrement: () {
+            // Check if this is a Social Deal activity
+            bool isSocialDeal = false;
+            if (_selectedActivityId != null) {
+              for (var activity in _availableActivities) {
+                if (activity['activity_id'] == _selectedActivityId) {
+                  if ((activity['type'] ?? '').toLowerCase() == 'social deal') {
+                    isSocialDeal = true;
+                  }
+                  break;
+                }
+              }
+            }
+            
             // Use _getMinParties() to ensure we don't go below minimum required parties
             if (_numberOfGames > _getMinParties()) {
               setState(() {
@@ -941,6 +982,11 @@ class EditBookingPageState extends State<EditBookingPage> {
                 _hasChanges = true;
                 // Update total price when number of games changes
                 _updateTotalPrice();
+                
+                // For Social Deal, set deposit equal to total after price update
+                if (isSocialDeal) {
+                  _depositController.text = _totalController.text;
+                }
               });
             }
           },
@@ -1181,6 +1227,28 @@ class EditBookingPageState extends State<EditBookingPage> {
                               _numberOfGames = 2;
                             } else if (minParties > _numberOfGames) {
                               _numberOfGames = minParties;
+                            }
+
+                            // Special handling for Social Deal activities
+                            for (var activity in _availableActivities) {
+                              if (activity['activity_id'] ==
+                                  _selectedActivityId) {
+                                String activityType = activity['type'] ?? '';
+                                if (activityType.toLowerCase() ==
+                                    'social deal') {
+                                  // For Social Deal, maximum parties is 3
+                                  if (_numberOfGames > 3) {
+                                    _numberOfGames = 3;
+                                  }
+
+                                  // Set deposit equal to total for Social Deal
+                                  setState(() {
+                                    _depositController.text =
+                                        _totalController.text;
+                                  });
+                                }
+                                break;
+                              }
                             }
 
                             // Update the total price
@@ -1461,6 +1529,26 @@ class EditBookingPageState extends State<EditBookingPage> {
         themeService.darkMode
             ? CupertinoColors.systemGrey.darkColor
             : CupertinoColors.systemGrey4;
+            
+    // Check if this is a Social Deal activity with max parties
+    bool isSocialDealWithMaxParties = false;
+    if (_selectedActivityId != null) {
+      for (var activity in _availableActivities) {
+        if (activity['activity_id'] == _selectedActivityId) {
+          String activityType = activity['type'] ?? '';
+          if (activityType.toLowerCase() == 'social deal' && value >= 3) {
+            isSocialDealWithMaxParties = true;
+          }
+          break;
+        }
+      }
+    }
+    
+    // Determine if increment should be enabled
+    bool canIncrement = value < maxValue;
+    if (isSocialDealWithMaxParties) {
+      canIncrement = false;
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
@@ -1523,11 +1611,11 @@ class EditBookingPageState extends State<EditBookingPage> {
               const SizedBox(width: 8),
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: value < maxValue ? onIncrement : null,
+                onPressed: canIncrement ? onIncrement : null,
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: value < maxValue ? primaryColor : disabledColor,
+                    color: canIncrement ? primaryColor : disabledColor,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(

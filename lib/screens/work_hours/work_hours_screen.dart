@@ -120,12 +120,14 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
         }
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        _createThemedSnackBar(
-          'Error loading work hours: ${e.toString()}',
-          isError: true,
-        ),
-      );
+      if (mounted) { // Add mounted check before using BuildContext
+        ScaffoldMessenger.of(context).showSnackBar(
+          _createThemedSnackBar(
+            'Error loading work hours: ${e.toString()}',
+            isError: true,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -686,9 +688,12 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
   }) {
     // Get expanded state for this user
     final isExpanded = _expandedUsers[userName] ?? false;
+    
+    // Count the number of work hour entries
+    final entryCount = userHours.where((h) => h.hourId.isNotEmpty).length;
 
     return Padding(
-      padding: const EdgeInsets.only(left: 16, top: 8, right: 16, bottom: 8),
+      padding: const EdgeInsets.only(left: 16, top: 6, right: 16, bottom: 6), // Reduced vertical padding
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -700,7 +705,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
               boxShadow: [
                 BoxShadow(
                   color: separatorColor,
-                  blurRadius: 3,
+                  blurRadius: 2, // Reduced blur
                   offset: const Offset(0, 1),
                 ),
               ],
@@ -712,7 +717,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                 });
               },
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(12.0), // Reduced padding
                 child: Column(
                   children: [
                     Row(
@@ -722,7 +727,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(6), // Reduced padding
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(8),
@@ -730,16 +735,32 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                               child: const Icon(
                                 CupertinoIcons.person_fill,
                                 color: Colors.white,
-                                size: 18,
+                                size: 16, // Reduced size
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 10),
                             Text(
                               userName,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 18,
+                                fontSize: 16, // Reduced font size
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Number of sessions badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), // Smaller padding
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$entryCount session${entryCount != 1 ? "s" : ""}',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontSize: 12, // Smaller font
+                                ),
                               ),
                             ),
                           ],
@@ -747,7 +768,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
 
                         // Toggle icon
                         Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(5), // Reduced padding
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(20),
@@ -757,13 +778,13 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                 ? CupertinoIcons.chevron_up
                                 : CupertinoIcons.chevron_down,
                             color: Colors.white,
-                            size: 16,
+                            size: 14, // Reduced size
                           ),
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10), // Reduced spacing
 
                     // Totals row
                     Row(
@@ -776,14 +797,14 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                               'Total heures',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.8),
-                                fontSize: 14,
+                                fontSize: 13, // Reduced font size
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2), // Reduced spacing
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 5,
+                                horizontal: 10,
+                                vertical: 3, // Reduced padding
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.2),
@@ -794,7 +815,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 15, // Reduced font size
                                 ),
                               ),
                             ),
@@ -803,7 +824,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
 
                         // Separator
                         Container(
-                          height: 30,
+                          height: 24, // Reduced height
                           width: 1,
                           color: Colors.white.withOpacity(0.3),
                         ),
@@ -815,14 +836,14 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                               'Montant total',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.8),
-                                fontSize: 14,
+                                fontSize: 13, // Reduced font size
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2), // Reduced spacing
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 5,
+                                horizontal: 10,
+                                vertical: 3, // Reduced padding
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.2),
@@ -833,7 +854,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 15, // Reduced font size
                                 ),
                               ),
                             ),
@@ -857,7 +878,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                       ) // Filter out placeholders
                       .map(
                         (workHour) => Padding(
-                          padding: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.only(top: 6), // Reduced spacing
                           child: _buildWorkHourItem(
                             workHour,
                             textColor,
@@ -1023,46 +1044,49 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                   ),
                   Row(
                     children: [
-                      // Edit button
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        minSize: 0,
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
+                      // Only show edit and delete buttons in personal view (not in admin view)
+                      if (!_showAllUsers) ...[
+                        // Edit button
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 0,
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              CupertinoIcons.pencil,
+                              color: primaryColor,
+                              size: 16,
+                            ),
                           ),
-                          child: Icon(
-                            CupertinoIcons.pencil,
-                            color: primaryColor,
-                            size: 16,
-                          ),
+                          onPressed: () => _showEditWorkHourDialog(workHour),
                         ),
-                        onPressed: () => _showEditWorkHourDialog(workHour),
-                      ),
-                      // Delete button
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        minSize: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: CupertinoColors.systemRed.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
+                        // Delete button
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: CupertinoColors.systemRed.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              CupertinoIcons.delete,
+                              color:
+                                  themeService.darkMode
+                                      ? CupertinoColors.systemRed.darkColor
+                                      : CupertinoColors.systemRed,
+                              size: 16,
+                            ),
                           ),
-                          child: Icon(
-                            CupertinoIcons.delete,
-                            color:
-                                themeService.darkMode
-                                    ? CupertinoColors.systemRed.darkColor
-                                    : CupertinoColors.systemRed,
-                            size: 16,
-                          ),
+                          onPressed: () => _deleteWorkHour(workHour),
                         ),
-                        onPressed: () => _deleteWorkHour(workHour),
-                      ),
+                      ],
                     ],
                   ),
                 ],
@@ -1346,7 +1370,6 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
                   ? CupertinoColors.secondarySystemBackground.darkColor
                   : CupertinoColors.secondarySystemBackground;
           final separatorColor = themeService.getSeparatorColor();
-          final textColor = themeService.getTextColor();
 
           return Container(
             height: 300,
@@ -1465,7 +1488,6 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
                   ? CupertinoColors.secondarySystemBackground.darkColor
                   : CupertinoColors.secondarySystemBackground;
           final separatorColor = themeService.getSeparatorColor();
-          final textColor = themeService.getTextColor();
 
           return Container(
             height: 300,
@@ -1622,8 +1644,6 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
   // Show a toast message that will display and auto-dismiss
   void _showToast(String message, {bool isError = false}) {
     // This method uses CupertinoAlertDialog with auto-dismiss instead of SnackBar
-    final textColor = themeService.getTextColor();
-    final primaryColor = CupertinoTheme.of(context).primaryColor;
     final toastColor =
         isError
             ? (themeService.darkMode
@@ -2017,25 +2037,6 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
       ),
     );
   }
-
-  // Create a themed SnackBar that respects dark mode
-  SnackBar _createThemedSnackBar(String message, {bool isError = false}) {
-    final backgroundColor =
-        isError
-            ? (themeService.darkMode
-                ? CupertinoColors.systemRed.darkColor
-                : CupertinoColors.systemRed)
-            : (themeService.darkMode
-                ? CupertinoColors.activeGreen.darkColor
-                : CupertinoColors.activeGreen);
-
-    final textColor = CupertinoColors.white;
-
-    return SnackBar(
-      backgroundColor: backgroundColor,
-      content: Text(message, style: TextStyle(color: textColor)),
-    );
-  }
 }
 
 class EditWorkHourDialog extends StatefulWidget {
@@ -2230,7 +2231,6 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
                   ? CupertinoColors.secondarySystemBackground.darkColor
                   : CupertinoColors.secondarySystemBackground;
           final separatorColor = themeService.getSeparatorColor();
-          final textColor = themeService.getTextColor();
 
           return Container(
             height: 300,
@@ -2349,7 +2349,6 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
                   ? CupertinoColors.secondarySystemBackground.darkColor
                   : CupertinoColors.secondarySystemBackground;
           final separatorColor = themeService.getSeparatorColor();
-          final textColor = themeService.getTextColor();
 
           return Container(
             height: 300,
@@ -2505,9 +2504,6 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
 
   // Show a toast message that will display and auto-dismiss
   void _showToast(String message, {bool isError = false}) {
-    // This method uses CupertinoAlertDialog with auto-dismiss instead of SnackBar
-    final textColor = themeService.getTextColor();
-    final primaryColor = CupertinoTheme.of(context).primaryColor;
     final toastColor =
         isError
             ? (themeService.darkMode

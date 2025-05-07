@@ -278,10 +278,8 @@ class SettingsScreenState extends State<SettingsScreen> {
                 title: 'Heures de travail',
                 textColor: textColor,
                 onTap: () {
-                  print('🔍 DEBUG: Work hours button tapped');
                   // Navigate to work hours screen
                   Navigator.of(context).pushNamed('/work-hours');
-                  print('🔍 DEBUG: After pushing /work-hours route');
                 },
               ),
               Divider(height: 1, indent: 65, color: separatorColor),
@@ -463,7 +461,6 @@ class SettingsScreenState extends State<SettingsScreen> {
   void _showAppInfoDialog() {
     final textColor = themeService.getTextColor();
     final secondaryTextColor = themeService.getSecondaryTextColor();
-    final backgroundColor = themeService.getCardColor();
 
     showCupertinoDialog(
       context: context,
@@ -496,7 +493,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Version 0.1.0',
+                  'Version 0.1.1',
                   style: TextStyle(
                     color: secondaryTextColor,
                     fontSize: 14,

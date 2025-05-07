@@ -716,162 +716,168 @@ class _StockScreenState extends State<StockScreen>
                                           ),
                                         ),
                                         child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: CupertinoTextField(
-                                                controller: quantityController,
-                                                placeholder: "Ex: 42",
-                                                padding: const EdgeInsets.all(
-                                                  16,
-                                                ),
-                                                keyboardType:
-                                                    TextInputType.number,
-                                                clearButtonMode:
-                                                    OverlayVisibilityMode
-                                                        .editing,
-                                                prefix: Container(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        left: 12,
-                                                      ),
-                                                  child: Icon(
-                                                    CupertinoIcons
-                                                        .cube_box_fill,
-                                                    color: primaryColor
-                                                        .withOpacity(0.7),
-                                                    size: 20,
+                                            children: [
+                                              Expanded(
+                                                child: CupertinoTextField(
+                                                  controller: quantityController,
+                                                  placeholder: "Ex: 42",
+                                                  padding: const EdgeInsets.all(
+                                                    16,
                                                   ),
+                                                  keyboardType:
+                                                      TextInputType.number,
+                                                  clearButtonMode:
+                                                      OverlayVisibilityMode
+                                                          .editing,
+                                                  prefix: Container(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          left: 12,
+                                                        ),
+                                                    child: Icon(
+                                                      CupertinoIcons
+                                                          .cube_box_fill,
+                                                      color: primaryColor
+                                                          .withOpacity(0.7),
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                  decoration: null,
+                                                  style: TextStyle(
+                                                    color: textColor,
+                                                    fontSize: 16,
+                                                  ),
+                                                  onChanged: (value) {
+                                                    if (!isQuantityValid) {
+                                                      setState(() {
+                                                        isQuantityValid = true;
+                                                        quantityError = '';
+                                                      });
+                                                    }
+                                                  },
                                                 ),
-                                                decoration: null,
-                                                style: TextStyle(
-                                                  color: textColor,
-                                                  fontSize: 16,
+                                              ),
+                                              Container(
+                                                margin: const EdgeInsets.only(
+                                                  right: 8,
                                                 ),
-                                                onChanged: (value) {
-                                                  if (!isQuantityValid) {
-                                                    setState(() {
-                                                      isQuantityValid = true;
-                                                      quantityError = '';
-                                                    });
-                                                  }
-                                                },
-                                              ),
-                                            ),
-                                            Container(
-                                              margin: const EdgeInsets.only(
-                                                right: 8,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: cardColor,
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  CupertinoButton(
-                                                    padding: EdgeInsets.zero,
-                                                    onPressed: () {
-                                                      final currentValue =
-                                                          int.tryParse(
+                                                decoration: BoxDecoration(
+                                                  color: cardColor,
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    CupertinoButton(
+                                                      padding: EdgeInsets.zero,
+                                                      onPressed: () {
+                                                        final currentValue =
+                                                            int.tryParse(
+                                                              quantityController
+                                                                  .text,
+                                                            ) ??
+                                                            0;
+                                                        if (currentValue > 0) {
+                                                          setState(() {
                                                             quantityController
-                                                                .text,
-                                                          ) ??
-                                                          0;
-                                                      if (currentValue > 0) {
+                                                                    .text =
+                                                                (currentValue - 1)
+                                                                    .toString();
+                                                          });
+                                                        }
+                                                      },
+                                                      child: Container(
+                                                        width: 40,
+                                                        height: 40,
+                                                        decoration: BoxDecoration(
+                                                          color: primaryColor,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: primaryColor
+                                                                  .withOpacity(
+                                                                    0.3,
+                                                                  ),
+                                                              blurRadius: 8,
+                                                              offset:
+                                                                  const Offset(
+                                                                    0,
+                                                                    3,
+                                                                  ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: const Center(
+                                                          child: Icon(
+                                                            CupertinoIcons.minus,
+                                                            color:
+                                                                CupertinoColors
+                                                                    .white,
+                                                            size: 18,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    CupertinoButton(
+                                                      padding: EdgeInsets.zero,
+                                                      onPressed: () {
+                                                        final currentValue =
+                                                            int.tryParse(
+                                                              quantityController
+                                                                  .text,
+                                                            ) ??
+                                                            0;
                                                         setState(() {
                                                           quantityController
                                                                   .text =
-                                                              (currentValue - 1)
+                                                              (currentValue + 1)
                                                                   .toString();
                                                         });
-                                                      }
-                                                    },
-                                                    child: Container(
-                                                      width: 40,
-                                                      height: 40,
-                                                      decoration: BoxDecoration(
-                                                        color:
-                                                            themeService
-                                                                    .darkMode
-                                                                ? const Color(
-                                                                  0xFF2C2C2E,
-                                                                )
-                                                                : const Color(
-                                                                  0xFFF2F2F7,
-                                                                ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
+                                                      },
+                                                      child: Container(
+                                                        width: 40,
+                                                        height: 40,
+                                                        decoration: BoxDecoration(
+                                                          color: primaryColor,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: primaryColor
+                                                                  .withOpacity(
+                                                                    0.3,
+                                                                  ),
+                                                              blurRadius: 8,
+                                                              offset:
+                                                                  const Offset(
+                                                                    0,
+                                                                    3,
+                                                                  ),
                                                             ),
-                                                      ),
-                                                      child: const Center(
-                                                        child: Icon(
-                                                          CupertinoIcons.minus,
-                                                          color:
-                                                              CupertinoColors
-                                                                  .systemGrey,
-                                                          size: 18,
+                                                          ],
                                                         ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  CupertinoButton(
-                                                    padding: EdgeInsets.zero,
-                                                    onPressed: () {
-                                                      final currentValue =
-                                                          int.tryParse(
-                                                            quantityController
-                                                                .text,
-                                                          ) ??
-                                                          0;
-                                                      setState(() {
-                                                        quantityController
-                                                                .text =
-                                                            (currentValue + 1)
-                                                                .toString();
-                                                      });
-                                                    },
-                                                    child: Container(
-                                                      width: 40,
-                                                      height: 40,
-                                                      decoration: BoxDecoration(
-                                                        color: primaryColor,
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: primaryColor
-                                                                .withOpacity(
-                                                                  0.3,
-                                                                ),
-                                                            blurRadius: 8,
-                                                            offset:
-                                                                const Offset(
-                                                                  0,
-                                                                  3,
-                                                                ),
+                                                        child: const Center(
+                                                          child: Icon(
+                                                            CupertinoIcons.add,
+                                                            color:
+                                                                CupertinoColors
+                                                                    .white,
+                                                            size: 18,
                                                           ),
-                                                        ],
-                                                      ),
-                                                      child: const Center(
-                                                        child: Icon(
-                                                          CupertinoIcons.add,
-                                                          color:
-                                                              CupertinoColors
-                                                                  .white,
-                                                          size: 18,
                                                         ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
+                                            ],
+                                          ),
                                       ),
                                       if (!isQuantityValid)
                                         Padding(
@@ -1150,6 +1156,7 @@ class _StockScreenState extends State<StockScreen>
                                       style: const TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.w600,
+                                        color: CupertinoColors.white,
                                       ),
                                     ),
                                   ],
@@ -1966,7 +1973,7 @@ class _StockScreenState extends State<StockScreen>
                                     onRefresh: _loadFoodItems,
                                   ),
                                   SliverPadding(
-                                    padding: const EdgeInsets.only(bottom: 20),
+                                    padding: const EdgeInsets.only(bottom: 60),
                                     sliver: SliverList(
                                       delegate: SliverChildBuilderDelegate((
                                         context,
