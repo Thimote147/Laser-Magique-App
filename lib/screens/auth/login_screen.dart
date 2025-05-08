@@ -56,11 +56,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _errorMessage = '';
       });
 
+      // Get the AuthService before any async operations
+      final authService = Provider.of<AuthService>(context, listen: false);
+
       try {
         // Save credentials if remember me is checked
         await _saveCredentials();
 
-        final authService = Provider.of<AuthService>(context, listen: false);
         await authService.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
@@ -122,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).primaryColor.withOpacity(0.1),
+                              ).primaryColor.withAlpha((0.1 * 255).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
@@ -164,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         prefixIcon: const Icon(Icons.email_outlined),
                         filled: true,
-                        fillColor: Colors.grey.withOpacity(0.1),
+                        fillColor: Colors.grey.withAlpha((0.1 * 255).round()),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
@@ -205,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                         filled: true,
-                        fillColor: Colors.grey.withOpacity(0.1),
+                        fillColor: Colors.grey.withAlpha((0.1 * 255).round()),
                       ),
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
@@ -241,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
+                            color: Colors.red.withAlpha((0.1 * 255).round()),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -263,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           BoxShadow(
                             color: Theme.of(
                               context,
-                            ).primaryColor.withOpacity(0.3),
+                            ).primaryColor.withAlpha((0.3 * 255).round()),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),

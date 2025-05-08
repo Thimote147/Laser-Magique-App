@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/booking_details.dart';
 import '../models/food.dart';
 import '../main.dart';
-import '../services/booking_service.dart'; // Import the new service
+import '../services/booking_service.dart';
+import '../services/auth_service.dart';
 import 'edit_booking_page.dart';
 
 class BookingDetailsPage extends StatefulWidget {
@@ -87,11 +90,13 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // Return with refresh flag to update calendar
-        Navigator.pop(context, {'refreshCalendar': _dataChanged || true});
-        return false; // We handle the pop ourselves
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          // Return with refresh flag to update calendar
+          Navigator.pop(context, {'refreshCalendar': _dataChanged || true});
+        }
       },
       child: CupertinoPageScaffold(
         backgroundColor: themeService.getBackgroundColor(),
@@ -132,10 +137,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
     final backgroundColor = themeService.getCardColor();
     final borderColor = themeService.getSeparatorColor();
-    
+
     // Check if booking has consumptions
-    final bool hasConsumptions = _bookingDetails != null && 
-        _bookingDetails!.consumptions.isNotEmpty;
+    final bool hasConsumptions =
+        _bookingDetails != null && _bookingDetails!.consumptions.isNotEmpty;
 
     // Define border radius constant to ensure consistency
     const double buttonBorderRadius = 8.0;
@@ -144,27 +149,31 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     final cancelButtonColor =
         isCancelled
             ? CupertinoColors.activeBlue.withOpacity(0.8)
-            : hasConsumptions 
-              ? CupertinoColors.systemGrey4 // Disabled color
-              : themeService.darkMode
-                ? CupertinoColors.systemGrey5.darkColor
-                : CupertinoColors.systemGrey6; // Lighter background for better contrast
+            : hasConsumptions
+            ? CupertinoColors
+                .systemGrey4 // Disabled color
+            : themeService.darkMode
+            ? CupertinoColors.systemGrey5.darkColor
+            : CupertinoColors
+                .systemGrey6; // Lighter background for better contrast
 
     // Define a more visible border color for the cancel button
     final cancelBorderColor =
         isCancelled
             ? CupertinoColors.activeBlue
             : hasConsumptions
-              ? CupertinoColors.systemGrey
-              : CupertinoColors.systemRed.withOpacity(0.6); // More visible red tint for border
+            ? CupertinoColors.systemGrey
+            : CupertinoColors.systemRed.withOpacity(
+              0.6,
+            ); // More visible red tint for border
 
     // Define more prominent text color for the cancel button
     final cancelTextColor =
         isCancelled
             ? CupertinoColors.white
             : hasConsumptions
-              ? CupertinoColors.systemGrey
-              : CupertinoColors.systemRed; // Red text for better visibility
+            ? CupertinoColors.systemGrey
+            : CupertinoColors.systemRed; // Red text for better visibility
 
     return Container(
       decoration: BoxDecoration(
@@ -207,6 +216,17 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                     buttonBorderRadius - 1,
                   ), // Match the clip radius
                   color: cancelButtonColor,
+                  onPressed:
+                      hasConsumptions && !isCancelled
+                          ? () =>
+                              _showCantCancelDialog() // Show explanation dialog when has consumptions
+                          : () {
+                            if (isCancelled) {
+                              _showReinstateConfirmation();
+                            } else {
+                              _showCancelConfirmation();
+                            }
+                          },
                   child: Text(
                     isCancelled ? 'Remettre' : 'Annuler',
                     style: TextStyle(
@@ -215,15 +235,6 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  onPressed: hasConsumptions && !isCancelled 
-                    ? () => _showCantCancelDialog() // Show explanation dialog when has consumptions
-                    : () {
-                        if (isCancelled) {
-                          _showReinstateConfirmation();
-                        } else {
-                          _showCancelConfirmation();
-                        }
-                      },
                 ),
               ),
             ),
@@ -300,6 +311,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                               ),
                         ),
                       ).then((result) {
+                        if (!mounted) return; // Add mounted check here
+
                         if (result == true || result == 'deleted') {
                           if (result == 'deleted') {
                             Navigator.pop(
@@ -329,7 +342,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
     final formattedDate = dateFormatter.format(_bookingDetails!.booking.date);
     final formattedTime = timeFormatter.format(_bookingDetails!.booking.date);
-    
+
     // Get cancellation status
     final bool isCancelled = _bookingDetails?.booking.isCancelled ?? false;
 
@@ -409,24 +422,13 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              CupertinoTheme.of(context).primaryColor,
-                              CupertinoTheme.of(context).primaryColor.withBlue(
-                                (CupertinoTheme.of(context).primaryColor.blue +
-                                        40)
-                                    .clamp(0, 255),
-                              ),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                          color: CupertinoColors.systemBlue,
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
                               color: CupertinoTheme.of(
                                 context,
-                              ).primaryColor.withOpacity(0.3),
+                              ).primaryColor.withAlpha((0.3 * 255).round()),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
                             ),
@@ -572,7 +574,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               Container(
                 padding: const EdgeInsets.all(6), // Reduced padding
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withAlpha((0.1 * 255).round()),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -595,7 +597,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
               Container(
                 padding: const EdgeInsets.all(6), // Reduced padding
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withAlpha((0.1 * 255).round()),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -653,7 +655,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
+                    color: primaryColor.withAlpha((0.1 * 255).round()),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(icon, color: primaryColor, size: 16),
@@ -683,6 +685,10 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   }
 
   Widget _buildClientInfoSection() {
+    // Get auth service and check user role
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final isAdmin = authService.userRole == 'admin';
+
     if (_isEditingCustomerInfo) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -758,31 +764,44 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           ),
           const SizedBox(height: 12),
 
-          // Contact info rows
-          Row(
-            children: [
-              // Email
-              Expanded(
-                child: _buildInfoItem(
-                  CupertinoIcons.mail_solid,
-                  'Email',
-                  _bookingDetails!.booking.email,
-                  onTap: () => _launchEmail(_bookingDetails!.booking.email),
+          // Contact info rows - Only show if user is admin
+          if (isAdmin)
+            Row(
+              children: [
+                // Phone
+                Expanded(
+                  child: _buildInfoItem(
+                    CupertinoIcons.phone_fill,
+                    'Téléphone',
+                    _bookingDetails!.booking.phoneNumber,
+                    onTap:
+                        () =>
+                            _launchPhone(_bookingDetails!.booking.phoneNumber),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Email
+                Expanded(
+                  child: _buildInfoItem(
+                    CupertinoIcons.mail_solid,
+                    'Email',
+                    _bookingDetails!.booking.email,
+                    onTap: () => _launchEmail(_bookingDetails!.booking.email),
+                  ),
+                ),
+              ],
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                'Les coordonnées sont visibles uniquement par les administrateurs',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: themeService.getSecondaryTextColor(),
                 ),
               ),
-              const SizedBox(width: 16),
-              // Phone
-              Expanded(
-                child: _buildInfoItem(
-                  CupertinoIcons.phone_fill,
-                  'Téléphone',
-                  _bookingDetails!.booking.phoneNumber,
-                  onTap:
-                      () => _launchPhone(_bookingDetails!.booking.phoneNumber),
-                ),
-              ),
-            ],
-          ),
+            ),
         ],
       );
     }
@@ -1000,14 +1019,14 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
     final backgroundColor =
         isPaid
-            ? primaryColor.withOpacity(0.1)
+            ? primaryColor.withAlpha((0.1 * 255).round())
             : themeService.darkMode
             ? CupertinoColors.systemGrey6.darkColor
             : CupertinoColors.systemGrey6;
 
     final borderColor =
         isPaid
-            ? primaryColor.withOpacity(0.3)
+            ? primaryColor.withAlpha((0.3 * 255).round())
             : themeService.getSeparatorColor();
 
     return Container(
@@ -1081,7 +1100,9 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: CupertinoTheme.of(context).primaryColor.withOpacity(0.1),
+              color: CupertinoTheme.of(
+                context,
+              ).primaryColor.withAlpha((0.1 * 255).round()),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -1139,19 +1160,22 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     final borderColor = themeService.getSeparatorColor();
 
     // Use provided highlight color or default to primary color
-    final Color activeColor = highlightColor ?? CupertinoTheme.of(context).primaryColor;
-    
+    final Color activeColor =
+        highlightColor ?? CupertinoTheme.of(context).primaryColor;
+
     // If amount is 0 and we're highlighting with green, change the background color as well
-    final bool isGreenZeroAmount = isHighlighted && 
-        highlightColor == CupertinoColors.activeGreen;
-    
-    final Color containerBgColor = isGreenZeroAmount 
-        ? CupertinoColors.activeGreen.withOpacity(0.1)
-        : backgroundColor;
-        
-    final Color containerBorderColor = isGreenZeroAmount
-        ? CupertinoColors.activeGreen.withOpacity(0.3)
-        : borderColor;
+    final bool isGreenZeroAmount =
+        isHighlighted && highlightColor == CupertinoColors.activeGreen;
+
+    final Color containerBgColor =
+        isGreenZeroAmount
+            ? CupertinoColors.activeGreen.withOpacity(0.1)
+            : backgroundColor;
+
+    final Color containerBorderColor =
+        isGreenZeroAmount
+            ? CupertinoColors.activeGreen.withOpacity(0.3)
+            : borderColor;
 
     return GestureDetector(
       onTap: onTap,
@@ -1183,7 +1207,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                     value,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight:
+                          isHighlighted ? FontWeight.w600 : FontWeight.w500,
                       color: isHighlighted ? activeColor : textColor,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -1243,14 +1268,80 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     );
   }
 
-  void _launchEmail(String email) {
-    // Implémenter la logique pour lancer l'application mail
-    // Vous pourriez utiliser le package url_launcher ici
+  void _launchEmail(String email) async {
+    // Show confirmation dialog before launching email
+    showCupertinoDialog(
+      context: context,
+      builder:
+          (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('Envoyer un email'),
+            content: Text('Voulez-vous envoyer un email à $email ?'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Annuler'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () async {
+                  Navigator.pop(context);
+
+                  // Launch email client after confirmation
+                  final Uri emailUri = Uri(scheme: 'mailto', path: email);
+                  if (await canLaunchUrl(emailUri)) {
+                    await launchUrl(emailUri);
+                  } else {
+                    _showCupertinoToast(
+                      'Impossible d\'ouvrir l\'application de messagerie',
+                      isError: true,
+                    );
+                  }
+                },
+                child: const Text('Envoyer'),
+              ),
+            ],
+          ),
+    );
   }
 
-  void _launchPhone(String phoneNumber) {
-    // Implémenter la logique pour lancer l'application téléphone
-    // Vous pourriez utiliser le package url_launcher ici
+  void _launchPhone(String phoneNumber) async {
+    // Show confirmation dialog before launching phone call
+    showCupertinoDialog(
+      context: context,
+      builder:
+          (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('Appeler'),
+            content: Text('Voulez-vous appeler $phoneNumber ?'),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Annuler'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () async {
+                  Navigator.pop(context);
+
+                  // Launch phone dialer after confirmation
+                  final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+                  if (await canLaunchUrl(phoneUri)) {
+                    await launchUrl(phoneUri);
+                  } else {
+                    _showCupertinoToast(
+                      'Impossible d\'ouvrir l\'application de téléphone',
+                      isError: true,
+                    );
+                  }
+                },
+                child: const Text('Appeler'),
+              ),
+            ],
+          ),
+    );
   }
 
   // Custom toast method that works with CupertinoPageScaffold
@@ -1347,19 +1438,23 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       // Use booking service to delete the booking
       await _bookingService.deleteBooking(_bookingDetails!.activityBookingId);
 
+      // Check if widget is still mounted before updating state
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
 
-      if (!context.mounted) return;
       _showCupertinoToast('Réservation supprimée avec succès');
       Navigator.pop(context, {'status': 'deleted', 'refreshCalendar': true});
     } catch (e) {
+      // Check if widget is still mounted before updating state
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
 
-      if (!context.mounted) return;
       _showCupertinoToast('Erreur lors de la suppression: $e', isError: true);
     }
   }
@@ -1402,19 +1497,21 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       // Use booking service to cancel the booking
       await _bookingService.cancelBooking(_bookingDetails!.booking.bookingId);
 
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
 
-      if (!context.mounted) return;
       _showCupertinoToast('Réservation annulée avec succès');
       Navigator.pop(context, {'status': 'cancelled', 'refreshCalendar': true});
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
 
-      if (!context.mounted) return;
       _showCupertinoToast('Erreur lors de l\'annulation: $e', isError: true);
     }
   }
@@ -1455,7 +1552,9 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
 
     try {
       // Use booking service to reinstate the booking
-      await _bookingService.reinstateBooking(_bookingDetails!.booking.bookingId);
+      await _bookingService.reinstateBooking(
+        _bookingDetails!.booking.bookingId,
+      );
 
       setState(() {
         _isLoading = false;
@@ -1593,8 +1692,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                         child: Container(
                           padding: const EdgeInsets.all(5), // Reduced padding
                           decoration: BoxDecoration(
-                            color: themeService.getSeparatorColor().withOpacity(
-                              0.2,
+                            color: themeService.getSeparatorColor().withAlpha(
+                              (0.2 * 255).round(),
                             ),
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -1631,7 +1730,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
                           decoration: BoxDecoration(
                             color: CupertinoTheme.of(
                               context,
-                            ).primaryColor.withOpacity(0.2),
+                            ).primaryColor.withAlpha((0.2 * 255).round()),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Icon(
@@ -1709,18 +1808,18 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     if (newQuantity <= 0) {
       // If the new quantity is zero or negative, remove the item completely
       double activityPrice = _bookingDetails!.activityPrice;
-      
+
       // Update UI immediately to show the item is removed
       setState(() {
         // Remove the item from the list
         _bookingDetails!.consumptions.removeWhere((i) => i.id == itemId);
-        
+
         // Calculate new consumption total from all remaining items
         double newConsumptionsTotal = 0;
         for (var consumption in _bookingDetails!.consumptions) {
           newConsumptionsTotal += consumption.price * consumption.quantity;
         }
-        
+
         // Create updated booking with new totals
         final updatedBooking = BookingInfo(
           bookingId: _bookingDetails!.booking.bookingId,
@@ -1732,8 +1831,11 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           email: _bookingDetails!.booking.email,
           phoneNumber: _bookingDetails!.booking.phoneNumber,
           notes: _bookingDetails!.booking.notes,
-          total: activityPrice + newConsumptionsTotal, // Key formula: activityPrice + consumptionsTotal
-          amount: (activityPrice + newConsumptionsTotal) -
+          total:
+              activityPrice +
+              newConsumptionsTotal, // Key formula: activityPrice + consumptionsTotal
+          amount:
+              (activityPrice + newConsumptionsTotal) -
               (_bookingDetails!.booking.deposit +
                   (_bookingDetails!.booking.cardPayment ?? 0) +
                   (_bookingDetails!.booking.cashPayment ?? 0)),
@@ -1742,33 +1844,33 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           cardPayment: _bookingDetails!.booking.cardPayment,
           cashPayment: _bookingDetails!.booking.cashPayment,
         );
-        
+
         // Update booking details with new data
         _bookingDetails = BookingDetails(
           activityBookingId: _bookingDetails!.activityBookingId,
           booking: updatedBooking,
           activity: _bookingDetails!.activity,
-          pricing: _bookingDetails!.pricing, 
+          pricing: _bookingDetails!.pricing,
           createdAt: _bookingDetails!.createdAt,
           updatedAt: _bookingDetails!.updatedAt,
           consumptions: _bookingDetails!.consumptions,
           activityPrice: activityPrice,
         );
       });
-      
+
       // Now remove the item in the database
       try {
         await _bookingService.removeConsumption(
           _bookingDetails!.booking.bookingId,
-          itemId
+          itemId,
         );
-        
+
         // Calculate consumption total from current items
         double newConsumptionsTotal = 0;
         for (var consumption in _bookingDetails!.consumptions) {
           newConsumptionsTotal += consumption.price * consumption.quantity;
         }
-        
+
         // Update booking total in database
         await _bookingService.updateBookingTotalInDatabase(
           _bookingDetails!.booking.bookingId,
@@ -1776,17 +1878,20 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           newConsumptionsTotal,
           _bookingDetails!.booking.deposit,
           _bookingDetails!.booking.cardPayment,
-          _bookingDetails!.booking.cashPayment
+          _bookingDetails!.booking.cashPayment,
         );
-        
+
         _dataChanged = true;
-        
+
         if (mounted) {
           _showCupertinoToast('Article supprimé');
         }
       } catch (e) {
         if (mounted) {
-          _showCupertinoToast('Erreur lors de la suppression: $e', isError: true);
+          _showCupertinoToast(
+            'Erreur lors de la suppression: $e',
+            isError: true,
+          );
           await _fetchBookingDetails(); // Refresh to get correct state
         }
       }
@@ -1797,7 +1902,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     bool isIncreasing = newQuantity > item.quantity;
     int oldQuantity = item.quantity;
     double activityPrice = _bookingDetails!.activityPrice;
-    
+
     // Update the UI immediately with a full recalculation
     setState(() {
       final index = _bookingDetails!.consumptions.indexWhere(
@@ -1810,13 +1915,13 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         );
         // Replace the item in the list
         _bookingDetails!.consumptions[index] = updatedItem;
-        
+
         // Calculate the true consumption total from all items
         double newConsumptionsTotal = 0;
         for (var consumption in _bookingDetails!.consumptions) {
           newConsumptionsTotal += consumption.price * consumption.quantity;
         }
-        
+
         // Update the booking object with new totals
         final updatedBooking = BookingInfo(
           bookingId: _bookingDetails!.booking.bookingId,
@@ -1829,7 +1934,8 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           phoneNumber: _bookingDetails!.booking.phoneNumber,
           notes: _bookingDetails!.booking.notes,
           total: activityPrice + newConsumptionsTotal,
-          amount: (activityPrice + newConsumptionsTotal) -
+          amount:
+              (activityPrice + newConsumptionsTotal) -
               (_bookingDetails!.booking.deposit +
                   (_bookingDetails!.booking.cardPayment ?? 0) +
                   (_bookingDetails!.booking.cashPayment ?? 0)),
@@ -1838,7 +1944,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
           cardPayment: _bookingDetails!.booking.cardPayment,
           cashPayment: _bookingDetails!.booking.cashPayment,
         );
-        
+
         // Update the booking details with new booking info
         _bookingDetails = BookingDetails(
           activityBookingId: _bookingDetails!.activityBookingId,
@@ -1860,13 +1966,13 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         await _bookingService.updateConsumptionQuantity(
           _bookingDetails!.booking.bookingId,
           itemId,
-          oldQuantity + 1
+          oldQuantity + 1,
         );
       } else {
         // Decreasing quantity - use BookingService
         await _bookingService.decreaseConsumptionQuantity(
           _bookingDetails!.booking.bookingId,
-          itemId
+          itemId,
         );
       }
 
@@ -1883,7 +1989,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         newConsumptionsTotal,
         _bookingDetails!.booking.deposit,
         _bookingDetails!.booking.cardPayment,
-        _bookingDetails!.booking.cashPayment
+        _bookingDetails!.booking.cashPayment,
       );
 
       // Mark data as changed
@@ -1936,7 +2042,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
       }
     } catch (e) {
       // Silently handle error as this is a background refresh
-      print('Error refreshing consumptions: $e');
+      debugPrint('Error refreshing consumptions: $e');
     }
   }
 
@@ -1944,111 +2050,117 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   void _removeConsumption(String itemId) {
     showCupertinoDialog(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Supprimer cet article'),
-        content: const Text(
-          'Voulez-vous vraiment supprimer cet article des consommations ?',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('Annuler'),
-            onPressed: () {
-              Navigator.pop(context);
-            },
+      builder:
+          (context) => CupertinoAlertDialog(
+            title: const Text('Supprimer cet article'),
+            content: const Text(
+              'Voulez-vous vraiment supprimer cet article des consommations ?',
+            ),
+            actions: [
+              CupertinoDialogAction(
+                child: const Text('Annuler'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () async {
+                  Navigator.pop(context);
+
+                  // Get the item to be removed before removing it from the list
+                  final item = _bookingDetails!.getConsumptionById(itemId);
+                  if (item == null) return;
+
+                  // Calculate the price to subtract from totals
+                  double itemTotalPrice = item.price * item.quantity;
+                  double activityPrice = _bookingDetails!.activityPrice;
+                  double currentConsumptionsTotal =
+                      _bookingDetails!.consumptionsTotal;
+                  double newConsumptionsTotal =
+                      currentConsumptionsTotal - itemTotalPrice;
+
+                  // Update UI immediately for better user experience
+                  setState(() {
+                    // Remove the item from the list
+                    _bookingDetails!.consumptions.removeWhere(
+                      (i) => i.id == itemId,
+                    );
+
+                    // Update booking with new totals
+                    final updatedBooking = BookingInfo(
+                      bookingId: _bookingDetails!.booking.bookingId,
+                      firstname: _bookingDetails!.booking.firstname,
+                      lastname: _bookingDetails!.booking.lastname,
+                      date: _bookingDetails!.booking.date,
+                      nbrPers: _bookingDetails!.booking.nbrPers,
+                      nbrParties: _bookingDetails!.booking.nbrParties,
+                      email: _bookingDetails!.booking.email,
+                      phoneNumber: _bookingDetails!.booking.phoneNumber,
+                      notes: _bookingDetails!.booking.notes,
+                      total: activityPrice + newConsumptionsTotal,
+                      amount:
+                          (activityPrice + newConsumptionsTotal) -
+                          (_bookingDetails!.booking.deposit +
+                              (_bookingDetails!.booking.cardPayment ?? 0) +
+                              (_bookingDetails!.booking.cashPayment ?? 0)),
+                      deposit: _bookingDetails!.booking.deposit,
+                      isCancelled: _bookingDetails!.booking.isCancelled,
+                      cardPayment: _bookingDetails!.booking.cardPayment,
+                      cashPayment: _bookingDetails!.booking.cashPayment,
+                    );
+
+                    // Update the booking details object
+                    _bookingDetails = BookingDetails(
+                      activityBookingId: _bookingDetails!.activityBookingId,
+                      booking: updatedBooking,
+                      activity: _bookingDetails!.activity,
+                      pricing: _bookingDetails!.pricing,
+                      createdAt: _bookingDetails!.createdAt,
+                      updatedAt: _bookingDetails!.updatedAt,
+                      consumptions: _bookingDetails!.consumptions,
+                      activityPrice: activityPrice,
+                    );
+                  });
+
+                  try {
+                    // Now update the database
+                    await _bookingService.removeConsumption(
+                      _bookingDetails!.booking.bookingId,
+                      itemId,
+                    );
+
+                    // Update the booking total in the database
+                    await _bookingService.updateBookingTotalInDatabase(
+                      _bookingDetails!.booking.bookingId,
+                      activityPrice,
+                      newConsumptionsTotal,
+                      _bookingDetails!.booking.deposit,
+                      _bookingDetails!.booking.cardPayment,
+                      _bookingDetails!.booking.cashPayment,
+                    );
+
+                    _dataChanged = true;
+
+                    if (mounted) {
+                      _showCupertinoToast('Article supprimé avec succès');
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      _showCupertinoToast(
+                        'Erreur lors de la suppression: $e',
+                        isError: true,
+                      );
+
+                      // In case of error, refresh to get the correct state
+                      await _fetchBookingDetails();
+                    }
+                  }
+                },
+                child: const Text('Supprimer'),
+              ),
+            ],
           ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () async {
-              Navigator.pop(context);
-              
-              // Get the item to be removed before removing it from the list
-              final item = _bookingDetails!.getConsumptionById(itemId);
-              if (item == null) return;
-              
-              // Calculate the price to subtract from totals
-              double itemTotalPrice = item.price * item.quantity;
-              double activityPrice = _bookingDetails!.activityPrice;
-              double currentConsumptionsTotal = _bookingDetails!.consumptionsTotal;
-              double newConsumptionsTotal = currentConsumptionsTotal - itemTotalPrice;
-              
-              // Update UI immediately for better user experience
-              setState(() {
-                // Remove the item from the list
-                _bookingDetails!.consumptions.removeWhere((i) => i.id == itemId);
-                
-                // Update booking with new totals
-                final updatedBooking = BookingInfo(
-                  bookingId: _bookingDetails!.booking.bookingId,
-                  firstname: _bookingDetails!.booking.firstname,
-                  lastname: _bookingDetails!.booking.lastname,
-                  date: _bookingDetails!.booking.date,
-                  nbrPers: _bookingDetails!.booking.nbrPers,
-                  nbrParties: _bookingDetails!.booking.nbrParties,
-                  email: _bookingDetails!.booking.email,
-                  phoneNumber: _bookingDetails!.booking.phoneNumber,
-                  notes: _bookingDetails!.booking.notes,
-                  total: activityPrice + newConsumptionsTotal,
-                  amount: (activityPrice + newConsumptionsTotal) -
-                      (_bookingDetails!.booking.deposit +
-                          (_bookingDetails!.booking.cardPayment ?? 0) +
-                          (_bookingDetails!.booking.cashPayment ?? 0)),
-                  deposit: _bookingDetails!.booking.deposit,
-                  isCancelled: _bookingDetails!.booking.isCancelled,
-                  cardPayment: _bookingDetails!.booking.cardPayment,
-                  cashPayment: _bookingDetails!.booking.cashPayment,
-                );
-                
-                // Update the booking details object
-                _bookingDetails = BookingDetails(
-                  activityBookingId: _bookingDetails!.activityBookingId,
-                  booking: updatedBooking,
-                  activity: _bookingDetails!.activity,
-                  pricing: _bookingDetails!.pricing,
-                  createdAt: _bookingDetails!.createdAt,
-                  updatedAt: _bookingDetails!.updatedAt,
-                  consumptions: _bookingDetails!.consumptions,
-                  activityPrice: activityPrice,
-                );
-              });
-
-              try {
-                // Now update the database
-                await _bookingService.removeConsumption(
-                  _bookingDetails!.booking.bookingId,
-                  itemId
-                );
-
-                // Update the booking total in the database
-                await _bookingService.updateBookingTotalInDatabase(
-                  _bookingDetails!.booking.bookingId,
-                  activityPrice,
-                  newConsumptionsTotal,
-                  _bookingDetails!.booking.deposit,
-                  _bookingDetails!.booking.cardPayment,
-                  _bookingDetails!.booking.cashPayment
-                );
-
-                _dataChanged = true;
-
-                if (mounted) {
-                  _showCupertinoToast('Article supprimé avec succès');
-                }
-              } catch (e) {
-                if (mounted) {
-                  _showCupertinoToast(
-                    'Erreur lors de la suppression: $e',
-                    isError: true,
-                  );
-
-                  // In case of error, refresh to get the correct state
-                  await _fetchBookingDetails();
-                }
-              }
-            },
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -2324,29 +2436,32 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
     try {
       // Use the BookingService to add the consumption
       await _bookingService.addConsumption(
-        _bookingDetails!.booking.bookingId, 
-        item
+        _bookingDetails!.booking.bookingId,
+        item,
       );
 
       // Calculate activity price correctly
-      double activityPrice = _bookingDetails!.activityPrice > 0
-          ? _bookingDetails!.activityPrice
-          : _bookingService.calculateActivityPrice(_bookingDetails!);
-      
+      double activityPrice =
+          _bookingDetails!.activityPrice > 0
+              ? _bookingDetails!.activityPrice
+              : _bookingService.calculateActivityPrice(_bookingDetails!);
+
       // Update the consumptions list to get the current state
       await _refreshConsumptionsOnly();
-      
+
       // Calculate the true consumption total from the items we have
       double newConsumptionsTotal = 0;
       for (var consumption in _bookingDetails!.consumptions) {
         newConsumptionsTotal += consumption.price * consumption.quantity;
       }
-      
+
       // Calculate correct total as activityPrice + consumptionsTotal
       double newTotal = activityPrice + newConsumptionsTotal;
-      double newAmount = newTotal - (_bookingDetails!.booking.deposit +
-          (_bookingDetails!.booking.cardPayment ?? 0) +
-          (_bookingDetails!.booking.cashPayment ?? 0));
+      double newAmount =
+          newTotal -
+          (_bookingDetails!.booking.deposit +
+              (_bookingDetails!.booking.cardPayment ?? 0) +
+              (_bookingDetails!.booking.cashPayment ?? 0));
 
       // Update the booking total in database with the correct values
       await _bookingService.updateBookingTotalInDatabase(
@@ -2355,7 +2470,7 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
         newConsumptionsTotal,
         _bookingDetails!.booking.deposit,
         _bookingDetails!.booking.cardPayment,
-        _bookingDetails!.booking.cashPayment
+        _bookingDetails!.booking.cashPayment,
       );
 
       // Mark data as changed
@@ -2428,21 +2543,22 @@ class BookingDetailsPageState extends State<BookingDetailsPage> {
   Future<void> _showCantCancelDialog() async {
     return showCupertinoDialog<void>(
       context: context,
-      builder: (BuildContext context) => CupertinoAlertDialog(
-        title: const Text('Action impossible'),
-        content: const Text(
-          'Impossible d\'annuler une réservation qui contient des consommations. Veuillez supprimer toutes les consommations avant d\'annuler la réservation.'
-        ),
-        actions: <CupertinoDialogAction>[
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('Compris'),
+      builder:
+          (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('Action impossible'),
+            content: const Text(
+              'Impossible d\'annuler une réservation qui contient des consommations. Veuillez supprimer toutes les consommations avant d\'annuler la réservation.',
+            ),
+            actions: <CupertinoDialogAction>[
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('Compris'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }

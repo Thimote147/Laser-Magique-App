@@ -6,10 +6,10 @@ class ActivitiesListScreen extends StatefulWidget {
   const ActivitiesListScreen({super.key});
 
   @override
-  _ActivitiesListScreenState createState() => _ActivitiesListScreenState();
+  ActivitiesListScreenState createState() => ActivitiesListScreenState();
 }
 
-class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
+class ActivitiesListScreenState extends State<ActivitiesListScreen> {
   List<Activity> _activities = [];
   bool _isLoading = true;
   Activity? _selectedActivity;
@@ -43,7 +43,7 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
         }
       });
     } catch (e) {
-      print('Error fetching activities: $e');
+      debugPrint('Error fetching activities: $e');
       setState(() {
         _isLoading = false;
       });
@@ -224,7 +224,7 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
                 decoration: BoxDecoration(
                   color: _getColorForActivityType(
                     activity.type,
-                  ).withOpacity(0.1),
+                  ).withAlpha((0.1 * 255).round()),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(

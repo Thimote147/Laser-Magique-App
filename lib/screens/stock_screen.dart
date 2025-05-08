@@ -11,10 +11,10 @@ class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
 
   @override
-  _StockScreenState createState() => _StockScreenState();
+  StockScreenState createState() => StockScreenState();
 }
 
-class _StockScreenState extends State<StockScreen>
+class StockScreenState extends State<StockScreen>
     with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
   List<FoodItem> _foodItems = [];
@@ -237,17 +237,31 @@ class _StockScreenState extends State<StockScreen>
                     await SupabaseService.instance.addFoodItem(newItem);
                   }
 
-                  Navigator.of(context).pop();
-                  _loadFoodItems();
+                  // Store context before async gap to safely check if we can use it after
+                  final BuildContext currentContext = context;
 
-                  // Show success message
-                  _showSuccessMessage(
-                    isEditing
-                        ? 'Article modifié avec succès'
-                        : 'Article ajouté avec succès',
-                  );
+                  // Navigate back before any further operations
+                  if (currentContext.mounted) {
+                    Navigator.of(currentContext).pop();
+                  }
+
+                  // Check if widget is still mounted before updating UI
+                  if (mounted) {
+                    _loadFoodItems();
+                    _showCupertinoToast(
+                      isEditing
+                          ? 'Article modifié avec succès'
+                          : 'Article ajouté avec succès',
+                    );
+                  }
                 } catch (error) {
-                  _showErrorMessage('${AppStrings.errorOccurred}: $error');
+                  // Store context before async gap to safely check if we can use it after
+                  final BuildContext currentContext = context;
+
+                  // Check if widget is still mounted before showing error message
+                  if (currentContext.mounted) {
+                    _showErrorMessage('${AppStrings.errorOccurred}: $error');
+                  }
                 }
               }
 
@@ -315,9 +329,11 @@ class _StockScreenState extends State<StockScreen>
                                         color:
                                             isEditing
                                                 ? CupertinoColors.systemIndigo
-                                                    .withOpacity(0.15)
-                                                : primaryColor.withOpacity(
-                                                  0.15,
+                                                    .withAlpha(
+                                                      (0.15 * 255).round(),
+                                                    )
+                                                : primaryColor.withAlpha(
+                                                  (0.15 * 255).round(),
                                                 ),
                                         shape: BoxShape.circle,
                                         boxShadow: [
@@ -326,9 +342,11 @@ class _StockScreenState extends State<StockScreen>
                                                 isEditing
                                                     ? CupertinoColors
                                                         .systemIndigo
-                                                        .withOpacity(0.2)
-                                                    : primaryColor.withOpacity(
-                                                      0.2,
+                                                        .withAlpha(
+                                                          (0.2 * 255).round(),
+                                                        )
+                                                    : primaryColor.withAlpha(
+                                                      (0.2 * 255).round(),
                                                     ),
                                             blurRadius: 15,
                                             offset: const Offset(0, 8),
@@ -386,14 +404,18 @@ class _StockScreenState extends State<StockScreen>
                           // Form Section
                           Container(
                             decoration: BoxDecoration(
-                              color: cardColor.withOpacity(0.7),
+                              color: cardColor.withAlpha((0.7 * 255).round()),
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
                                   color:
                                       themeService.darkMode
-                                          ? Colors.black.withOpacity(0.2)
-                                          : Colors.grey.withOpacity(0.1),
+                                          ? Colors.black.withAlpha(
+                                            (0.2 * 255).round(),
+                                          )
+                                          : Colors.grey.withAlpha(
+                                            (0.1 * 255).round(),
+                                          ),
                                   blurRadius: 10,
                                   offset: const Offset(0, 5),
                                 ),
@@ -470,8 +492,8 @@ class _StockScreenState extends State<StockScreen>
                                             ),
                                             child: Icon(
                                               CupertinoIcons.tag_fill,
-                                              color: primaryColor.withOpacity(
-                                                0.7,
+                                              color: primaryColor.withAlpha(
+                                                (0.7 * 255).round(),
                                               ),
                                               size: 20,
                                             ),
@@ -595,8 +617,8 @@ class _StockScreenState extends State<StockScreen>
                                             child: Icon(
                                               CupertinoIcons
                                                   .money_euro_circle_fill,
-                                              color: primaryColor.withOpacity(
-                                                0.7,
+                                              color: primaryColor.withAlpha(
+                                                (0.7 * 255).round(),
                                               ),
                                               size: 20,
                                             ),
@@ -716,168 +738,172 @@ class _StockScreenState extends State<StockScreen>
                                           ),
                                         ),
                                         child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: CupertinoTextField(
-                                                  controller: quantityController,
-                                                  placeholder: "Ex: 42",
-                                                  padding: const EdgeInsets.all(
-                                                    16,
-                                                  ),
-                                                  keyboardType:
-                                                      TextInputType.number,
-                                                  clearButtonMode:
-                                                      OverlayVisibilityMode
-                                                          .editing,
-                                                  prefix: Container(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          left: 12,
-                                                        ),
-                                                    child: Icon(
-                                                      CupertinoIcons
-                                                          .cube_box_fill,
-                                                      color: primaryColor
-                                                          .withOpacity(0.7),
-                                                      size: 20,
-                                                    ),
-                                                  ),
-                                                  decoration: null,
-                                                  style: TextStyle(
-                                                    color: textColor,
-                                                    fontSize: 16,
-                                                  ),
-                                                  onChanged: (value) {
-                                                    if (!isQuantityValid) {
-                                                      setState(() {
-                                                        isQuantityValid = true;
-                                                        quantityError = '';
-                                                      });
-                                                    }
-                                                  },
+                                          children: [
+                                            Expanded(
+                                              child: CupertinoTextField(
+                                                controller: quantityController,
+                                                placeholder: "Ex: 42",
+                                                padding: const EdgeInsets.all(
+                                                  16,
                                                 ),
-                                              ),
-                                              Container(
-                                                margin: const EdgeInsets.only(
-                                                  right: 8,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: cardColor,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    CupertinoButton(
-                                                      padding: EdgeInsets.zero,
-                                                      onPressed: () {
-                                                        final currentValue =
-                                                            int.tryParse(
-                                                              quantityController
-                                                                  .text,
-                                                            ) ??
-                                                            0;
-                                                        if (currentValue > 0) {
-                                                          setState(() {
-                                                            quantityController
-                                                                    .text =
-                                                                (currentValue - 1)
-                                                                    .toString();
-                                                          });
-                                                        }
-                                                      },
-                                                      child: Container(
-                                                        width: 40,
-                                                        height: 40,
-                                                        decoration: BoxDecoration(
-                                                          color: primaryColor,
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: primaryColor
-                                                                  .withOpacity(
-                                                                    0.3,
-                                                                  ),
-                                                              blurRadius: 8,
-                                                              offset:
-                                                                  const Offset(
-                                                                    0,
-                                                                    3,
-                                                                  ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        child: const Center(
-                                                          child: Icon(
-                                                            CupertinoIcons.minus,
-                                                            color:
-                                                                CupertinoColors
-                                                                    .white,
-                                                            size: 18,
-                                                          ),
-                                                        ),
+                                                keyboardType:
+                                                    TextInputType.number,
+                                                clearButtonMode:
+                                                    OverlayVisibilityMode
+                                                        .editing,
+                                                prefix: Container(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        left: 12,
                                                       ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    CupertinoButton(
-                                                      padding: EdgeInsets.zero,
-                                                      onPressed: () {
-                                                        final currentValue =
-                                                            int.tryParse(
-                                                              quantityController
-                                                                  .text,
-                                                            ) ??
-                                                            0;
+                                                  child: Icon(
+                                                    CupertinoIcons
+                                                        .cube_box_fill,
+                                                    color: primaryColor
+                                                        .withAlpha(
+                                                          (0.7 * 255).round(),
+                                                        ),
+                                                    size: 20,
+                                                  ),
+                                                ),
+                                                decoration: null,
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontSize: 16,
+                                                ),
+                                                onChanged: (value) {
+                                                  if (!isQuantityValid) {
+                                                    setState(() {
+                                                      isQuantityValid = true;
+                                                      quantityError = '';
+                                                    });
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                right: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: cardColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  CupertinoButton(
+                                                    padding: EdgeInsets.zero,
+                                                    onPressed: () {
+                                                      final currentValue =
+                                                          int.tryParse(
+                                                            quantityController
+                                                                .text,
+                                                          ) ??
+                                                          0;
+                                                      if (currentValue > 0) {
                                                         setState(() {
                                                           quantityController
                                                                   .text =
-                                                              (currentValue + 1)
+                                                              (currentValue - 1)
                                                                   .toString();
                                                         });
-                                                      },
-                                                      child: Container(
-                                                        width: 40,
-                                                        height: 40,
-                                                        decoration: BoxDecoration(
-                                                          color: primaryColor,
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                8,
-                                                              ),
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: primaryColor
-                                                                  .withOpacity(
-                                                                    0.3,
-                                                                  ),
-                                                              blurRadius: 8,
-                                                              offset:
-                                                                  const Offset(
-                                                                    0,
-                                                                    3,
-                                                                  ),
+                                                      }
+                                                    },
+                                                    child: Container(
+                                                      width: 40,
+                                                      height: 40,
+                                                      decoration: BoxDecoration(
+                                                        color: primaryColor,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
                                                             ),
-                                                          ],
-                                                        ),
-                                                        child: const Center(
-                                                          child: Icon(
-                                                            CupertinoIcons.add,
-                                                            color:
-                                                                CupertinoColors
-                                                                    .white,
-                                                            size: 18,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: primaryColor
+                                                                .withAlpha(
+                                                                  (0.3 * 255)
+                                                                      .round(),
+                                                                ),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  3,
+                                                                ),
                                                           ),
+                                                        ],
+                                                      ),
+                                                      child: const Center(
+                                                        child: Icon(
+                                                          CupertinoIcons.minus,
+                                                          color:
+                                                              CupertinoColors
+                                                                  .white,
+                                                          size: 18,
                                                         ),
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  CupertinoButton(
+                                                    padding: EdgeInsets.zero,
+                                                    onPressed: () {
+                                                      final currentValue =
+                                                          int.tryParse(
+                                                            quantityController
+                                                                .text,
+                                                          ) ??
+                                                          0;
+                                                      setState(() {
+                                                        quantityController
+                                                                .text =
+                                                            (currentValue + 1)
+                                                                .toString();
+                                                      });
+                                                    },
+                                                    child: Container(
+                                                      width: 40,
+                                                      height: 40,
+                                                      decoration: BoxDecoration(
+                                                        color: primaryColor,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: primaryColor
+                                                                .withAlpha(
+                                                                  (0.3 * 255)
+                                                                      .round(),
+                                                                ),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  3,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: const Center(
+                                                        child: Icon(
+                                                          CupertinoIcons.add,
+                                                          color:
+                                                              CupertinoColors
+                                                                  .white,
+                                                          size: 18,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                       if (!isQuantityValid)
                                         Padding(
@@ -935,8 +961,12 @@ class _StockScreenState extends State<StockScreen>
                                   BoxShadow(
                                     color:
                                         themeService.darkMode
-                                            ? Colors.black.withOpacity(0.2)
-                                            : Colors.grey.withOpacity(0.1),
+                                            ? Colors.black.withAlpha(
+                                              (0.2 * 255).round(),
+                                            )
+                                            : Colors.grey.withAlpha(
+                                              (0.1 * 255).round(),
+                                            ),
                                     blurRadius: 10,
                                     offset: const Offset(0, 5),
                                   ),
@@ -1010,7 +1040,7 @@ class _StockScreenState extends State<StockScreen>
                                             decoration: BoxDecoration(
                                               color: _getStockStatusColor(
                                                 quantity,
-                                              ).withOpacity(0.1),
+                                              ).withAlpha((0.1 * 255).round()),
                                               shape: BoxShape.circle,
                                             ),
                                             child: Center(
@@ -1094,8 +1124,8 @@ class _StockScreenState extends State<StockScreen>
                                             width: 36,
                                             height: 36,
                                             decoration: BoxDecoration(
-                                              color: primaryColor.withOpacity(
-                                                0.1,
+                                              color: primaryColor.withAlpha(
+                                                (0.1 * 255).round(),
                                               ),
                                               shape: BoxShape.circle,
                                             ),
@@ -1229,25 +1259,6 @@ class _StockScreenState extends State<StockScreen>
     );
   }
 
-  void _showSuccessMessage(String message) {
-    showCupertinoModalPopup(
-      context: context,
-      builder:
-          (context) => CupertinoActionSheet(
-            title: const Icon(
-              CupertinoIcons.checkmark_circle,
-              color: CupertinoColors.activeGreen,
-              size: 40,
-            ),
-            message: Text(message, style: const TextStyle(fontSize: 16)),
-            cancelButton: CupertinoActionSheetAction(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ),
-    );
-  }
-
   void _showErrorMessage(String message) {
     showCupertinoModalPopup(
       context: context,
@@ -1336,16 +1347,34 @@ class _StockScreenState extends State<StockScreen>
               child: Text(AppStrings.delete),
               onPressed: () async {
                 try {
+                  // Store context before the async operation
+                  final BuildContext currentContext = context;
+
                   await SupabaseService.instance.deleteFoodItem(item.id);
 
-                  Navigator.of(context).pop();
-                  _loadFoodItems();
+                  // Check if the specific context is still mounted before using it
+                  if (currentContext.mounted) {
+                    Navigator.of(currentContext).pop();
 
-                  // Show success message
-                  _showSuccessMessage('Article supprimé avec succès');
+                    // Check if widget is still mounted before using class methods
+                    if (mounted) {
+                      _loadFoodItems();
+                      _showCupertinoToast('Article supprimé avec succès');
+                    }
+                  }
                 } catch (error) {
-                  Navigator.of(context).pop();
-                  _showErrorMessage('${AppStrings.errorOccurred}: $error');
+                  // Store context before handling the error
+                  final BuildContext currentContext = context;
+
+                  // Check if the specific context is still mounted before using it
+                  if (currentContext.mounted) {
+                    Navigator.of(currentContext).pop();
+
+                    // Check if widget is still mounted before using class methods
+                    if (mounted) {
+                      _showErrorMessage('${AppStrings.errorOccurred}: $error');
+                    }
+                  }
                 }
               },
             ),
@@ -1360,7 +1389,7 @@ class _StockScreenState extends State<StockScreen>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemRed.withOpacity(0.2),
+          color: CupertinoColors.systemRed.withAlpha((0.2 * 255).round()),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -1373,7 +1402,7 @@ class _StockScreenState extends State<StockScreen>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemOrange.withOpacity(0.2),
+          color: CupertinoColors.systemOrange.withAlpha((0.2 * 255).round()),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -1385,7 +1414,7 @@ class _StockScreenState extends State<StockScreen>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: CupertinoColors.activeGreen.withOpacity(0.2),
+          color: CupertinoColors.activeGreen.withAlpha((0.2 * 255).round()),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -1472,7 +1501,7 @@ class _StockScreenState extends State<StockScreen>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withAlpha((0.2 * 255).round()),
                     blurRadius: 10,
                     offset: const Offset(0, -5),
                   ),
@@ -1489,7 +1518,9 @@ class _StockScreenState extends State<StockScreen>
                       width: 40,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: secondaryTextColor.withOpacity(0.3),
+                        color: secondaryTextColor.withAlpha(
+                          (0.3 * 255).round(),
+                        ),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -1533,7 +1564,9 @@ class _StockScreenState extends State<StockScreen>
                           // Cancel button
                           Expanded(
                             child: CupertinoButton(
-                              color: backgroundColor.withOpacity(0.8),
+                              color: backgroundColor.withAlpha(
+                                (0.8 * 255).round(),
+                              ),
                               borderRadius: BorderRadius.circular(12),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               onPressed: () => Navigator.pop(context),
@@ -1628,7 +1661,10 @@ class _StockScreenState extends State<StockScreen>
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? primaryColor.withOpacity(0.1) : backgroundColor,
+          color:
+              isSelected
+                  ? primaryColor.withAlpha((0.1 * 255).round())
+                  : backgroundColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? primaryColor : Colors.transparent,
@@ -1651,8 +1687,8 @@ class _StockScreenState extends State<StockScreen>
                   decoration: BoxDecoration(
                     color:
                         isSelected
-                            ? primaryColor.withOpacity(0.2)
-                            : backgroundColor.withOpacity(0.8),
+                            ? primaryColor.withAlpha((0.2 * 255).round())
+                            : backgroundColor.withAlpha((0.8 * 255).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
@@ -1702,7 +1738,7 @@ class _StockScreenState extends State<StockScreen>
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.1),
+                        color: primaryColor.withAlpha((0.1 * 255).round()),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
@@ -2017,7 +2053,9 @@ class _StockScreenState extends State<StockScreen>
                                                       color:
                                                           _getStockStatusColor(
                                                             item.quantity,
-                                                          ).withOpacity(0.1),
+                                                          ).withAlpha(
+                                                            (0.1 * 255).round(),
+                                                          ),
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Center(
@@ -2123,14 +2161,13 @@ class _StockScreenState extends State<StockScreen>
                                                           width: 36,
                                                           height: 36,
                                                           decoration: BoxDecoration(
-                                                            color:
-                                                                CupertinoTheme.of(
-                                                                      context,
-                                                                    )
-                                                                    .primaryColor
-                                                                    .withOpacity(
-                                                                      0.1,
-                                                                    ),
+                                                            color: CupertinoTheme.of(
+                                                                  context,
+                                                                ).primaryColor
+                                                                .withAlpha(
+                                                                  (0.1 * 255)
+                                                                      .round(),
+                                                                ),
                                                             shape:
                                                                 BoxShape.circle,
                                                           ),
@@ -2234,7 +2271,7 @@ class _StockScreenState extends State<StockScreen>
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: iconColor, size: 20),
@@ -2285,5 +2322,60 @@ class _StockScreenState extends State<StockScreen>
     } else {
       return CupertinoIcons.check_mark_circled;
     }
+  }
+
+  void _showCupertinoToast(String message, {bool isError = false}) {
+    // Show an overlay notification at the top of the screen
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder:
+          (context) => Positioned(
+            top: 80, // Position below the navigation bar
+            left: 16,
+            right: 16,
+            child: Material(
+              // Using Material just for the elevation
+              elevation: 4,
+              borderRadius: BorderRadius.circular(10),
+              color:
+                  isError
+                      ? CupertinoColors.destructiveRed
+                      : CupertinoColors.activeGreen,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isError
+                          ? CupertinoIcons.exclamationmark_circle
+                          : CupertinoIcons.checkmark_circle,
+                      color: CupertinoColors.white,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        message,
+                        style: const TextStyle(
+                          color: CupertinoColors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+    );
+
+    overlay.insert(overlayEntry);
+
+    // Auto-dismiss after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
   }
 }

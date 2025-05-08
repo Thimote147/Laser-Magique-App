@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
-import '../main.dart'; // For supabase client
-import '../models/activity.dart'; // Import Activity model
+import '../main.dart';
+import '../models/activity.dart';
 
 class NewBookingScreen extends StatefulWidget {
   final DateTime? initialDate;
@@ -141,7 +141,7 @@ class NewBookingScreenState extends State<NewBookingScreen> {
         }
       });
     } catch (e) {
-      print('Error fetching activities: $e');
+      debugPrint('Error fetching activities: $e');
       setState(() {
         _isLoadingActivities = false;
         // Provide some default options in case of error
@@ -308,7 +308,7 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                   decoration: BoxDecoration(
                     color: CupertinoTheme.of(
                       context,
-                    ).primaryColor.withOpacity(0.1),
+                    ).primaryColor.withAlpha((0.1 * 255).round()),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
@@ -490,8 +490,8 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                       _updateTotalPrice();
                     });
                   },
-                  min:
-                      _getMinParties(), // Using the minimum parties method here
+                  min: _getMinParties(),
+                  max: _getMaxParties(),
                 ),
               ),
             ),
@@ -866,7 +866,7 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     required int value,
     required Function(int) onChanged,
     int min = 1,
-    int max = 30,
+    int max = 20,
   }) {
     final textColor = themeService.getTextColor();
     final backgroundColor =
@@ -874,17 +874,6 @@ class NewBookingScreenState extends State<NewBookingScreen> {
             ? CupertinoColors.systemGrey6.darkColor
             : CupertinoColors.systemGrey6;
     final separatorColor = themeService.getSeparatorColor();
-
-    // Limit max parties to 3 for Social Deal activities
-    if (_selectedActivityId != null) {
-      final activity = _getSelectedActivity();
-      if (activity != null && activity.type.toLowerCase() == 'social deal') {
-        // Set maximum to 3 parties for Social Deal type activities
-        if (max > 3) {
-          max = 3;
-        }
-      }
-    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -905,7 +894,7 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                     value > min
                         ? CupertinoTheme.of(
                           context,
-                        ).primaryColor.withOpacity(0.1)
+                        ).primaryColor.withAlpha((0.1 * 255).round())
                         : themeService.darkMode
                         ? CupertinoColors.systemGrey5.darkColor
                         : CupertinoColors.systemGrey5,
@@ -943,7 +932,7 @@ class NewBookingScreenState extends State<NewBookingScreen> {
                     value < max
                         ? CupertinoTheme.of(
                           context,
-                        ).primaryColor.withOpacity(0.1)
+                        ).primaryColor.withAlpha((0.1 * 255).round())
                         : themeService.darkMode
                         ? CupertinoColors.systemGrey5.darkColor
                         : CupertinoColors.systemGrey5,
@@ -986,7 +975,39 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     final activity = _getSelectedActivity();
     if (activity == null) return 0.0;
 
-    return activity.getPriceForParty(_numberOfPersons);
+    if (_numberOfParties == 1 && activity.firstPrice > 0) {
+      return activity.firstPrice;
+    } else if (_numberOfParties == 2 && activity.secondPrice > 0) {
+      return activity.secondPrice;
+    } else if (_numberOfParties == 3 && activity.thirdPrice > 0) {
+      return activity.thirdPrice;
+    } else if (_numberOfParties > 3) {
+      // For more than 3 parties, use thirdPrice as base and add additional parties
+
+      // Base price is thirdPrice for the first 3 parties
+      double basePrice = activity.thirdPrice;
+
+      // For additional parties, calculate based on available prices
+      double additionalPartyPrice = 0.0;
+
+      // Use the first available price for additional parties, prioritizing firstPrice
+      if (activity.firstPrice > 0) {
+        additionalPartyPrice = activity.firstPrice;
+      } else if (activity.secondPrice > 0) {
+        additionalPartyPrice =
+            activity.secondPrice /
+            2; // Divide by 2 since secondPrice is for 2 parties
+      } else if (activity.thirdPrice > 0) {
+        additionalPartyPrice =
+            activity.thirdPrice /
+            3; // Divide by 3 since thirdPrice is for 3 parties
+      }
+
+      // Calculate the total price per person
+      return basePrice + (additionalPartyPrice * (_numberOfParties - 3));
+    } else {
+      return 0.0;
+    }
   }
 
   // Get the selected activity object
@@ -1021,9 +1042,9 @@ class NewBookingScreenState extends State<NewBookingScreen> {
   // Get maximum allowed players for the selected activity
   int _getMaxPlayers() {
     final activity = _getSelectedActivity();
-    if (activity == null) return 30;
+    if (activity == null) return 20;
 
-    return activity.maxPlayer > 0 ? activity.maxPlayer : 30;
+    return activity.maxPlayer > 0 ? activity.maxPlayer : 20;
   }
 
   // Get minimum allowed parties for the current activity
@@ -1045,6 +1066,19 @@ class NewBookingScreenState extends State<NewBookingScreen> {
     }
 
     return 1; // Default fallback
+  }
+
+  int _getMaxParties() {
+    final activity = _getSelectedActivity();
+
+    if (activity == null) return 1;
+
+    if (activity.type.toLowerCase() == 'social deal' ||
+        activity.type.toLowerCase() == 'anniversaire') {
+      return 3;
+    }
+
+    return 5;
   }
 
   // Existing methods
@@ -1284,10 +1318,12 @@ class NewBookingScreenState extends State<NewBookingScreen> {
         // Update total value and controller
         _total = calculatedTotal;
         _totalController.text = _total.toStringAsFixed(2);
-        
-        // Automatically set deposit equal to total
-        _deposit = calculatedTotal;
-        _depositController.text = calculatedTotal.toStringAsFixed(2);
+
+        // Automatically set deposit equal to total ONLY for Social Deal activities
+        if (selectedActivity.type.toLowerCase() == 'social deal') {
+          _deposit = calculatedTotal;
+          _depositController.text = calculatedTotal.toStringAsFixed(2);
+        }
       });
     }
   }
@@ -1314,6 +1350,8 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
   // Helper method to set the appropriate number of parties based on activity type
   void _setPartiesForActivity(Activity activity) {
+    final bool isSocialDeal = activity.type.toLowerCase() == 'social deal';
+
     // First check the available price tiers and determine the minimum parties
     if (activity.firstPrice > 0) {
       // If firstPrice is available, set to 1 party
@@ -1331,16 +1369,24 @@ class NewBookingScreenState extends State<NewBookingScreen> {
       _numberOfParties = 1;
     }
 
-    // Special handling for Social Deal activities
-    if (activity.type.toLowerCase() == 'social deal') {
-      // For Social Deal activities, set deposit equal to total
-      // We'll update the deposit field after the total is calculated
-      Future.delayed(Duration.zero, () {
-        // Use a microtask to ensure the total is calculated first
+    // Special handling for Social Deal activities - always set deposit equal to total
+    if (isSocialDeal) {
+      // For Social Deal activities, first calculate the total, then set deposit equal to it
+      Future.microtask(() {
+        // Calculate total first
+        final calculatedTotal = _getTotalPrice();
         setState(() {
-          _deposit = _total;
-          _depositController.text = _total.toStringAsFixed(2);
+          _total = calculatedTotal;
+          _totalController.text = calculatedTotal.toStringAsFixed(2);
+          // Set deposit equal to total for Social Deal activities
+          _deposit = calculatedTotal;
+          _depositController.text = calculatedTotal.toStringAsFixed(2);
         });
+      });
+    } else if (!isSocialDeal) {
+      setState(() {
+        _deposit = 0.0;
+        _depositController.text = "0.00";
       });
     }
   }
@@ -1589,28 +1635,23 @@ class NewBookingScreenState extends State<NewBookingScreen> {
         },
       );
 
-      // Display success message with toast notification instead of dialog
-      if (!context.mounted) return;
-
-      // Show success toast
-      _showCupertinoToast('La réservation a été créée avec succès !');
+      // Check if the widget is still in the tree after the async operation
+      if (!mounted) return;
 
       // Return to previous screen with success indicator
       Navigator.pop(context, true);
     } catch (e) {
-      print('Error creating booking: $e');
+      debugPrint('Error creating booking: $e');
 
-      if (!context.mounted) return;
-
-      // Show error with toast notification
-      _showCupertinoToast(
-        'Erreur lors de la création: ${e.toString()}',
-        isError: true,
-      );
+      // Check if the widget is still in the tree after the async operation
+      if (!mounted) return;
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      // This is safe even after an async gap as we're just updating our own state
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -1675,61 +1716,5 @@ class NewBookingScreenState extends State<NewBookingScreen> {
 
     // Multiply by the number of persons to get the total price
     return pricePerPerson * _numberOfPersons;
-  }
-
-  // Custom toast method that works with CupertinoPageScaffold
-  void _showCupertinoToast(String message, {bool isError = false}) {
-    // Show an overlay notification at the top of the screen
-    final overlay = Overlay.of(context);
-    final overlayEntry = OverlayEntry(
-      builder:
-          (context) => Positioned(
-            top: 80, // Position below the navigation bar
-            left: 16,
-            right: 16,
-            child: Material(
-              // Using Material just for the elevation
-              elevation: 4,
-              borderRadius: BorderRadius.circular(10),
-              color:
-                  isError
-                      ? CupertinoColors.destructiveRed
-                      : CupertinoColors.activeGreen,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isError
-                          ? CupertinoIcons.exclamationmark_circle
-                          : CupertinoIcons.checkmark_circle,
-                      color: CupertinoColors.white,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        message,
-                        style: const TextStyle(
-                          color: CupertinoColors.white,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-    );
-
-    overlay.insert(overlayEntry);
-
-    // Auto-dismiss after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      overlayEntry.remove();
-    });
   }
 }

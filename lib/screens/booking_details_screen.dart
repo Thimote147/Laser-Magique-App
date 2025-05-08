@@ -42,7 +42,7 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Erreur lors de la récupération des détails: $e');
+      debugPrint('Erreur lors de la récupération des détails: $e');
       setState(() {
         _isLoading = false;
       });
@@ -57,7 +57,8 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
     try {
       await supabase.from('bookings').delete().eq('id', widget.bookingId);
 
-      if (!context.mounted) return;
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppStrings.bookingDeleted),
@@ -65,13 +66,13 @@ class BookingDetailsScreenState extends State<BookingDetailsScreen> {
         ),
       );
 
-      if (!context.mounted) return;
       Navigator.pop(
         context,
         true,
-      ); // Retourne true pour indiquer la suppression
+      );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${AppStrings.deleteError} $e'),

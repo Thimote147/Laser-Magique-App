@@ -209,12 +209,12 @@ class EditBookingPageState extends State<EditBookingPage> {
         // Use the update_booking RPC function with all parameters
         final response = await supabase.rpc('update_booking', params: params);
 
+        if (!mounted) return;
+
         setState(() {
           _isLoading = false;
           _hasChanges = false;
         });
-
-        if (!context.mounted) return;
 
         // Show success message if response is not null
         if (response != null) {
@@ -243,10 +243,14 @@ class EditBookingPageState extends State<EditBookingPage> {
                 )
                 .single();
 
+            if (!mounted) return;
+
             // If we get here, the record exists despite response being null
             _showCupertinoToast('Réservation mise à jour avec succès');
             Navigator.pop(context, true);
           } catch (detailsError) {
+            if (!mounted) return;
+
             _showCupertinoToast(
               'La mise à jour a échoué. Veuillez vérifier les données et réessayer.',
               isError: true,
@@ -254,21 +258,21 @@ class EditBookingPageState extends State<EditBookingPage> {
           }
         }
       } catch (e) {
+        if (!mounted) return;
+
         setState(() {
           _isLoading = false;
         });
-
-        if (!context.mounted) return;
 
         // Show error message with more details
         _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
       }
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
-
-      if (!context.mounted) return;
 
       // Show error message
       _showCupertinoToast('Erreur lors de la mise à jour: $e', isError: true);
@@ -532,13 +536,12 @@ class EditBookingPageState extends State<EditBookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_hasChanges) {
+    return PopScope(
+      canPop: !_hasChanges,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _hasChanges) {
           _showUnsavedChangesDialog();
-          return false;
         }
-        return true;
       },
       child: CupertinoPageScaffold(
         backgroundColor: themeService.getBackgroundColor(),
@@ -802,21 +805,21 @@ class EditBookingPageState extends State<EditBookingPage> {
         ),
         const SizedBox(height: 12),
 
-        // Email
-        _buildTextField(
-          controller: _emailController,
-          label: 'Email',
-          icon: CupertinoIcons.mail_solid,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 12),
-
         // Téléphone
         _buildTextField(
           controller: _phoneController,
           label: 'Téléphone',
           icon: CupertinoIcons.phone_fill,
           keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 12),
+
+        // Email
+        _buildTextField(
+          controller: _emailController,
+          label: 'Email',
+          icon: CupertinoIcons.mail_solid,
+          keyboardType: TextInputType.emailAddress,
         ),
       ],
     );
@@ -948,13 +951,13 @@ class EditBookingPageState extends State<EditBookingPage> {
                 }
               }
             }
-            
+
             setState(() {
               _numberOfGames++;
               _hasChanges = true;
               // Update total price when number of games changes
               _updateTotalPrice();
-              
+
               // For Social Deal, set deposit equal to total after price update
               if (isSocialDeal) {
                 _depositController.text = _totalController.text;
@@ -974,7 +977,7 @@ class EditBookingPageState extends State<EditBookingPage> {
                 }
               }
             }
-            
+
             // Use _getMinParties() to ensure we don't go below minimum required parties
             if (_numberOfGames > _getMinParties()) {
               setState(() {
@@ -982,7 +985,7 @@ class EditBookingPageState extends State<EditBookingPage> {
                 _hasChanges = true;
                 // Update total price when number of games changes
                 _updateTotalPrice();
-                
+
                 // For Social Deal, set deposit equal to total after price update
                 if (isSocialDeal) {
                   _depositController.text = _totalController.text;
@@ -1355,7 +1358,7 @@ class EditBookingPageState extends State<EditBookingPage> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
+                    color: primaryColor.withAlpha((0.1 * 255).round()),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(icon, color: primaryColor, size: 16),
@@ -1529,7 +1532,7 @@ class EditBookingPageState extends State<EditBookingPage> {
         themeService.darkMode
             ? CupertinoColors.systemGrey.darkColor
             : CupertinoColors.systemGrey4;
-            
+
     // Check if this is a Social Deal activity with max parties
     bool isSocialDealWithMaxParties = false;
     if (_selectedActivityId != null) {
@@ -1543,7 +1546,7 @@ class EditBookingPageState extends State<EditBookingPage> {
         }
       }
     }
-    
+
     // Determine if increment should be enabled
     bool canIncrement = value < maxValue;
     if (isSocialDealWithMaxParties) {

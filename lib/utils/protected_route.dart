@@ -20,11 +20,10 @@ class ProtectedRoute extends StatelessWidget {
 
     // If not authenticated, redirect to login
     if (!authService.isAuthenticated) {
+      final navigator = Navigator.of(context);
       // Use Future.microtask to avoid calling Navigator during build
       Future.microtask(() {
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/login', (route) => false);
+        navigator.pushNamedAndRemoveUntil('/login', (route) => false);
       });
 
       // Return an empty container while redirecting

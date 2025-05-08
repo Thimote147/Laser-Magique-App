@@ -54,6 +54,7 @@ class AuthService extends ChangeNotifier {
             _currentUser = null;
             _currentSession = null;
             _userRole = null;
+
             notifyListeners();
             break;
           case AuthChangeEvent.userUpdated:
@@ -92,7 +93,7 @@ class AuthService extends ChangeNotifier {
       _userRole = response['role'];
     } catch (e) {
       _userRole = null;
-      print('Error fetching user role: $e');
+      debugPrint('Error fetching user role: $e');
     }
   }
 

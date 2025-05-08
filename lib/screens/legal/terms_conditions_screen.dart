@@ -49,7 +49,7 @@ class TermsConditionsScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.1),
+                      color: accentColor.withAlpha((0.1 * 255).round()),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -239,7 +239,7 @@ class TermsConditionsScreen extends StatelessWidget {
                     margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.1),
+                      color: accentColor.withAlpha((0.1 * 255).round()),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -330,7 +330,7 @@ class TermsConditionsScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.1),
+                      color: accentColor.withAlpha((0.1 * 255).round()),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(icon, size: 22, color: accentColor),

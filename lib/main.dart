@@ -91,7 +91,7 @@ class LaserMagiqueAppState extends State<LaserMagiqueApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => _authService),
+        ChangeNotifierProvider<AuthService>(create: (_) => _authService),
         Provider<WorkHoursService>(
           create:
               (_) => WorkHoursService(
@@ -131,6 +131,15 @@ class LaserMagiqueAppState extends State<LaserMagiqueApp> {
             case '/work-hours':
               return CupertinoPageRoute(
                 builder: (_) => const ProtectedRoute(child: WorkHoursScreen()),
+              );
+            case '/booking-details':
+              return CupertinoPageRoute(
+                builder:
+                    (_) => ProtectedRoute(
+                      child: BookingDetailsPage(
+                        bookingId: settings.arguments as String,
+                      ),
+                    ),
               );
             default:
               return CupertinoPageRoute(builder: (_) => const AuthWrapper());
@@ -673,9 +682,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                   color:
                                       index % 2 == 0
                                           ? separatorColor
-                                          : separatorColor.withOpacity(
-                                            0.5,
-                                          ), // Dimmer line for half hours
+                                          : separatorColor.withAlpha((0.5 * 255).round()),
                                 ),
                               );
                             },
@@ -939,14 +946,14 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
         decoration: BoxDecoration(
           color:
               booking.isCancelled
-                  ? CupertinoColors.systemRed.withOpacity(0.1)
-                  : primaryColor.withOpacity(0.1),
+                  ? CupertinoColors.systemRed.withAlpha((0.1 * 255).round())
+                  : primaryColor.withAlpha((0.1 * 255).round()),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color:
                 booking.isCancelled
-                    ? CupertinoColors.systemRed.withOpacity(0.5)
-                    : primaryColor.withOpacity(0.5),
+                    ? CupertinoColors.systemRed.withAlpha((0.5 * 255).round())
+                    : primaryColor.withAlpha((0.5 * 255).round()),
             width: 1.5,
           ),
         ),
@@ -1035,8 +1042,8 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                                 color:
                                     booking.isCancelled
                                         ? CupertinoColors.systemGrey
-                                            .withOpacity(0.1)
-                                        : primaryColor.withOpacity(0.15),
+                                            .withAlpha((0.1 * 255).round())
+                                        : primaryColor.withAlpha((0.15 * 255).round()),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -1060,21 +1067,47 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                             children: [
                               Icon(
                                 CupertinoIcons.person_2,
-                                size: 12, // Reduced from 14 to 12
+                                size: 12,
                                 color:
                                     booking.isCancelled
-                                        ? secondaryTextColor.withOpacity(0.7)
+                                        ? secondaryTextColor.withAlpha((0.7 * 255).round())
                                         : secondaryTextColor,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 '${booking.nbrPers}',
                                 style: TextStyle(
-                                  fontSize: 11, // Reduced from 12 to 11
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                   color:
                                       booking.isCancelled
-                                          ? secondaryTextColor.withOpacity(0.7)
+                                          ? secondaryTextColor.withAlpha((0.7 * 255).round())
+                                          : secondaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.game_controller,
+                                size: 12,
+                                color:
+                                    booking.isCancelled
+                                        ? secondaryTextColor.withAlpha((0.7 * 255).round())
+                                        : secondaryTextColor,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${booking.nbrParties}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color:
+                                      booking.isCancelled
+                                          ? secondaryTextColor.withAlpha((0.7 * 255).round())
                                           : secondaryTextColor,
                                 ),
                               ),
@@ -1119,8 +1152,8 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
             lastDay: DateTime.utc(2025, 12, 31),
             focusedDay: _focusedDay,
             calendarFormat: CalendarFormat.month,
-            startingDayOfWeek: StartingDayOfWeek.monday, // Start week on Monday
-            locale: 'fr_FR', // Use French locale
+            startingDayOfWeek: StartingDayOfWeek.monday,
+            locale: 'fr_FR',
             selectedDayPredicate: (day) {
               return isSameDay(_selectedDay, day);
             },
@@ -1157,9 +1190,7 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
                         : CupertinoColors.systemRed,
               ),
               outsideTextStyle: TextStyle(
-                color: themeService.getSecondaryTextColor().withOpacity(
-                  0.6,
-                ), // Replaced withAlpha with withOpacity
+                color: themeService.getSecondaryTextColor().withAlpha((0.6 * 255).round()),
               ),
               todayDecoration: BoxDecoration(
                 color: CupertinoColors.systemGrey3.withOpacity(
@@ -1528,9 +1559,7 @@ class AnalyticsPageState extends State<AnalyticsPage>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(
-                    0.1,
-                  ), // Changed from withAlpha(25) to withOpacity(0.1)
+                  color: color.withAlpha((0.1 * 255).round()),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 20),
@@ -1749,9 +1778,7 @@ class AnalyticsPageState extends State<AnalyticsPage>
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: _getStatusColor(booking.status).withOpacity(
-                              0.1,
-                            ), // Replaced withAlpha with withOpacity
+                            color: _getStatusColor(booking.status).withAlpha((0.1 * 255).round()),
                             borderRadius: BorderRadius.circular(21),
                           ),
                           alignment: Alignment.center,
@@ -1886,16 +1913,14 @@ class BookingListItem extends StatelessWidget {
       fontSize: 13,
       color:
           booking.isCancelled
-              ? secondaryTextColor.withOpacity(0.7)
+              ? secondaryTextColor.withAlpha((0.7 * 255).round())
               : secondaryTextColor,
     );
 
     // Background color based on booking status
     final Color backgroundColor =
         booking.isCancelled
-            ? cardColor.withOpacity(
-              0.7,
-            ) // Slightly transparent in cancelled state
+            ? cardColor.withAlpha((0.7 * 255).round())
             : cardColor;
 
     return CupertinoButton(
@@ -1909,12 +1934,8 @@ class BookingListItem extends StatelessWidget {
             left: BorderSide(
               color:
                   booking.isCancelled
-                      ? CupertinoColors.systemRed.withOpacity(
-                        0.5,
-                      ) // Replaced withAlpha with withOpacity
-                      : CupertinoTheme.of(context).primaryColor.withOpacity(
-                        0.7,
-                      ), // Replaced withAlpha with withOpacity
+                      ? CupertinoColors.systemRed.withAlpha((0.5 * 255).round())
+                      : CupertinoTheme.of(context).primaryColor.withAlpha((0.7 * 255).round()),
               width: 4.0,
             ),
           ),
@@ -1931,12 +1952,8 @@ class BookingListItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color:
                     booking.isCancelled
-                        ? CupertinoColors.systemRed.withOpacity(
-                          0.1,
-                        ) // Replaced withAlpha with withOpacity
-                        : CupertinoTheme.of(context).primaryColor.withOpacity(
-                          0.1,
-                        ), // Replaced withAlpha with withOpacity
+                        ? CupertinoColors.systemRed.withAlpha((0.1 * 255).round())
+                        : CupertinoTheme.of(context).primaryColor.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
@@ -1959,10 +1976,10 @@ class BookingListItem extends StatelessWidget {
                       fontSize: 12,
                       color:
                           booking.isCancelled
-                              ? CupertinoColors.systemRed.withOpacity(0.6)
+                              ? CupertinoColors.systemRed.withAlpha((0.6 * 255).round())
                               : CupertinoTheme.of(
                                 context,
-                              ).primaryColor.withOpacity(0.7),
+                              ).primaryColor.withAlpha((0.7 * 255).round()),
                     ),
                   ),
                 ],
@@ -1992,7 +2009,7 @@ class BookingListItem extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: CupertinoColors.systemRed.withOpacity(0.1),
+                            color: CupertinoColors.systemRed.withAlpha((0.1 * 255).round()),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -2019,7 +2036,7 @@ class BookingListItem extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: CupertinoTheme.of(
                             context,
-                          ).primaryColor.withOpacity(0.1),
+                          ).primaryColor.withAlpha((0.1 * 255).round()),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(

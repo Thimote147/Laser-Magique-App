@@ -23,7 +23,8 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
   String _totalHours = '00:00';
   bool _isAdmin = false; // To track if user has admin role
   bool _showAllUsers = false; // Toggle between personal and all users views
-  final Map<String, bool> _expandedUsers = {}; // Track expanded state for each user
+  final Map<String, bool> _expandedUsers =
+      {}; // Track expanded state for each user
 
   @override
   void initState() {
@@ -120,7 +121,8 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
         }
       });
     } catch (e) {
-      if (mounted) { // Add mounted check before using BuildContext
+      if (mounted) {
+        // Add mounted check before using BuildContext
         ScaffoldMessenger.of(context).showSnackBar(
           _createThemedSnackBar(
             'Error loading work hours: ${e.toString()}',
@@ -196,12 +198,13 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
       },
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && mounted) {
+      final workHoursService = Provider.of<WorkHoursService>(
+        context,
+        listen: false,
+      );
+
       try {
-        final workHoursService = Provider.of<WorkHoursService>(
-          context,
-          listen: false,
-        );
         await workHoursService.deleteWorkHour(workHour.hourId);
         _loadWorkHours();
         if (mounted) {
@@ -442,12 +445,10 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                               colors: [
                                 cardColor,
                                 themeService.darkMode
-                                    ? CupertinoTheme.of(
-                                      context,
-                                    ).primaryColor.withOpacity(0.15)
-                                    : CupertinoTheme.of(
-                                      context,
-                                    ).primaryColor.withOpacity(0.07),
+                                    ? CupertinoTheme.of(context).primaryColor
+                                        .withAlpha((0.15 * 255).round())
+                                    : CupertinoTheme.of(context).primaryColor
+                                        .withAlpha((0.07 * 255).round()),
                               ],
                             ),
                           ),
@@ -473,7 +474,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: primaryColor.withOpacity(0.1),
+                                        color: primaryColor.withAlpha(
+                                          (0.1 * 255).round(),
+                                        ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
@@ -503,7 +506,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                     Container(
                                       height: 40,
                                       width: 1,
-                                      color: separatorColor.withOpacity(0.5),
+                                      color: separatorColor.withAlpha(
+                                        (0.5 * 255).round(),
+                                      ),
                                     ),
                                     _buildSummaryItem(
                                       icon: CupertinoIcons.money_euro,
@@ -688,12 +693,17 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
   }) {
     // Get expanded state for this user
     final isExpanded = _expandedUsers[userName] ?? false;
-    
+
     // Count the number of work hour entries
     final entryCount = userHours.where((h) => h.hourId.isNotEmpty).length;
 
     return Padding(
-      padding: const EdgeInsets.only(left: 16, top: 6, right: 16, bottom: 6), // Reduced vertical padding
+      padding: const EdgeInsets.only(
+        left: 16,
+        top: 6,
+        right: 16,
+        bottom: 6,
+      ), // Reduced vertical padding
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -727,9 +737,13 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(6), // Reduced padding
+                              padding: const EdgeInsets.all(
+                                6,
+                              ), // Reduced padding
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withAlpha(
+                                  (0.2 * 255).round(),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(
@@ -750,15 +764,22 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                             const SizedBox(width: 8),
                             // Number of sessions badge
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), // Smaller padding
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ), // Smaller padding
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withAlpha(
+                                  (0.2 * 255).round(),
+                                ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 '$entryCount session${entryCount != 1 ? "s" : ""}',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Colors.white.withAlpha(
+                                    (0.9 * 255).round(),
+                                  ),
                                   fontSize: 12, // Smaller font
                                 ),
                               ),
@@ -770,7 +791,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         Container(
                           padding: const EdgeInsets.all(5), // Reduced padding
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withAlpha((0.2 * 255).round()),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Icon(
@@ -785,7 +806,6 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     ),
 
                     const SizedBox(height: 10), // Reduced spacing
-
                     // Totals row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -796,7 +816,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                             Text(
                               'Total heures',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withAlpha(
+                                  (0.8 * 255).round(),
+                                ),
                                 fontSize: 13, // Reduced font size
                               ),
                             ),
@@ -807,7 +829,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                 vertical: 3, // Reduced padding
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withAlpha(
+                                  (0.2 * 255).round(),
+                                ),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -826,7 +850,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         Container(
                           height: 24, // Reduced height
                           width: 1,
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withAlpha((0.3 * 255).round()),
                         ),
 
                         // Total amount
@@ -835,7 +859,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                             Text(
                               'Montant total',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: Colors.white.withAlpha(
+                                  (0.8 * 255).round(),
+                                ),
                                 fontSize: 13, // Reduced font size
                               ),
                             ),
@@ -846,7 +872,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                 vertical: 3, // Reduced padding
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
+                                color: Colors.white.withAlpha(
+                                  (0.2 * 255).round(),
+                                ),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -878,7 +906,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                       ) // Filter out placeholders
                       .map(
                         (workHour) => Padding(
-                          padding: const EdgeInsets.only(top: 6), // Reduced spacing
+                          padding: const EdgeInsets.only(
+                            top: 6,
+                          ), // Reduced spacing
                           child: _buildWorkHourItem(
                             workHour,
                             textColor,
@@ -939,7 +969,10 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
             offset: const Offset(0, 1),
           ),
         ],
-        border: Border.all(color: primaryColor.withOpacity(0.1), width: 1),
+        border: Border.all(
+          color: primaryColor.withAlpha((0.1 * 255).round()),
+          width: 1,
+        ),
       ),
       child: CupertinoButton(
         padding: EdgeInsets.zero,
@@ -958,7 +991,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.1),
+                          color: primaryColor.withAlpha((0.1 * 255).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
@@ -987,7 +1020,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withAlpha((0.1 * 255).round()),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -1010,7 +1043,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: secondaryTextColor.withOpacity(0.1),
+                          color: secondaryTextColor.withAlpha(
+                            (0.1 * 255).round(),
+                          ),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
@@ -1054,7 +1089,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                             margin: const EdgeInsets.only(right: 8),
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
+                              color: primaryColor.withAlpha(
+                                (0.1 * 255).round(),
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Icon(
@@ -1072,7 +1109,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: CupertinoColors.systemRed.withOpacity(0.1),
+                              color: CupertinoColors.systemRed.withAlpha(
+                                (0.1 * 255).round(),
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Icon(
@@ -1167,9 +1206,12 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
 
     overlay.insert(overlayEntry);
 
-    // Auto-dismiss after 3 seconds
+    // Auto-dismiss after 3 seconds - avoid using context after async gap
     Future.delayed(const Duration(seconds: 3), () {
-      overlayEntry.remove();
+      // No BuildContext needed here, just remove the overlayEntry
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
     });
   }
 
@@ -1657,10 +1699,11 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
       context: context,
       barrierDismissible: true,
       builder: (BuildContext context) {
+        final navigator = Navigator.of(context);
         // Auto-dismiss after 1.5 seconds
         Future.delayed(const Duration(milliseconds: 1500), () {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
+          if (navigator.canPop()) {
+            navigator.pop();
           }
         });
 
@@ -1674,7 +1717,7 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withAlpha((0.2 * 255).round()),
                   offset: const Offset(0, 2),
                   blurRadius: 6,
                 ),
@@ -1738,7 +1781,7 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withAlpha((0.1 * 255).round()),
                   spreadRadius: 1,
                   blurRadius: 10,
                   offset: const Offset(0, 3),
@@ -1797,7 +1840,7 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
                   // Date selector
                   Container(
                     decoration: BoxDecoration(
-                      color: backgroundColor.withOpacity(0.3),
+                      color: backgroundColor.withAlpha((0.3 * 255).round()),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: CupertinoButton(
@@ -1811,7 +1854,9 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
+                              color: primaryColor.withAlpha(
+                                (0.1 * 255).round(),
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -1867,7 +1912,9 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: backgroundColor.withOpacity(0.3),
+                            color: backgroundColor.withAlpha(
+                              (0.3 * 255).round(),
+                            ),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: CupertinoButton(
@@ -1923,7 +1970,9 @@ class _AddWorkHourDialogState extends State<AddWorkHourDialog> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: backgroundColor.withOpacity(0.3),
+                            color: backgroundColor.withAlpha(
+                              (0.3 * 255).round(),
+                            ),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: CupertinoButton(
@@ -2517,10 +2566,13 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
       context: context,
       barrierDismissible: true,
       builder: (BuildContext context) {
+        final navigator = Navigator.of(context);
         // Auto-dismiss after 1.5 seconds
         Future.delayed(const Duration(milliseconds: 1500), () {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
+          // Store the navigator in a local variable to avoid context issues
+          // Check if we can still pop (widget still in tree)
+          if (navigator.canPop()) {
+            navigator.pop();
           }
         });
 
@@ -2534,7 +2586,7 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withAlpha((0.2 * 255).round()),
                   offset: const Offset(0, 2),
                   blurRadius: 6,
                 ),
@@ -2598,7 +2650,7 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withAlpha((0.1 * 255).round()),
                   spreadRadius: 1,
                   blurRadius: 10,
                   offset: const Offset(0, 3),
@@ -2660,7 +2712,7 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
                   // Date selector
                   Container(
                     decoration: BoxDecoration(
-                      color: backgroundColor.withOpacity(0.3),
+                      color: backgroundColor.withAlpha((0.3 * 255).round()),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: CupertinoButton(
@@ -2674,7 +2726,9 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
+                              color: primaryColor.withAlpha(
+                                (0.1 * 255).round(),
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -2730,7 +2784,9 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: backgroundColor.withOpacity(0.3),
+                            color: backgroundColor.withAlpha(
+                              (0.3 * 255).round(),
+                            ),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: CupertinoButton(
@@ -2786,7 +2842,9 @@ class _EditWorkHourDialogState extends State<EditWorkHourDialog> {
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: backgroundColor.withOpacity(0.3),
+                            color: backgroundColor.withAlpha(
+                              (0.3 * 255).round(),
+                            ),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: CupertinoButton(

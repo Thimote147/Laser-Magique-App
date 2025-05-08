@@ -1,4 +1,3 @@
-// filepath: /Users/thimotefetu/Sites/laser_magique_app/lib/models/activity.dart
 class Activity {
   final String id;
   final String name;

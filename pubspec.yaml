@@ -2,7 +2,7 @@ name: laser_magique_app
 description: "Mobile app to manager Laser-Magique"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.1
+version: 0.1.2
 
 environment:
   sdk: ^3.7.0
@@ -36,24 +36,29 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  
+
   # Supabase
   supabase_flutter: ^2.3.4
-  
+
   # Calendar
   table_calendar: ^3.0.9
   intl: ^0.19.0
-  
+
   # UI Components
   flutter_slidable: ^3.0.1
   cached_network_image: ^3.3.1
-  
+
   # Environment variables
   flutter_dotenv: ^5.1.0
   shared_preferences: ^2.5.3
 
   # App information
   package_info_plus: ^8.3.0
+
+  # URL handling (for phone calls and emails)
+  url_launcher: ^6.2.5
+
+  path_provider: ^2.1.2
 
   uuid: any
   provider: ^6.1.5
@@ -74,7 +79,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

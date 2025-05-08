@@ -59,7 +59,7 @@ class SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e) {
       // Handle error
-      print('Error loading user info: $e');
+      debugPrint('Error loading user info: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -426,7 +426,7 @@ class SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: CupertinoTheme.of(context).primaryColor.withOpacity(0.1),
+                color: CupertinoTheme.of(context).primaryColor.withAlpha((0.1 * 255).round()),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -483,7 +483,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                     shape: BoxShape.circle,
                     color: CupertinoTheme.of(
                       context,
-                    ).primaryColor.withOpacity(0.1),
+                    ).primaryColor.withAlpha((0.1 * 255).round()),
                   ),
                   child: Icon(
                     CupertinoIcons.gamecontroller_fill,
@@ -493,7 +493,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Version 0.1.1',
+                  'Version 0.1.2',
                   style: TextStyle(
                     color: secondaryTextColor,
                     fontSize: 14,

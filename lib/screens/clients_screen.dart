@@ -86,7 +86,7 @@ class ClientsScreenState extends State<ClientsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching clients: $e');
+      debugPrint('Error fetching clients: $e');
 
       // For demo purposes, add sample clients if the table doesn't exist
       setState(() {
@@ -381,7 +381,7 @@ class ClientsScreenState extends State<ClientsScreen> {
                     decoration: BoxDecoration(
                       color: CupertinoTheme.of(
                         context,
-                      ).primaryColor.withOpacity(0.1),
+                      ).primaryColor.withAlpha((0.1 * 255).round()),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -705,7 +705,7 @@ class ClientDetailView extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Theme.of(
                               context,
-                            ).primaryColor.withOpacity(0.1),
+                            ).primaryColor.withAlpha((0.1 * 255).round()),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -843,7 +843,7 @@ class ClientDetailView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: Theme.of(context).primaryColor.withAlpha((0.1 * 255).round()),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: Theme.of(context).primaryColor, size: 20),

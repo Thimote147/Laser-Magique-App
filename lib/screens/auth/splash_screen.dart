@@ -17,12 +17,14 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthentication() async {
+    // Get authService before the async gap
+    final authService = Provider.of<AuthService>(context, listen: false);
+
     // Give the splash screen some time to display
     await Future.delayed(const Duration(milliseconds: 500));
 
-    if (!context.mounted) return;
-
-    final authService = Provider.of<AuthService>(context, listen: false);
+    // Check if still mounted after the async operation
+    if (!mounted) return;
 
     if (authService.isAuthenticated) {
       // User is already authenticated, navigate to home

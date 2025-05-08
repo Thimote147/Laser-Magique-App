@@ -147,11 +147,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: BoxDecoration(
             color: CupertinoTheme.of(
               context,
-            ).barBackgroundColor.withOpacity(0.9),
+            ).barBackgroundColor.withAlpha((0.9 * 255).round()),
             borderRadius: BorderRadius.circular(15),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withAlpha((0.1 * 255).round()),
                 blurRadius: 10,
                 spreadRadius: 0,
               ),
@@ -174,9 +174,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
     );
 
-    // Auto-dismiss after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
-      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     });
   }
 
@@ -206,9 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         middle: Text(_isEditing ? 'Modifier le profil' : 'Profil'),
         backgroundColor:
             _isEditing
-                ? primaryColor.withOpacity(
-                  0.1,
-                ) // Highlight nav bar in edit mode
+                ? primaryColor.withAlpha((0.1 * 255).round())
                 : backgroundColor,
         border: Border(
           bottom: BorderSide(
@@ -297,7 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         radius: 45,
                         backgroundColor: CupertinoTheme.of(
                           context,
-                        ).primaryColor.withOpacity(0.1),
+                        ).primaryColor.withAlpha((0.1 * 255).round()),
                         child: Icon(
                           CupertinoIcons.person_fill,
                           size: 40,
@@ -383,7 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           label: 'Email',
                           controller: _emailController,
                           enabled: false, // Email can't be edited
-                          textColor: textColor.withOpacity(0.7),
+                          textColor: textColor.withAlpha((0.7 * 255).round()),
                           separatorColor: separatorColor,
                           icon: CupertinoIcons.mail,
                         ),
@@ -411,9 +410,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           label: 'Tarif horaire',
                           controller: _hourlyRateController,
                           enabled: false, // Changed to false to prevent editing
-                          textColor: textColor.withOpacity(
-                            0.7,
-                          ), // Dimmed like the email field
+                          textColor: textColor.withAlpha((0.7 * 255).round()),
                           separatorColor: separatorColor,
                           icon: CupertinoIcons.money_euro,
                           keyboardType: TextInputType.number,
@@ -493,7 +490,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color:
                     enabled
                         ? CupertinoTheme.of(context).primaryColor
-                        : textColor.withOpacity(0.5),
+                        : textColor.withAlpha((0.5 * 255).round()),
               ),
               const SizedBox(width: 12),
               Column(
@@ -503,7 +500,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     label,
                     style: TextStyle(
                       fontSize: 13,
-                      color: textColor.withOpacity(0.6),
+                      color: textColor.withAlpha((0.6 * 255).round()),
                     ),
                   ),
                   const SizedBox(height: 4),
