@@ -1,6 +1,6 @@
 import 'package:uuid/uuid.dart';
 
-enum PaymentMethod { cash, card }
+enum PaymentMethod { cash, card, transfer }
 
 enum PaymentType { deposit, balance }
 

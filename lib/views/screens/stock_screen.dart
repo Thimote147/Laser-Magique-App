@@ -54,16 +54,31 @@ class StockScreen extends StatelessWidget {
               children: [
                 if (lowStockItems.isNotEmpty)
                   Container(
-                    color: Colors.red[100],
+                    color:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Colors.red.shade900.withOpacity(0.3)
+                            : Colors.red.shade100,
                     padding: const EdgeInsets.all(8.0),
                     child: Row(
                       children: [
-                        const Icon(Icons.warning, color: Colors.red),
+                        Icon(
+                          Icons.warning,
+                          color:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.red.shade300
+                                  : Colors.red,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Articles en stock bas : ${lowStockItems.map((e) => e.name).join(", ")}',
-                            style: const TextStyle(color: Colors.red),
+                            style: TextStyle(
+                              color:
+                                  Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.red.shade300
+                                      : Colors.red,
+                            ),
                           ),
                         ),
                       ],

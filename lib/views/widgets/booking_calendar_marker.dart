@@ -20,15 +20,15 @@ class BookingCalendarMarker extends StatelessWidget {
     if (booking.isCancelled) {
       markerColor = Colors.red.shade600;
     } else {
-      final activityName = booking.formula.activity.name.toLowerCase();
-      if (activityName.contains('laser')) {
-        markerColor = Colors.red;
-      } else if (activityName.contains('virtual')) {
+      final activityName = booking.formula.name.toLowerCase();
+      if (activityName.contains('groupe')) {
+        markerColor = Colors.green;
+      } else if (activityName.contains('anniversaire')) {
         markerColor = Colors.blue;
-      } else if (activityName.contains('arcade')) {
+      } else if (activityName.contains('social deal')) {
         markerColor = Colors.purple;
       } else {
-        markerColor = Colors.indigo;
+        markerColor = Colors.orange;
       }
     }
     return Container(

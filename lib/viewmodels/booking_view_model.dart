@@ -4,6 +4,7 @@ import '../models/booking_model.dart';
 import '../models/formula_model.dart';
 import '../models/payment_model.dart' as payment_model;
 import 'activity_formula_view_model.dart';
+import 'stock_view_model.dart';
 
 class BookingViewModel extends ChangeNotifier {
   // Liste des réservations
@@ -11,12 +12,38 @@ class BookingViewModel extends ChangeNotifier {
 
   // Référence au ViewModel des activités et formules
   final ActivityFormulaViewModel _activityFormulaViewModel;
+  final StockViewModel _stockViewModel;
 
   // Constructeur
-  BookingViewModel(this._activityFormulaViewModel);
+  BookingViewModel(this._activityFormulaViewModel, this._stockViewModel) {
+    // Listen to changes in consumptions
+    _stockViewModel.addListener(_onConsumptionsChanged);
+  }
 
-  // Getter pour accéder aux réservations
-  List<Booking> get bookings => List.unmodifiable(_bookings);
+  @override
+  void dispose() {
+    _stockViewModel.removeListener(_onConsumptionsChanged);
+    super.dispose();
+  }
+
+  // Called when consumptions change in StockViewModel
+  void _onConsumptionsChanged() {
+    notifyListeners(); // This will trigger a rebuild of all booking widgets
+  }
+
+  // Calculer le total des consommations pour une réservation
+  double _getConsumptionsTotal(String bookingId) {
+    return _stockViewModel.getConsumptionsTotalForBooking(bookingId);
+  }
+
+  // Getter pour accéder aux réservations avec les consommations à jour
+  List<Booking> get bookings => List.unmodifiable(
+    _bookings.map(
+      (booking) => booking.copyWith(
+        consumptionsTotal: _getConsumptionsTotal(booking.id),
+      ),
+    ),
+  );
 
   // Méthode pour ajouter une réservation
   void addBooking({
@@ -29,10 +56,28 @@ class BookingViewModel extends ChangeNotifier {
     String? phone,
     required Formula formula,
     double deposit = 0.0,
+    payment_model.PaymentMethod? paymentMethod,
     List<payment_model.Payment>? payments,
   }) {
+    final String bookingId = const Uuid().v4(); // Génère un ID unique
+
+    // Créer une liste de paiements, y compris l'acompte si présent
+    List<payment_model.Payment> allPayments = payments?.toList() ?? [];
+
+    // Si un acompte est spécifié, créer un paiement correspondant
+    if (deposit > 0) {
+      final depositPayment = payment_model.Payment(
+        bookingId: bookingId,
+        amount: deposit,
+        method: paymentMethod ?? payment_model.PaymentMethod.card,
+        type: payment_model.PaymentType.deposit,
+        date: DateTime.now(),
+      );
+      allPayments.add(depositPayment);
+    }
+
     final booking = Booking(
-      id: const Uuid().v4(), // Génère un ID unique
+      id: bookingId,
       firstName: firstName,
       lastName: lastName,
       dateTime: dateTime,
@@ -42,7 +87,8 @@ class BookingViewModel extends ChangeNotifier {
       phone: phone,
       formula: formula,
       deposit: deposit,
-      payments: payments ?? [],
+      paymentMethod: paymentMethod ?? payment_model.PaymentMethod.card,
+      payments: allPayments,
     );
 
     _bookings.add(booking);

@@ -11,6 +11,14 @@ class StockViewModel extends ChangeNotifier {
   // Getters
   List<StockItem> get items => List.unmodifiable(_items);
   List<Consumption> get consumptions => List.unmodifiable(_consumptions);
+
+  // Calculate total for a booking's consumptions
+  double getConsumptionsTotalForBooking(String bookingId) {
+    return getConsumptionsForBooking(
+      bookingId,
+    ).fold(0.0, (sum, consumption) => sum + consumption.totalPrice);
+  }
+
   List<StockItem> get filteredItems =>
       _searchQuery.isEmpty
           ? _items
@@ -228,17 +236,31 @@ class StockViewModel extends ChangeNotifier {
   }
 
   // Ajouter une consommation et mettre à jour le stock
-  void addConsumption({
+  bool addConsumption({
     required String bookingId,
     required String stockItemId,
     required int quantity,
   }) {
+    // Validation des entrées
+    if (bookingId.isEmpty || stockItemId.isEmpty || quantity <= 0) {
+      print('Erreur de validation: paramètres invalides');
+      return false;
+    }
+
     // Vérifier si l'article existe et a assez de stock
     final itemIndex = _items.indexWhere((item) => item.id == stockItemId);
-    if (itemIndex == -1) return;
+    if (itemIndex == -1) {
+      print('Erreur: article non trouvé avec ID $stockItemId');
+      return false;
+    }
 
     final item = _items[itemIndex];
-    if (item.quantity < quantity) return;
+    if (item.quantity < quantity) {
+      print(
+        'Erreur: stock insuffisant pour ${item.name} (Disponible: ${item.quantity}, Demandé: $quantity)',
+      );
+      return false;
+    }
 
     // Créer la consommation
     final consumption = Consumption(
@@ -256,7 +278,11 @@ class StockViewModel extends ChangeNotifier {
     // Mettre à jour le stock
     _items[itemIndex] = item.copyWith(quantity: item.quantity - quantity);
 
+    print(
+      'Consommation ajoutée: ${item.name} x$quantity pour la réservation $bookingId',
+    );
     notifyListeners();
+    return true;
   }
 
   // Annuler une consommation

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'stock_screen.dart';
+import 'settings_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -12,7 +13,11 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [const HomeScreen(), const StockScreen()];
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const StockScreen(),
+    const SettingsScreen(),
+  ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -31,9 +36,15 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Réservations',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'Stock'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Paramètres',
+          ),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        selectedItemColor: Colors.indigo,
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }

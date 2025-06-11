@@ -19,27 +19,67 @@ class BookingListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Couleur basée sur l'activité
-    final Color activityColor = _getActivityColor(
-      booking.formula.activity.name,
-    );
+    // Nous utilisons _getActivityColorWithBrightness directement maintenant
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         border: Border(
           left: BorderSide(
-            color: booking.isCancelled ? Colors.red.shade600 : activityColor,
-            width: booking.isCancelled ? 4 : 3,
+            color:
+                booking.isCancelled
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.red.shade400
+                        : Colors.red.shade600)
+                    : booking.remainingBalance <= 0
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.green.shade400
+                        : Colors.green.shade600)
+                    : _getActivityColorWithBrightness(
+                      booking.formula.name,
+                      Theme.of(context).brightness,
+                    ),
+            width: booking.isCancelled || booking.remainingBalance <= 0 ? 4 : 3,
           ),
-          bottom: BorderSide(color: Colors.grey.shade200, width: 1),
+          bottom: BorderSide(
+            color:
+                Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade200,
+            width: 1,
+          ),
         ),
-        color: booking.isCancelled ? Colors.red.shade50.withOpacity(0.5) : null,
+        color:
+            booking.isCancelled
+                ? (Theme.of(context).brightness == Brightness.dark
+                    ? Colors.red.shade900.withOpacity(0.3)
+                    : Colors.red.shade50.withOpacity(0.5))
+                : booking.remainingBalance <= 0
+                ? (Theme.of(context).brightness == Brightness.dark
+                    ? Colors.green.shade900.withOpacity(0.3)
+                    : Colors.green.shade50.withOpacity(0.5))
+                : Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey.shade900.withOpacity(0.3)
+                : null,
         boxShadow:
             booking.isCancelled
                 ? [
                   BoxShadow(
-                    color: Colors.red.withOpacity(0.15),
+                    color: (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.red.shade700
+                            : Colors.red)
+                        .withOpacity(0.15),
+                    blurRadius: 3,
+                    spreadRadius: 1,
+                  ),
+                ]
+                : booking.remainingBalance <= 0
+                ? [
+                  BoxShadow(
+                    color: (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.green.shade700
+                            : Colors.green)
+                        .withOpacity(0.15),
                     blurRadius: 3,
                     spreadRadius: 1,
                   ),
@@ -168,18 +208,38 @@ class BookingListItem extends StatelessWidget {
         direction: DismissDirection.horizontal, // Permettre les deux directions
         child: Material(
           color:
-              booking.isCancelled
-                  ? Colors.red.shade50.withOpacity(0.5)
-                  : Colors.transparent,
+              Theme.of(context).brightness == Brightness.dark
+                  ? (booking.isCancelled
+                      ? Colors.red.shade900.withOpacity(0.3)
+                      : booking.remainingBalance <= 0
+                      ? Colors.green.shade900.withOpacity(0.3)
+                      : Colors.transparent)
+                  : (booking.isCancelled
+                      ? Colors.red.shade50.withOpacity(0.5)
+                      : booking.remainingBalance <= 0
+                      ? Colors.green.shade50.withOpacity(0.5)
+                      : Colors.transparent),
           child: InkWell(
             onTap: onTap,
             splashColor:
                 booking.isCancelled
-                    ? Colors.red.shade100
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.red.shade700
+                        : Colors.red.shade100)
+                    : booking.remainingBalance <= 0
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.green.shade700
+                        : Colors.green.shade100)
                     : Theme.of(context).splashColor,
             highlightColor:
                 booking.isCancelled
-                    ? Colors.red.shade200.withOpacity(0.3)
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.red.shade800.withOpacity(0.3)
+                        : Colors.red.shade200.withOpacity(0.3))
+                    : booking.remainingBalance <= 0
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.green.shade800.withOpacity(0.3)
+                        : Colors.green.shade200.withOpacity(0.3))
                     : Theme.of(context).highlightColor,
             child: Stack(
               children: [
@@ -195,7 +255,13 @@ class BookingListItem extends StatelessWidget {
                           DateFormat.Hm('fr_FR').format(booking.dateTime),
                           style: CancelledTextStyle.apply(
                             TextStyle(
-                              color: Theme.of(context).colorScheme.secondary,
+                              color:
+                                  Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Theme.of(
+                                        context,
+                                      ).colorScheme.secondary.withOpacity(0.9)
+                                      : Theme.of(context).colorScheme.secondary,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
@@ -221,17 +287,34 @@ class BookingListItem extends StatelessWidget {
                                             ? TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 14,
-                                              color: Colors.grey.shade700,
+                                              color:
+                                                  Theme.of(
+                                                            context,
+                                                          ).brightness ==
+                                                          Brightness.dark
+                                                      ? Colors.grey.shade400
+                                                      : Colors.grey.shade700,
                                               decoration:
                                                   TextDecoration.lineThrough,
                                               decorationColor:
-                                                  Colors.red.shade400,
+                                                  Theme.of(
+                                                            context,
+                                                          ).brightness ==
+                                                          Brightness.dark
+                                                      ? Colors.red.shade300
+                                                      : Colors.red.shade400,
                                               decorationThickness: 2.0,
                                             )
-                                            : const TextStyle(
+                                            : TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 14,
-                                              color: Colors.black,
+                                              color:
+                                                  Theme.of(
+                                                            context,
+                                                          ).brightness ==
+                                                          Brightness.dark
+                                                      ? Colors.white
+                                                      : Colors.black,
                                             ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -245,12 +328,21 @@ class BookingListItem extends StatelessWidget {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.red.shade600,
+                                      color:
+                                          Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.red.shade400
+                                              : Colors.red.shade600,
                                       borderRadius: BorderRadius.circular(4),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.red.shade200
-                                              .withOpacity(0.4),
+                                          color:
+                                              Theme.of(context).brightness ==
+                                                      Brightness.dark
+                                                  ? Colors.red.shade700
+                                                      .withOpacity(0.4)
+                                                  : Colors.red.shade200
+                                                      .withOpacity(0.4),
                                           blurRadius: 2,
                                           offset: const Offset(0, 1),
                                         ),
@@ -277,6 +369,56 @@ class BookingListItem extends StatelessWidget {
                                       ],
                                     ),
                                   ),
+                                if (!booking.isCancelled &&
+                                    booking.remainingBalance <= 0)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? Colors.green.shade400
+                                              : Colors.green.shade600,
+                                      borderRadius: BorderRadius.circular(4),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color:
+                                              Theme.of(context).brightness ==
+                                                      Brightness.dark
+                                                  ? Colors.green.shade700
+                                                      .withOpacity(0.4)
+                                                  : Colors.green.shade200
+                                                      .withOpacity(0.4),
+                                          blurRadius: 2,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.check_circle_outline,
+                                          size: 12,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        const Text(
+                                          'PAYÉE',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 2),
@@ -290,8 +432,16 @@ class BookingListItem extends StatelessWidget {
                                       TextStyle(
                                         color:
                                             booking.isCancelled
-                                                ? Colors.grey.shade600
-                                                : activityColor,
+                                                ? (Theme.of(
+                                                          context,
+                                                        ).brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.grey.shade400
+                                                    : Colors.grey.shade600)
+                                                : _getActivityColorWithBrightness(
+                                                  booking.formula.name,
+                                                  Theme.of(context).brightness,
+                                                ),
                                         fontWeight: FontWeight.w500,
                                         fontSize: 12,
                                       ),
@@ -315,8 +465,14 @@ class BookingListItem extends StatelessWidget {
                                       fontSize: 12,
                                       color:
                                           booking.isCancelled
-                                              ? Colors.grey.shade600
-                                              : null,
+                                              ? (Theme.of(context).brightness ==
+                                                      Brightness.dark
+                                                  ? Colors.grey.shade400
+                                                  : Colors.grey.shade600)
+                                              : (Theme.of(context).brightness ==
+                                                      Brightness.dark
+                                                  ? Colors.grey.shade300
+                                                  : null),
                                     ),
                                     booking.isCancelled,
                                   ),
@@ -356,6 +512,28 @@ class BookingListItem extends StatelessWidget {
         return Colors.green.shade700;
       default:
         return Colors.purple.shade700;
+    }
+  }
+
+  Color _getActivityColorWithBrightness(
+    String activityName,
+    Brightness brightness,
+  ) {
+    if (brightness == Brightness.dark) {
+      // Couleurs plus claires pour le mode sombre pour un meilleur contraste
+      switch (activityName.toLowerCase()) {
+        case 'laser game':
+          return Colors.red.shade400;
+        case 'arcade':
+          return Colors.blue.shade400;
+        case 'réalité virtuelle':
+          return Colors.green.shade400;
+        default:
+          return Colors.purple.shade400;
+      }
+    } else {
+      // Couleurs standards pour le mode clair
+      return _getActivityColor(activityName);
     }
   }
 }

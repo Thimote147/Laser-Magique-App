@@ -9,6 +9,10 @@ class Formula {
   final int? minParticipants; // Nombre minimum de participants requis
   final int? maxParticipants; // Nombre maximum de participants
   final int? defaultGameCount; // Nombre de parties par défaut
+  final int? minGameCount; // Nombre minimum de parties
+  final int? maxGameCount; // Nombre maximum de parties
+  final bool?
+  fixedGameCount; // Si le nombre de parties est fixe (non modifiable)
 
   Formula({
     required this.id,
@@ -19,6 +23,9 @@ class Formula {
     this.minParticipants,
     this.maxParticipants,
     this.defaultGameCount,
+    this.minGameCount,
+    this.maxGameCount,
+    this.fixedGameCount,
   });
 
   // Méthode pour créer une copie de Formula avec des champs modifiés
@@ -31,6 +38,9 @@ class Formula {
     int? minParticipants,
     int? maxParticipants,
     int? defaultGameCount,
+    int? minGameCount,
+    int? maxGameCount,
+    bool? fixedGameCount,
   }) {
     return Formula(
       id: id ?? this.id,
@@ -41,6 +51,9 @@ class Formula {
       minParticipants: minParticipants ?? this.minParticipants,
       maxParticipants: maxParticipants ?? this.maxParticipants,
       defaultGameCount: defaultGameCount ?? this.defaultGameCount,
+      minGameCount: minGameCount ?? this.minGameCount,
+      maxGameCount: maxGameCount ?? this.maxGameCount,
+      fixedGameCount: fixedGameCount ?? this.fixedGameCount,
     );
   }
 
@@ -55,6 +68,9 @@ class Formula {
       'minParticipants': minParticipants,
       'maxParticipants': maxParticipants,
       'defaultGameCount': defaultGameCount,
+      'minGameCount': minGameCount,
+      'maxGameCount': maxGameCount,
+      'fixedGameCount': fixedGameCount,
     };
   }
 
@@ -69,12 +85,15 @@ class Formula {
       minParticipants: map['minParticipants'],
       maxParticipants: map['maxParticipants'],
       defaultGameCount: map['defaultGameCount'],
+      minGameCount: map['minGameCount'],
+      maxGameCount: map['maxGameCount'],
+      fixedGameCount: map['fixedGameCount'],
     );
   }
 
   @override
   String toString() {
-    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, defaultGameCount: $defaultGameCount)';
+    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, defaultGameCount: $defaultGameCount, minGameCount: $minGameCount, maxGameCount: $maxGameCount, fixedGameCount: $fixedGameCount)';
   }
 
   @override
@@ -88,7 +107,10 @@ class Formula {
         other.price == price &&
         other.minParticipants == minParticipants &&
         other.maxParticipants == maxParticipants &&
-        other.defaultGameCount == defaultGameCount;
+        other.defaultGameCount == defaultGameCount &&
+        other.minGameCount == minGameCount &&
+        other.maxGameCount == maxGameCount &&
+        other.fixedGameCount == fixedGameCount;
   }
 
   @override
@@ -100,6 +122,9 @@ class Formula {
         price.hashCode ^
         minParticipants.hashCode ^
         maxParticipants.hashCode ^
-        defaultGameCount.hashCode;
+        defaultGameCount.hashCode ^
+        minGameCount.hashCode ^
+        maxGameCount.hashCode ^
+        fixedGameCount.hashCode;
   }
 }

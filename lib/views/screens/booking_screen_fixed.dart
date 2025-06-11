@@ -1,3 +1,4 @@
+// filepath: /Users/thimotefetu/Sites/Laser-Magique-App/lib/views/screens/booking_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -210,29 +211,6 @@ class BookingScreen extends StatelessWidget {
                                     vertical: 8,
                                   ),
                                 ),
-                                // Personnaliser l'affichage du bouton pour montrer le nom complet
-                                selectedItemBuilder: (BuildContext context) {
-                                  return activityFormulaViewModel.formulas.map<
-                                    Widget
-                                  >((Formula formula) {
-                                    return Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            '${formula.activity.name} - ${formula.name}',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${formula.price.toStringAsFixed(2)}€',
-                                          style: TextStyle(
-                                            color: Colors.blue.shade700,
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }).toList();
-                                },
                                 items:
                                     activityFormulaViewModel.formulas
                                         .map(
@@ -240,6 +218,7 @@ class BookingScreen extends StatelessWidget {
                                             formula,
                                           ) => DropdownMenuItem<Formula>(
                                             value: formula,
+                                            // Utiliser un simple Text au lieu d'une structure complexe
                                             child: Row(
                                               children: [
                                                 Expanded(
@@ -249,8 +228,6 @@ class BookingScreen extends StatelessWidget {
                                                       fontWeight:
                                                           FontWeight.bold,
                                                     ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Text(
@@ -309,7 +286,7 @@ class BookingScreen extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Formule: ${selectedFormula!.activity.name} - ${selectedFormula!.name}',
+                                        'Formule: ${selectedFormula!.name}',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
@@ -340,10 +317,7 @@ class BookingScreen extends StatelessWidget {
                                           ),
                                           Expanded(
                                             child: Text(
-                                              selectedFormula?.fixedGameCount ==
-                                                      true
-                                                  ? 'Parties: Fixé à ${selectedFormula?.defaultGameCount}'
-                                                  : 'Parties: ${selectedFormula?.minGameCount ?? "1"} à ${selectedFormula?.maxGameCount ?? "∞"}',
+                                              'Parties: ${selectedFormula?.fixedGameCount == true ? "Fixé à " : ""}${selectedFormula?.minGameCount ?? "1"} à ${selectedFormula?.maxGameCount ?? "∞"}',
                                               style: const TextStyle(
                                                 fontSize: 12,
                                               ),

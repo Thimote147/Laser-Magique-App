@@ -139,83 +139,63 @@ class ActivityFormulaViewModel extends ChangeNotifier {
       pricePerPerson: 8.0,
     );
 
-    final arcadeActivity = Activity(
-      id: '2',
-      name: 'Arcade',
-      description: 'Salle de jeux d\'arcade',
-      pricePerPerson: 5.0,
-    );
-
-    final realityActivity = Activity(
-      id: '3',
-      name: 'Réalité Virtuelle',
-      description: 'Expérience en réalité virtuelle',
-      pricePerPerson: 12.0,
-    );
-
-    _activities.addAll([laserGameActivity, arcadeActivity, realityActivity]);
+    _activities.add(laserGameActivity);
 
     // Ajouter des formules
     _formulas.addAll([
       // Formules pour Laser Game
       Formula(
         id: '1',
-        name: 'Standard',
-        description: 'Une partie de laser game standard',
+        name: 'Groupe',
+        description:
+            'Formule groupe standard: 2 à 20 joueurs, nombre de parties flexible',
         activity: laserGameActivity,
-        price: 10.0,
+        price: 8.0,
+        minParticipants: 2,
+        maxParticipants: 20,
         defaultGameCount: 1,
+        minGameCount: 1,
+        maxGameCount: null, // Illimité
       ),
       Formula(
         id: '2',
         name: 'Anniversaire',
-        description: 'Forfait anniversaire avec 2 parties et une salle privée',
+        description:
+            'Forfait anniversaire avec salle privée: 10 à 20 joueurs, exactement 3 parties',
         activity: laserGameActivity,
         price: 15.0,
-        minParticipants: 8,
-        defaultGameCount: 2,
+        minParticipants: 10,
+        maxParticipants: 20,
+        defaultGameCount: 3,
+        minGameCount: 3,
+        maxGameCount: 3,
+        fixedGameCount: true, // Le nombre de parties est fixe
       ),
       Formula(
         id: '3',
-        name: 'Groupe',
-        description: 'Forfait pour groupes (écoles, entreprises)',
+        name: 'Social Deal',
+        description:
+            'Offre promotionnelle Social Deal: 4 à 20 joueurs, 2 à 3 parties',
         activity: laserGameActivity,
         price: 12.0,
-        minParticipants: 15,
-        maxParticipants: 30,
+        minParticipants: 4,
+        maxParticipants: 20,
         defaultGameCount: 2,
+        minGameCount: 2,
+        maxGameCount: 3,
       ),
-
-      // Formules pour Arcade
       Formula(
         id: '4',
-        name: 'Découverte',
-        description: '1 heure de jeux d\'arcade',
-        activity: arcadeActivity,
-        price: 8.0,
-      ),
-      Formula(
-        id: '5',
-        name: 'Passionné',
-        description: '3 heures de jeux d\'arcade',
-        activity: arcadeActivity,
-        price: 20.0,
-      ),
-
-      // Formules pour Réalité Virtuelle
-      Formula(
-        id: '6',
-        name: 'Découverte VR',
-        description: '30 minutes d\'expérience VR',
-        activity: realityActivity,
-        price: 15.0,
-      ),
-      Formula(
-        id: '7',
-        name: 'Immersion VR',
-        description: '1 heure d\'expérience VR',
-        activity: realityActivity,
-        price: 25.0,
+        name: 'Team Building',
+        description:
+            'Formule pour les entreprises: nombre de joueurs et parties illimité',
+        activity: laserGameActivity,
+        price: 10.0,
+        minParticipants: null, // Illimité
+        maxParticipants: null, // Illimité
+        defaultGameCount: 2,
+        minGameCount: null, // Illimité
+        maxGameCount: null, // Illimité
       ),
     ]);
 

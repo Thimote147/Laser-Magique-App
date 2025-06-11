@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../viewmodels/activity_formula_view_model.dart';
+import '../../viewmodels/stock_view_model.dart';
 import 'booking_edit_screen.dart';
 import '../../models/formula_model.dart';
 import '../widgets/booking_calendar_widget.dart';
@@ -22,10 +23,19 @@ class HomeScreen extends StatelessWidget {
         context,
         listen: false,
       );
+      final stockViewModel = Provider.of<StockViewModel>(
+        context,
+        listen: false,
+      );
 
       // Vérifier si les activités/formules sont déjà chargées, sinon les charger
       if (activityFormulaViewModel.formulas.isEmpty) {
         activityFormulaViewModel.loadDummyData();
+      }
+
+      // Vérifier si les données de stock sont déjà chargées, sinon les charger
+      if (stockViewModel.items.isEmpty) {
+        stockViewModel.loadDummyData();
       }
 
       if (bookingViewModel.bookings.isEmpty) {
@@ -34,9 +44,7 @@ class HomeScreen extends StatelessWidget {
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Laser Magique'),
-      ),
+      appBar: AppBar(title: const Text('Laser Magique')),
       body: const BookingCalendarWidget(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

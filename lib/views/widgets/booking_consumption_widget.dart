@@ -36,13 +36,26 @@ class BookingConsumptionWidget extends StatelessWidget {
             ),
             child: ConsumptionSelector(
               stockVM: stockVM,
-              onConsumptionSelected: (stockItemId, quantity) {
-                stockVM.addConsumption(
+              onConsumptionSelected: (stockItemId) {
+                final success = stockVM.addConsumption(
                   bookingId: booking.id,
                   stockItemId: stockItemId,
-                  quantity: quantity,
+                  quantity: 1,
                 );
+
                 Navigator.pop(context);
+
+                if (!success) {
+                  // Afficher un message d'erreur si l'ajout a échoué
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Impossible d\'ajouter cette consommation.',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
             ),
           ),
@@ -55,158 +68,187 @@ class BookingConsumptionWidget extends StatelessWidget {
       builder: (context, stockVM, _) {
         final consumptions = stockVM.getConsumptionsForBooking(booking.id);
         final total = consumptions.fold(0.0, (sum, c) => sum + c.totalPrice);
+        final theme = Theme.of(context);
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // En-tête avec badge de total
-            Padding(
-              padding: EdgeInsets.zero,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Consommations',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  if (consumptions.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Total: ${total.toStringAsFixed(2)}€',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Liste des consommations existantes
-            if (consumptions.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(0, 16.0, 0, 8.0),
-                child: Text(
-                  'Liste des consommations',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Consommations',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              ),
-              ...consumptions.map((consumption) {
-                final item = stockVM.items.firstWhere(
-                  (item) => item.id == consumption.stockItemId,
-                );
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8.0),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
+                if (consumptions.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Icône de la catégorie
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                        Text(
+                          '${total.toStringAsFixed(2)}€',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: theme.primaryColor,
                           ),
-                          child: Icon(
-                            _getItemIcon(item.category),
-                            color: Theme.of(context).primaryColor,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-
-                        // Informations de l'article
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Text(
-                                '${item.price.toStringAsFixed(2)}€ × ${consumption.quantity}',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Contrôles de quantité
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline),
-                              onPressed:
-                                  consumption.quantity > 1
-                                      ? () {
-                                        stockVM.updateConsumptionQuantity(
-                                          consumption.id,
-                                          consumption.quantity - 1,
-                                        );
-                                      }
-                                      : null,
-                            ),
-                            SizedBox(
-                              width: 40,
-                              child: Text(
-                                '${consumption.quantity}',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_outline),
-                              onPressed:
-                                  item.quantity > 0
-                                      ? () {
-                                        stockVM.updateConsumptionQuantity(
-                                          consumption.id,
-                                          consumption.quantity + 1,
-                                        );
-                                      }
-                                      : null,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              color: Colors.red,
-                              onPressed: () {
-                                stockVM.cancelConsumption(consumption.id);
-                              },
-                            ),
-                          ],
                         ),
                       ],
                     ),
                   ),
-                );
-              }),
-            ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (consumptions.isNotEmpty)
+              ListView.separated(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: consumptions.length,
+                separatorBuilder: (context, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final consumption = consumptions[index];
+                  final item = stockVM.items.firstWhere(
+                    (i) => i.id == consumption.stockItemId,
+                  );
 
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor.withOpacity(0.08),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _getItemIcon(item.category),
+                                size: 16,
+                                color: theme.primaryColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  item.name,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${consumption.totalPrice.toStringAsFixed(2)}€',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _ConsumptionButton(
+                                icon: Icons.delete_rounded,
+                                onTap:
+                                    () => stockVM.cancelConsumption(
+                                      consumption.id,
+                                    ),
+                                color: Colors.red.shade400,
+                              ),
+                              Row(
+                                children: [
+                                  _ConsumptionButton(
+                                    icon: Icons.remove_rounded,
+                                    onTap:
+                                        consumption.quantity > 1
+                                            ? () => stockVM
+                                                .updateConsumptionQuantity(
+                                                  consumption.id,
+                                                  consumption.quantity - 1,
+                                                )
+                                            : null,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${consumption.quantity}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                  _ConsumptionButton(
+                                    icon: Icons.add_rounded,
+                                    onTap:
+                                        item.quantity > 0
+                                            ? () => stockVM
+                                                .updateConsumptionQuantity(
+                                                  consumption.id,
+                                                  consumption.quantity + 1,
+                                                )
+                                            : null,
+                                    color: Colors.green.shade400,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             Padding(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.all(12),
               child: FilledButton.tonalIcon(
                 onPressed: () => _showAddConsumptionDialog(context, stockVM),
                 icon: const Icon(Icons.add_circle, size: 24),
@@ -225,6 +267,40 @@ class BookingConsumptionWidget extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _ConsumptionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  final Color color;
+
+  const _ConsumptionButton({
+    required this.icon,
+    required this.onTap,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          child: Icon(
+            icon,
+            size: 22,
+            color: onTap == null ? color.withOpacity(0.3) : color,
+          ),
+        ),
+      ),
     );
   }
 }

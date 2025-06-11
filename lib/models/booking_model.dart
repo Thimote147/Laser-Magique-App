@@ -14,11 +14,14 @@ class Booking {
   final Formula formula;
   final bool isCancelled;
   final double deposit;
+  final payment_model.PaymentMethod paymentMethod;
   final List<payment_model.Payment> payments;
+  final double consumptionsTotal;
 
-  double get totalPrice => numberOfPersons * numberOfGames * formula.price;
+  double get formulaPrice => numberOfPersons * numberOfGames * formula.price;
   double get totalPaid =>
       payments.fold(0, (sum, payment) => sum + payment.amount);
+  double get totalPrice => formulaPrice + consumptionsTotal;
   double get remainingBalance => totalPrice - totalPaid;
 
   Booking({
@@ -33,7 +36,9 @@ class Booking {
     required this.formula,
     this.isCancelled = false,
     this.deposit = 0.0,
+    this.paymentMethod = payment_model.PaymentMethod.card,
     this.payments = const [],
+    this.consumptionsTotal = 0.0,
   });
 
   Booking copyWith({
@@ -48,7 +53,9 @@ class Booking {
     Formula? formula,
     bool? isCancelled,
     double? deposit,
+    payment_model.PaymentMethod? paymentMethod,
     List<payment_model.Payment>? payments,
+    double? consumptionsTotal,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -62,7 +69,9 @@ class Booking {
       formula: formula ?? this.formula,
       isCancelled: isCancelled ?? this.isCancelled,
       deposit: deposit ?? this.deposit,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
       payments: payments ?? this.payments,
+      consumptionsTotal: consumptionsTotal ?? this.consumptionsTotal,
     );
   }
 
@@ -79,7 +88,9 @@ class Booking {
       'formula': formula.toMap(),
       'isCancelled': isCancelled,
       'deposit': deposit,
+      'paymentMethod': paymentMethod.index,
       'payments': payments.map((x) => x.toMap()).toList(),
+      'consumptionsTotal': consumptionsTotal,
     };
   }
 
@@ -96,15 +107,18 @@ class Booking {
       formula: Formula.fromMap(map['formula']),
       isCancelled: map['isCancelled'] ?? false,
       deposit: map['deposit'] ?? 0.0,
+      paymentMethod:
+          payment_model.PaymentMethod.values[map['paymentMethod'] ?? 0],
       payments: List<payment_model.Payment>.from(
         map['payments']?.map((x) => payment_model.Payment.fromMap(x)) ?? [],
       ),
+      consumptionsTotal: map['consumptionsTotal']?.toDouble() ?? 0.0,
     );
   }
 
   @override
   String toString() {
-    return 'Booking(id: $id, firstName: $firstName, lastName: $lastName, dateTime: $dateTime, numberOfPersons: $numberOfPersons, numberOfGames: $numberOfGames, email: $email, phone: $phone, formula: $formula, isCancelled: $isCancelled, deposit: $deposit, payments: $payments)';
+    return 'Booking(id: $id, firstName: $firstName, lastName: $lastName, dateTime: $dateTime, numberOfPersons: $numberOfPersons, numberOfGames: $numberOfGames, email: $email, phone: $phone, formula: $formula, isCancelled: $isCancelled, deposit: $deposit, paymentMethod: $paymentMethod, payments: $payments, consumptionsTotal: $consumptionsTotal)';
   }
 
   @override
@@ -121,7 +135,9 @@ class Booking {
         other.phone == phone &&
         other.formula == formula &&
         other.isCancelled == isCancelled &&
-        other.deposit == deposit;
+        other.deposit == deposit &&
+        other.paymentMethod == paymentMethod &&
+        other.consumptionsTotal == consumptionsTotal;
   }
 
   @override
@@ -136,6 +152,8 @@ class Booking {
         phone.hashCode ^
         formula.hashCode ^
         isCancelled.hashCode ^
-        deposit.hashCode;
+        deposit.hashCode ^
+        paymentMethod.hashCode ^
+        consumptionsTotal.hashCode;
   }
 }

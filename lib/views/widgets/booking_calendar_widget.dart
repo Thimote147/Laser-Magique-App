@@ -7,14 +7,26 @@ import '../../models/booking_model.dart';
 import '../screens/booking_details_screen.dart';
 import '../screens/booking_edit_screen.dart';
 import 'booking_list_item.dart';
-import 'booking_calendar_marker.dart';
 
-class BookingCalendarWidget extends StatelessWidget {
+class BookingCalendarWidget extends StatefulWidget {
   const BookingCalendarWidget({super.key});
 
-  static final ValueNotifier<DateTime> focusedDay = ValueNotifier(DateTime.now());
-  static final ValueNotifier<DateTime> selectedDay = ValueNotifier(DateTime.now());
-  static final ValueNotifier<CalendarFormat> calendarFormat = ValueNotifier(CalendarFormat.month);
+  @override
+  State<BookingCalendarWidget> createState() => _BookingCalendarWidgetState();
+}
+
+class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
+  late DateTime _focusedDay;
+  late DateTime _selectedDay;
+  late CalendarFormat _calendarFormat;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDay = DateTime.now();
+    _selectedDay = DateTime.now();
+    _calendarFormat = CalendarFormat.month;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,36 +35,43 @@ class BookingCalendarWidget extends StatelessWidget {
         return Column(
           children: [
             TableCalendar(
+              locale: 'fr_FR',
               firstDay: DateTime.utc(2020, 1, 1),
               lastDay: DateTime.utc(2030, 12, 31),
-              focusedDay: focusedDay.value,
-              calendarFormat: calendarFormat.value,
-              locale: 'fr_FR',
+              focusedDay: _focusedDay,
+              calendarFormat: _calendarFormat,
+              startingDayOfWeek: StartingDayOfWeek.monday,
+              availableGestures: AvailableGestures.all,
               availableCalendarFormats: const {
                 CalendarFormat.month: 'Mois',
                 CalendarFormat.week: 'Semaine',
               },
-              selectedDayPredicate: (day) => isSameDay(selectedDay.value, day),
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
               eventLoader: (day) => bookingViewModel.getBookingsForDay(day),
               onDaySelected: (selectedD, focusedD) {
-                selectedDay.value = selectedD;
-                focusedDay.value = focusedD;
+                setState(() {
+                  _selectedDay = selectedD;
+                  _focusedDay = focusedD;
+                });
               },
               onFormatChanged: (format) {
-                if (calendarFormat.value != format &&
-                    (format == CalendarFormat.month ||
-                        format == CalendarFormat.week)) {
-                  calendarFormat.value = format;
-                }
+                setState(() {
+                  _calendarFormat = format;
+                });
               },
               onPageChanged: (focusedD) {
-                focusedDay.value = focusedD;
+                setState(() {
+                  _focusedDay = focusedD;
+                });
               },
               calendarStyle: CalendarStyle(
-                markersMaxCount: 3,
+                markersMaxCount: 1,
                 markersAnchor: 0.7,
-                markerDecoration: const BoxDecoration(
-                  color: Colors.indigo,
+                markerDecoration: BoxDecoration(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.indigo.shade200
+                          : Colors.indigo,
                   shape: BoxShape.circle,
                 ),
                 todayDecoration: BoxDecoration(
@@ -63,6 +82,19 @@ class BookingCalendarWidget extends StatelessWidget {
                   color: Theme.of(context).colorScheme.primary,
                   shape: BoxShape.circle,
                 ),
+                // Amélioration du contraste pour le mode sombre
+                outsideTextStyle: TextStyle(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade500,
+                ),
+                weekendTextStyle: TextStyle(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.red.shade200
+                          : Colors.red.shade700,
+                ),
               ),
               calendarBuilders: CalendarBuilders(
                 markerBuilder: (context, date, events) {
@@ -70,12 +102,13 @@ class BookingCalendarWidget extends StatelessWidget {
 
                   return Positioned(
                     bottom: 1,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: events.take(3).map((event) {
-                        final booking = event as Booking;
-                        return BookingCalendarMarker(booking: booking);
-                      }).toList(),
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.indigo,
+                      ),
                     ),
                   );
                 },
@@ -88,6 +121,22 @@ class BookingCalendarWidget extends StatelessWidget {
                 ),
                 formatButtonTextStyle: TextStyle(
                   color: Theme.of(context).colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+                titleTextStyle: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : null,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF2A2A2A)
+                          : null,
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
@@ -95,7 +144,7 @@ class BookingCalendarWidget extends StatelessWidget {
             Expanded(
               child: _buildBookingList(
                 context,
-                bookingViewModel.getBookingsForDay(selectedDay.value),
+                bookingViewModel.getBookingsForDay(_selectedDay),
                 bookingViewModel,
               ),
             ),
@@ -103,6 +152,13 @@ class BookingCalendarWidget extends StatelessWidget {
         );
       },
     );
+  }
+
+  bool isSameDay(DateTime? a, DateTime? b) {
+    if (a == null || b == null) {
+      return false;
+    }
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   Widget _buildBookingList(
@@ -125,12 +181,13 @@ class BookingCalendarWidget extends StatelessWidget {
         final booking = bookings[index];
         return BookingListItem(
           booking: booking,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BookingDetailsScreen(booking: booking),
-            ),
-          ),
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BookingDetailsScreen(booking: booking),
+                ),
+              ),
           onMoreTap: () => _showBookingActions(context, booking, viewModel),
         );
       },
@@ -216,28 +273,29 @@ class BookingCalendarWidget extends StatelessWidget {
   ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmer la suppression'),
-        content: Text(
-          'Êtes-vous sûr de vouloir supprimer la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () {
-              viewModel.removeBooking(booking.id);
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Supprimer',
-              style: TextStyle(color: Colors.red),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmer la suppression'),
+            content: Text(
+              'Êtes-vous sûr de vouloir supprimer la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () {
+                  viewModel.removeBooking(booking.id);
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Supprimer',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }
