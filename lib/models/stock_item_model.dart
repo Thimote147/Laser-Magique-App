@@ -50,9 +50,9 @@ class StockItem {
     return StockItem(
       id: map['id'],
       name: map['name'],
-      quantity: map['quantity'],
-      price: map['price'],
-      alertThreshold: map['alertThreshold'],
+      quantity: (map['quantity'] ?? 0).toInt(),
+      price: (map['price'] ?? 0.0).toDouble(),
+      alertThreshold: (map['alert_threshold'] ?? 0).toInt(),
       category: map['category'],
     );
   }

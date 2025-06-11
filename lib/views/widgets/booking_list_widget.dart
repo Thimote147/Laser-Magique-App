@@ -16,6 +16,10 @@ class BookingListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (viewModel.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final bookings = viewModel.getBookingsForDay(selectedDay);
 
     if (bookings.isEmpty) {
@@ -27,21 +31,25 @@ class BookingListWidget extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      itemCount: bookings.length,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      itemBuilder: (context, index) {
-        final booking = bookings[index];
-        return BookingListItem(
-          booking: booking,
-          onTap: () {
-            _showBookingDetails(context, booking);
-          },
-          onMoreTap: () {
-            _showBookingOptions(context, booking, viewModel);
-          },
-        );
-      },
+    return RefreshIndicator(
+      onRefresh: () => viewModel.refresh(),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: bookings.length,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        itemBuilder: (context, index) {
+          final booking = bookings[index];
+          return BookingListItem(
+            booking: booking,
+            onTap: () {
+              _showBookingDetails(context, booking);
+            },
+            onMoreTap: () {
+              _showBookingOptions(context, booking, viewModel);
+            },
+          );
+        },
+      ),
     );
   }
 

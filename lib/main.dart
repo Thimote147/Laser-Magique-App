@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/app_config.dart';
 import 'views/screens/main_screen.dart';
 import 'viewmodels/booking_view_model.dart';
 import 'viewmodels/activity_formula_view_model.dart';
@@ -9,11 +11,29 @@ import 'viewmodels/stock_view_model.dart';
 import 'viewmodels/employee_profile_view_model.dart';
 import 'viewmodels/settings_view_model.dart';
 
-void main() {
-  // Initialiser les formats de date en français
-  initializeDateFormatting('fr_FR', null).then((_) {
-    runApp(const LaserMagiqueApp());
-  });
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  final config = AppConfig();
+  await config.load();
+
+  if (!config.isValid) {
+    throw Exception(
+      'Invalid Supabase configuration. Please check your .env file.',
+    );
+  }
+
+  // Initialize Supabase
+  await Supabase.initialize(
+    url: config.supabaseUrl,
+    anonKey: config.supabaseAnonKey,
+  );
+
+  // Initialize French date formats
+  await initializeDateFormatting('fr_FR', null);
+
+  runApp(const LaserMagiqueApp());
 }
 
 class LaserMagiqueApp extends StatelessWidget {
@@ -35,22 +55,8 @@ class LaserMagiqueApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) {
-            final viewModel = ActivityFormulaViewModel();
-            // Charger les données de test immédiatement
-            viewModel.loadDummyData();
-            return viewModel;
-          },
-        ),
-        ChangeNotifierProvider(
-          create: (_) {
-            final viewModel = StockViewModel();
-            // Charger les données de stock immédiatement
-            viewModel.loadDummyData();
-            return viewModel;
-          },
-        ),
+        ChangeNotifierProvider(create: (_) => ActivityFormulaViewModel()),
+        ChangeNotifierProvider(create: (_) => StockViewModel()),
         ChangeNotifierProvider(create: (_) => EmployeeProfileViewModel()),
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
         ChangeNotifierProxyProvider2<
@@ -63,10 +69,26 @@ class LaserMagiqueApp extends StatelessWidget {
                 Provider.of<ActivityFormulaViewModel>(context, listen: false),
                 Provider.of<StockViewModel>(context, listen: false),
               ),
-          update:
-              (context, activityFormulaViewModel, stockViewModel, previous) =>
-                  previous ??
-                  BookingViewModel(activityFormulaViewModel, stockViewModel),
+          update: (
+            context,
+            activityFormulaViewModel,
+            stockViewModel,
+            previous,
+          ) {
+            // Keep previous instance if available to preserve state
+            if (previous != null) {
+              // Manually update dependencies
+              previous.updateDependencies(
+                activityFormulaViewModel,
+                stockViewModel,
+              );
+              return previous;
+            }
+            // Create new instance only if needed
+            return BookingViewModel(activityFormulaViewModel, stockViewModel);
+          },
+          lazy:
+              false, // Eagerly create the ViewModel to ensure data is loaded immediately
         ),
       ],
       child: Consumer<SettingsViewModel>(

@@ -76,18 +76,29 @@ class Formula {
 
   // Méthode pour créer un objet Formula à partir d'un Map
   factory Formula.fromMap(Map<String, dynamic> map) {
+    // Activities data comes from Supabase join as top-level properties
+    final activityData =
+        map['activities'] ??
+        map['activity'] ??
+        {
+          'id': map['activity_id'] ?? '',
+          'name': map['activity_name'] ?? 'Activité inconnue',
+          'description': map['activity_description'],
+          'price_per_person': map['price_per_person']?.toDouble(),
+        };
+
     return Formula(
-      id: map['id'],
-      name: map['name'],
-      description: map['description'],
-      activity: Activity.fromMap(map['activity']),
-      price: map['price'],
-      minParticipants: map['minParticipants'],
-      maxParticipants: map['maxParticipants'],
-      defaultGameCount: map['defaultGameCount'],
-      minGameCount: map['minGameCount'],
-      maxGameCount: map['maxGameCount'],
-      fixedGameCount: map['fixedGameCount'],
+      id: map['id'] ?? map['formula_id'] ?? '',
+      name: map['name'] ?? map['formula_name'] ?? 'Formule inconnue',
+      description: map['description'] ?? map['formula_description'],
+      activity: Activity.fromMap(activityData),
+      price: (map['price'] ?? map['formula_price'] ?? 0.0).toDouble(),
+      minParticipants: map['min_participants']?.toInt(),
+      maxParticipants: map['max_participants']?.toInt(),
+      defaultGameCount: map['default_game_count']?.toInt(),
+      minGameCount: map['min_game_count']?.toInt(),
+      maxGameCount: map['max_game_count']?.toInt(),
+      fixedGameCount: map['fixed_game_count'] ?? false,
     );
   }
 

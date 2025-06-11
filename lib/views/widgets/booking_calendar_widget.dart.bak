@@ -20,6 +20,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
   late DateTime _selectedDay;
   late CalendarFormat _calendarFormat;
   final _scrollController = ScrollController();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -30,147 +31,131 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
   }
 
   @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Consumer<BookingViewModel>(
       builder: (context, bookingViewModel, child) {
         return RefreshIndicator(
-          onRefresh: () async {
-            await bookingViewModel.loadBookings();
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            controller: _scrollController,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TableCalendar(
-                  locale: 'fr_FR',
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: _focusedDay,
-                  calendarFormat: _calendarFormat,
-                  startingDayOfWeek: StartingDayOfWeek.monday,
-                  availableGestures: AvailableGestures.all,
-                  availableCalendarFormats: const {
-                    CalendarFormat.month: 'Mois',
-                    CalendarFormat.week: 'Semaine',
-                  },
-                  selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                  eventLoader: (day) => bookingViewModel.getBookingsForDay(day),
-                  onDaySelected: (selectedD, focusedD) {
-                    setState(() {
-                      _selectedDay = selectedD;
-                      _focusedDay = focusedD;
-                    });
-                  },
-                  onFormatChanged: (format) {
-                    setState(() {
-                      _calendarFormat = format;
-                    });
-                  },
-                  onPageChanged: (focusedD) {
-                    setState(() {
-                      _focusedDay = focusedD;
-                    });
-                  },
-                  calendarStyle: CalendarStyle(
-                    markersMaxCount: 1,
-                    markersAnchor: 0.7,
-                    markerDecoration: BoxDecoration(
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.indigo.shade200
-                              : Colors.indigo,
-                      shape: BoxShape.circle,
-                    ),
-                    todayDecoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    selectedDecoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    // Amélioration du contraste pour le mode sombre
-                    outsideTextStyle: TextStyle(
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade500,
-                    ),
-                    weekendTextStyle: TextStyle(
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.red.shade200
-                              : Colors.red.shade700,
-                    ),
-                  ),
-                  calendarBuilders: CalendarBuilders(
-                    markerBuilder: (context, date, events) {
-                      if (events.isEmpty) return null;
+          onRefresh: () => bookingViewModel.refresh(),
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+          children: [
+            TableCalendar(
+              locale: 'fr_FR',
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              calendarFormat: _calendarFormat,
+              startingDayOfWeek: StartingDayOfWeek.monday,
+              availableGestures: AvailableGestures.all,
+              availableCalendarFormats: const {
+                CalendarFormat.month: 'Mois',
+                CalendarFormat.week: 'Semaine',
+              },
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              eventLoader: (day) => bookingViewModel.getBookingsForDay(day),
+              onDaySelected: (selectedD, focusedD) {
+                setState(() {
+                  _selectedDay = selectedD;
+                  _focusedDay = focusedD;
+                });
+              },
+              onFormatChanged: (format) {
+                setState(() {
+                  _calendarFormat = format;
+                });
+              },
+              onPageChanged: (focusedD) {
+                setState(() {
+                  _focusedDay = focusedD;
+                });
+              },
+              calendarStyle: CalendarStyle(
+                markersMaxCount: 1,
+                markersAnchor: 0.7,
+                markerDecoration: BoxDecoration(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.indigo.shade200
+                          : Colors.indigo,
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                selectedDecoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                // Amélioration du contraste pour le mode sombre
+                outsideTextStyle: TextStyle(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey.shade400
+                          : Colors.grey.shade500,
+                ),
+                weekendTextStyle: TextStyle(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.red.shade200
+                          : Colors.red.shade700,
+                ),
+              ),
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, date, events) {
+                  if (events.isEmpty) return null;
 
-                      return Positioned(
-                        bottom: 1,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.indigo,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  headerStyle: HeaderStyle(
-                    titleCentered: true,
-                    formatButtonDecoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      borderRadius: BorderRadius.circular(20.0),
+                  return Positioned(
+                    bottom: 1,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.indigo,
+                      ),
                     ),
-                    formatButtonTextStyle: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    titleTextStyle: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : null,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFF2A2A2A)
-                              : null,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                  );
+                },
+              ),
+              headerStyle: HeaderStyle(
+                titleCentered: true,
+                formatButtonDecoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(20.0),
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height:
-                      MediaQuery.of(context).size.height *
-                      0.5, // This gives the list a fixed height that's half the screen height
-                  child: _buildBookingList(
-                    context,
-                    bookingViewModel.getBookingsForDay(_selectedDay),
-                    bookingViewModel,
-                  ),
+                formatButtonTextStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+                titleTextStyle: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : null,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF2A2A2A)
+                          : null,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _buildBookingList(
+                context,
+                bookingViewModel.getBookingsForDay(_selectedDay),
+                bookingViewModel,
+              ),
+            ),
+          ],
         );
       },
     );

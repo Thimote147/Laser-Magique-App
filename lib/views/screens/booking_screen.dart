@@ -11,16 +11,6 @@ class BookingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Initialisez les réservations de test au chargement de la page
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final viewModel = Provider.of<BookingViewModel>(context, listen: false);
-
-      // Charger uniquement les réservations de démonstration si nécessaire
-      if (viewModel.bookings.isEmpty) {
-        viewModel.loadDummyBookings();
-      }
-    });
-
     return Scaffold(
       appBar: AppBar(title: const Text('Réservations')),
       body: const BookingCalendarWidget(),
@@ -64,19 +54,8 @@ class BookingScreen extends StatelessWidget {
   }
 
   List<DropdownMenuItem<int>> _generatePersonsDropdownItems(Formula? formula) {
-    int minPersons = 1;
-    int maxPersons = 20; // Par défaut, maximum 20 personnes
-
-    if (formula != null) {
-      // Appliquer les restrictions de la formule
-      if (formula.minParticipants != null) {
-        minPersons = formula.minParticipants!;
-      }
-
-      if (formula.maxParticipants != null) {
-        maxPersons = formula.maxParticipants!;
-      }
-    }
+    final int minPersons = formula?.minParticipants ?? 2;
+    final int maxPersons = formula?.maxParticipants ?? 20;
 
     return List.generate(
           maxPersons - minPersons + 1,
@@ -109,9 +88,15 @@ class BookingScreen extends StatelessWidget {
             ? activityFormulaViewModel.formulas.first
             : null;
 
-    // Initialiser le nombre de personnes et de parties selon les restrictions de la formule par défaut
-    int numberOfPersons = selectedFormula?.minParticipants ?? 1;
-    int numberOfGames = selectedFormula?.defaultGameCount ?? 1;
+    // Toujours initialiser avec 2 personnes minimum, puis ajuster selon la formule si nécessaire
+    int numberOfPersons = 2;
+    int numberOfGames = 1;
+
+    // Ajuster les valeurs selon la formule sélectionnée si disponible
+    if (selectedFormula != null) {
+      numberOfPersons = selectedFormula.minParticipants ?? 2;
+      numberOfGames = selectedFormula.defaultGameCount ?? 1;
+    }
 
     showDialog(
       context: context,
@@ -269,23 +254,36 @@ class BookingScreen extends StatelessWidget {
                                     setState(() {
                                       selectedFormula = value;
 
-                                      // Mettre à jour le nombre de parties en fonction de la formule
-                                      if (value.fixedGameCount == true &&
-                                          value.defaultGameCount != null) {
-                                        // Si le nombre de parties est fixe, utiliser le defaultGameCount
-                                        numberOfGames = value.defaultGameCount!;
-                                      } else if (value.defaultGameCount !=
-                                          null) {
-                                        // Sinon utiliser le nombre par défaut
-                                        numberOfGames = value.defaultGameCount!;
+                                      // Ajuster le nombre de participants aux limites de la formule
+                                      // Si la formule définit un minimum, l'utiliser, sinon utiliser 2 comme minimum par défaut
+                                      int minRequired =
+                                          value.minParticipants ?? 2;
+                                      if (numberOfPersons < minRequired) {
+                                        numberOfPersons = minRequired;
+                                      }
+                                      // Vérifier le maximum si spécifié
+                                      if (value.maxParticipants != null &&
+                                          numberOfPersons >
+                                              value.maxParticipants!) {
+                                        numberOfPersons =
+                                            value.maxParticipants!;
                                       }
 
-                                      // Ajuster le nombre de personnes si nécessaire
-                                      if (value.minParticipants != null &&
-                                          numberOfPersons <
-                                              value.minParticipants!) {
+                                      // Forcer la mise à jour des éléments du dropdown pour les participants
+                                      final availablePersonsItems =
+                                          _generatePersonsDropdownItems(value);
+                                      if (availablePersonsItems.isEmpty ||
+                                          !availablePersonsItems.any(
+                                            (item) =>
+                                                item.value == numberOfPersons,
+                                          )) {
                                         numberOfPersons =
-                                            value.minParticipants!;
+                                            value.minParticipants ?? 1;
+                                      }
+
+                                      // Mettre à jour le nombre de parties
+                                      if (value.defaultGameCount != null) {
+                                        numberOfGames = value.defaultGameCount!;
                                       }
                                     });
                                   }

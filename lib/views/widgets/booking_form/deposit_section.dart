@@ -18,7 +18,7 @@ class DepositSection extends StatelessWidget {
     required this.numberOfPersons,
     required this.numberOfGames,
     required this.depositAmount,
-    required this.paymentMethod,
+    this.paymentMethod = PaymentMethod.transfer,
     required this.onDepositChanged,
     required this.onPaymentMethodChanged,
   });
@@ -103,6 +103,16 @@ class DepositSection extends StatelessWidget {
                 Expanded(
                   child: _buildPaymentMethodTile(
                     context,
+                    'Virement',
+                    Icons.account_balance,
+                    'Payez par virement bancaire',
+                    PaymentMethod.transfer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildPaymentMethodTile(
+                    context,
                     'Carte bancaire',
                     Icons.credit_card,
                     'Payez par carte bancaire',
@@ -117,16 +127,6 @@ class DepositSection extends StatelessWidget {
                     Icons.payments,
                     'Payez en espèces',
                     PaymentMethod.cash,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildPaymentMethodTile(
-                    context,
-                    'Virement',
-                    Icons.account_balance,
-                    'Payez par virement bancaire',
-                    PaymentMethod.transfer,
                   ),
                 ),
               ],

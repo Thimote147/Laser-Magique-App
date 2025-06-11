@@ -11,17 +11,6 @@ class StockScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Initialiser les données de test au chargement de la page
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final stockViewModel = Provider.of<StockViewModel>(
-        context,
-        listen: false,
-      );
-      if (stockViewModel.items.isEmpty) {
-        stockViewModel.loadDummyData();
-      }
-    });
-
     return DefaultTabController(
       length: 3,
       child: Scaffold(

@@ -39,27 +39,54 @@ class Payment {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'bookingId': bookingId,
+      'booking_id': bookingId,
       'amount': amount,
-      'method': method.toString(),
-      'type': type.toString(),
-      'date': date.millisecondsSinceEpoch,
+      'method': method.toString().split('.').last,
+      'type': type.toString().split('.').last,
+      'date': date.toIso8601String(),
     };
   }
 
-  factory Payment.fromMap(Map<String, dynamic> map) {
+  factory Payment.fromJson(Map<String, dynamic> json) {
+    final amount = json['amount'];
+    final methodStr = json['method'] ?? json['payment_method'];
+    final typeStr = json['type'] ?? json['payment_type'];
+    final dateStr = json['date'] ?? json['payment_date'];
+
     return Payment(
-      id: map['id'],
-      bookingId: map['bookingId'],
-      amount: map['amount'],
-      method: PaymentMethod.values.firstWhere(
-        (e) => e.toString() == map['method'],
-      ),
-      type: PaymentType.values.firstWhere((e) => e.toString() == map['type']),
-      date: DateTime.fromMillisecondsSinceEpoch(map['date']),
+      id: json['id'] ?? '',
+      bookingId: json['booking_id'] ?? '',
+      amount: (amount is num ? amount : 0.0).toDouble(),
+      method:
+          methodStr != null
+              ? PaymentMethod.values.firstWhere(
+                (e) =>
+                    e.toString().split('.').last.toLowerCase() ==
+                    methodStr.toString().toLowerCase(),
+                orElse: () => PaymentMethod.transfer,
+              )
+              : PaymentMethod.transfer,
+      type:
+          typeStr != null
+              ? PaymentType.values.firstWhere(
+                (e) =>
+                    e.toString().split('.').last.toLowerCase() ==
+                    typeStr.toString().toLowerCase(),
+                orElse: () => PaymentType.deposit,
+              )
+              : PaymentType.deposit,
+      date: dateStr != null ? DateTime.parse(dateStr) : DateTime.now(),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return toJson();
+  }
+
+  factory Payment.fromMap(Map<String, dynamic> map) {
+    return Payment.fromJson(map);
   }
 }

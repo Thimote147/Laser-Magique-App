@@ -36,7 +36,7 @@ class Booking {
     required this.formula,
     this.isCancelled = false,
     this.deposit = 0.0,
-    this.paymentMethod = payment_model.PaymentMethod.card,
+    this.paymentMethod = payment_model.PaymentMethod.transfer,
     this.payments = const [],
     this.consumptionsTotal = 0.0,
   });
@@ -95,24 +95,49 @@ class Booking {
   }
 
   factory Booking.fromMap(Map<String, dynamic> map) {
+    // Si nous avons la formule directement dans l'objet, nous construisons un objet Formula
+    final formula =
+        map['formula'] ??
+        {
+          'id': map['formula_id'],
+          'activity': {
+            'id': map['activity_id'],
+            'name': map['activity_name'] ?? 'Activité inconnue',
+            'description': map['activity_description'] ?? '',
+          },
+          'name': map['formula_name'] ?? 'Formule inconnue',
+          'description': map['formula_description'] ?? '',
+          'price': map['formula_price']?.toDouble() ?? 0.0,
+          'default_game_count': map['default_game_count']?.toInt(),
+          'min_game_count': map['min_game_count']?.toInt(),
+          'max_game_count': map['max_game_count']?.toInt(),
+        };
+
     return Booking(
       id: map['id'],
-      firstName: map['firstName'],
-      lastName: map['lastName'],
-      dateTime: DateTime.fromMillisecondsSinceEpoch(map['dateTime']),
-      numberOfPersons: map['numberOfPersons'] ?? 1,
-      numberOfGames: map['numberOfGames'] ?? 1,
+      firstName: map['first_name'] ?? '',
+      lastName: map['last_name'],
+      dateTime: DateTime.parse(map['date_time']),
+      numberOfPersons: map['number_of_persons']?.toInt() ?? 1,
+      numberOfGames: map['number_of_games']?.toInt() ?? 1,
       email: map['email'],
       phone: map['phone'],
-      formula: Formula.fromMap(map['formula']),
-      isCancelled: map['isCancelled'] ?? false,
-      deposit: map['deposit'] ?? 0.0,
-      paymentMethod:
-          payment_model.PaymentMethod.values[map['paymentMethod'] ?? 0],
-      payments: List<payment_model.Payment>.from(
-        map['payments']?.map((x) => payment_model.Payment.fromMap(x)) ?? [],
+      formula: Formula.fromMap(formula),
+      isCancelled: map['is_cancelled'] ?? false,
+      deposit: (map['deposit'] ?? 0.0).toDouble(),
+      paymentMethod: payment_model.PaymentMethod.values.firstWhere(
+        (e) => e.toString().split('.').last == map['payment_method'],
+        orElse: () => payment_model.PaymentMethod.transfer,
       ),
-      consumptionsTotal: map['consumptionsTotal']?.toDouble() ?? 0.0,
+      payments:
+          (map['payments'] as List<dynamic>?)
+              ?.where((x) => x != null)
+              .map(
+                (x) => payment_model.Payment.fromMap(x as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      consumptionsTotal: (map['consumptions_total'] ?? 0.0).toDouble(),
     );
   }
 

@@ -1,24 +1,60 @@
+// filepath: /Users/thimotefetu/Sites/Laser-Magique-App/lib/viewmodels/stock_view_model.dart
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import '../models/stock_item_model.dart';
 import '../models/consumption_model.dart';
+import '../repositories/stock_repository.dart';
 
 class StockViewModel extends ChangeNotifier {
-  final List<StockItem> _items = [];
-  final List<Consumption> _consumptions = [];
+  final StockRepository _repository = StockRepository();
+  List<StockItem> _items = [];
+  List<Consumption> _consumptions = [];
   String _searchQuery = '';
+  bool _isLoading = true;
+  String? _error;
+
+  StockViewModel() {
+    _initializeData();
+    _setupSubscriptions();
+  }
 
   // Getters
   List<StockItem> get items => List.unmodifiable(_items);
   List<Consumption> get consumptions => List.unmodifiable(_consumptions);
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  // Calculate total for a booking's consumptions
-  double getConsumptionsTotalForBooking(String bookingId) {
-    return getConsumptionsForBooking(
-      bookingId,
-    ).fold(0.0, (sum, consumption) => sum + consumption.totalPrice);
+  // Initialize data
+  Future<void> _initializeData() async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      _items = await _repository.getAllStockItems();
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error loading stock items: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
+  // Setup real-time subscriptions
+  void _setupSubscriptions() {
+    _repository.streamStockItems().listen(
+      (items) {
+        _items = items;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = 'Subscription error: $e';
+        notifyListeners();
+      },
+    );
+  }
+
+  // Filtered getters
   List<StockItem> get filteredItems =>
       _searchQuery.isEmpty
           ? _items
@@ -32,312 +68,230 @@ class StockViewModel extends ChangeNotifier {
 
   List<StockItem> get drinks =>
       filteredItems.where((item) => item.category == 'DRINK').toList();
+
   List<StockItem> get food =>
       filteredItems.where((item) => item.category == 'FOOD').toList();
+
   List<StockItem> get others =>
       filteredItems.where((item) => item.category == 'OTHER').toList();
+
   List<StockItem> get lowStockItems =>
       filteredItems.where((item) => item.isLowStock).toList();
 
+  // Get the total consumption cost for a booking
+  double getConsumptionsTotalForBooking(String bookingId) {
+    return _consumptions
+        .where((c) => c.bookingId == bookingId)
+        .fold(0.0, (sum, c) => sum + c.totalPrice);
+  }
+
+  // Search functionality
   void updateSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();
   }
 
-  // Ajouter un nouvel article
-  void addItem({
+  // Stock management
+  Future<void> adjustQuantity(String itemId, int adjustment) async {
+    try {
+      // Trouver l'article dans la liste locale
+      final item = _items.firstWhere(
+        (item) => item.id == itemId,
+        orElse: () => throw Exception('Article non trouvé'),
+      );
+
+      // Vérifier que la nouvelle quantité ne sera pas négative
+      final newQuantity = item.quantity + adjustment;
+      if (newQuantity < 0) {
+        throw Exception('La quantité ne peut pas être négative');
+      }
+
+      // Mettre à jour l'article dans la base de données
+      final updatedItem = await _repository.updateStockItem(
+        item.copyWith(quantity: newQuantity),
+      );
+
+      // Mettre à jour l'article dans la liste locale
+      final index = _items.indexWhere((i) => i.id == itemId);
+      if (index != -1) {
+        _items[index] = updatedItem;
+        notifyListeners();
+      }
+    } catch (e) {
+      _error =
+          e.toString().contains('Exception:')
+              ? e.toString().replaceAll('Exception:', '').trim()
+              : 'Erreur lors de l\'ajustement de la quantité: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> updateConsumptionQuantity(
+    String consumptionId,
+    int newQuantity,
+  ) async {
+    try {
+      final consumption = _consumptions.firstWhere(
+        (c) => c.id == consumptionId,
+      );
+      final stockItem = _items.firstWhere(
+        (i) => i.id == consumption.stockItemId,
+      );
+
+      // Calculate the quantity difference
+      final quantityDiff = newQuantity - consumption.quantity;
+
+      // Check if we have enough stock
+      if (stockItem.quantity - quantityDiff < 0) {
+        throw Exception('Not enough stock available');
+      }
+
+      // Update the stock item quantity
+      await _repository.updateStockItem(
+        stockItem.copyWith(quantity: stockItem.quantity - quantityDiff),
+      );
+
+      // Update the consumption
+      await _repository.updateConsumption(
+        consumption.copyWith(quantity: newQuantity),
+      );
+    } catch (e) {
+      _error = 'Error updating consumption quantity: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // Consumption management
+  Future<List<Consumption>> getConsumptionsForBooking(String bookingId) async {
+    try {
+      final consumptions = await _repository.getConsumptionsForBooking(
+        bookingId,
+      );
+      _consumptions = consumptions;
+      notifyListeners();
+      return consumptions;
+    } catch (e) {
+      _error = 'Error loading consumptions: $e';
+      notifyListeners();
+      return [];
+    }
+  }
+
+  Future<bool> addConsumption({
+    required String bookingId,
+    required String stockItemId,
+    required int quantity,
+  }) async {
+    try {
+      final item = _items.firstWhere((item) => item.id == stockItemId);
+      if (item.quantity < quantity) {
+        _error = 'Not enough stock available';
+        notifyListeners();
+        return false;
+      }
+
+      final success = await _repository.addConsumption(
+        bookingId: bookingId,
+        stockItemId: stockItemId,
+        quantity: quantity,
+      );
+
+      if (success) {
+        await getConsumptionsForBooking(bookingId);
+      } else {
+        _error = 'Failed to add consumption';
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      _error = 'Error adding consumption: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> cancelConsumption(String consumptionId) async {
+    try {
+      final consumption = _consumptions.firstWhere(
+        (c) => c.id == consumptionId,
+      );
+      final stockItem = _items.firstWhere(
+        (i) => i.id == consumption.stockItemId,
+      );
+
+      // Return the quantity to stock
+      await adjustQuantity(stockItem.id, consumption.quantity);
+
+      // Delete the consumption
+      await _repository.deleteConsumption(consumptionId);
+
+      // Update local state
+      _consumptions.removeWhere((c) => c.id == consumptionId);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error canceling consumption: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // Stock Items
+  Future<void> addItem({
     required String name,
     required int quantity,
     required double price,
     required int alertThreshold,
     required String category,
-  }) {
-    final item = StockItem(
-      id: const Uuid().v4(),
-      name: name,
-      quantity: quantity,
-      price: price,
-      alertThreshold: alertThreshold,
-      category: category,
-    );
-
-    _items.add(item);
-    notifyListeners();
-  }
-
-  // Mettre à jour un article
-  void updateItem(StockItem updatedItem) {
-    final index = _items.indexWhere((item) => item.id == updatedItem.id);
-    if (index != -1) {
-      _items[index] = updatedItem;
+  }) async {
+    try {
+      final item = await _repository.createStockItem(
+        name: name,
+        quantity: quantity,
+        price: price,
+        alertThreshold: alertThreshold,
+        category: category,
+      );
+      _items.add(item);
       notifyListeners();
+    } catch (e) {
+      _error = 'Error adding item: $e';
+      notifyListeners();
+      rethrow;
     }
   }
 
-  // Supprimer un article
-  void removeItem(String itemId) {
-    _items.removeWhere((item) => item.id == itemId);
-    notifyListeners();
-  }
-
-  // Ajuster la quantité
-  void adjustQuantity(String itemId, int adjustment) {
-    final index = _items.indexWhere((item) => item.id == itemId);
-    if (index != -1) {
-      final item = _items[index];
-      final newQuantity = item.quantity + adjustment;
-      if (newQuantity >= 0) {
-        _items[index] = item.copyWith(quantity: newQuantity);
+  Future<void> updateItem(StockItem item) async {
+    try {
+      final updatedItem = await _repository.updateStockItem(item);
+      final index = _items.indexWhere((i) => i.id == item.id);
+      if (index != -1) {
+        _items[index] = updatedItem;
         notifyListeners();
       }
+    } catch (e) {
+      _error = 'Error updating item: $e';
+      notifyListeners();
+      rethrow;
     }
   }
 
-  // Charger des données de test
-  void loadDummyData() {
-    _items.addAll([
-      // Boissons
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Coca-Cola',
-        quantity: 50,
-        price: 2.50,
-        alertThreshold: 10,
-        category: 'DRINK',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Eau minérale',
-        quantity: 100,
-        price: 1.50,
-        alertThreshold: 20,
-        category: 'DRINK',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Fanta Orange',
-        quantity: 40,
-        price: 2.50,
-        alertThreshold: 10,
-        category: 'DRINK',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Sprite',
-        quantity: 35,
-        price: 2.50,
-        alertThreshold: 10,
-        category: 'DRINK',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Ice Tea Pêche',
-        quantity: 45,
-        price: 2.50,
-        alertThreshold: 15,
-        category: 'DRINK',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Jus d\'orange',
-        quantity: 30,
-        price: 2.00,
-        alertThreshold: 8,
-        category: 'DRINK',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Pizza Margarita',
-        quantity: 15,
-        price: 12.00,
-        alertThreshold: 5,
-        category: 'FOOD',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Pizza 4 Fromages',
-        quantity: 12,
-        price: 13.00,
-        alertThreshold: 5,
-        category: 'FOOD',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Hot-Dog',
-        quantity: 25,
-        price: 4.00,
-        alertThreshold: 8,
-        category: 'FOOD',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Chips Nature',
-        quantity: 30,
-        price: 2.00,
-        alertThreshold: 8,
-        category: 'FOOD',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Chips Paprika',
-        quantity: 25,
-        price: 2.00,
-        alertThreshold: 8,
-        category: 'FOOD',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Nachos avec Sauce',
-        quantity: 20,
-        price: 5.00,
-        alertThreshold: 6,
-        category: 'FOOD',
-      ),
-      // Autres articles
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Cartes de jeu',
-        quantity: 20,
-        price: 5.00,
-        alertThreshold: 5,
-        category: 'OTHER',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Jetons',
-        quantity: 200,
-        price: 1.00,
-        alertThreshold: 50,
-        category: 'OTHER',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Batteries AAA',
-        quantity: 48,
-        price: 1.50,
-        alertThreshold: 12,
-        category: 'OTHER',
-      ),
-      StockItem(
-        id: const Uuid().v4(),
-        name: 'Batteries AA',
-        quantity: 48,
-        price: 1.50,
-        alertThreshold: 12,
-        category: 'OTHER',
-      ),
-    ]);
-    notifyListeners();
+  Future<void> deleteItem(String itemId) async {
+    try {
+      await _repository.deleteStockItem(itemId);
+      _items.removeWhere((item) => item.id == itemId);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Erreur lors de la suppression : ${e.toString()}';
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  // Obtenir les consommations pour une réservation spécifique
-  List<Consumption> getConsumptionsForBooking(String bookingId) {
-    return _consumptions.where((c) => c.bookingId == bookingId).toList();
-  }
-
-  // Ajouter une consommation et mettre à jour le stock
-  bool addConsumption({
-    required String bookingId,
-    required String stockItemId,
-    required int quantity,
-  }) {
-    // Validation des entrées
-    if (bookingId.isEmpty || stockItemId.isEmpty || quantity <= 0) {
-      print('Erreur de validation: paramètres invalides');
-      return false;
-    }
-
-    // Vérifier si l'article existe et a assez de stock
-    final itemIndex = _items.indexWhere((item) => item.id == stockItemId);
-    if (itemIndex == -1) {
-      print('Erreur: article non trouvé avec ID $stockItemId');
-      return false;
-    }
-
-    final item = _items[itemIndex];
-    if (item.quantity < quantity) {
-      print(
-        'Erreur: stock insuffisant pour ${item.name} (Disponible: ${item.quantity}, Demandé: $quantity)',
-      );
-      return false;
-    }
-
-    // Créer la consommation
-    final consumption = Consumption(
-      id: const Uuid().v4(),
-      bookingId: bookingId,
-      stockItemId: stockItemId,
-      quantity: quantity,
-      timestamp: DateTime.now(),
-      unitPrice: item.price,
-    );
-
-    // Ajouter la consommation
-    _consumptions.add(consumption);
-
-    // Mettre à jour le stock
-    _items[itemIndex] = item.copyWith(quantity: item.quantity - quantity);
-
-    print(
-      'Consommation ajoutée: ${item.name} x$quantity pour la réservation $bookingId',
-    );
-    notifyListeners();
-    return true;
-  }
-
-  // Annuler une consommation
-  void cancelConsumption(String consumptionId) {
-    final consumptionIndex = _consumptions.indexWhere(
-      (c) => c.id == consumptionId,
-    );
-    if (consumptionIndex == -1) return;
-
-    final consumption = _consumptions[consumptionIndex];
-
-    // Remettre la quantité en stock
-    final itemIndex = _items.indexWhere(
-      (item) => item.id == consumption.stockItemId,
-    );
-    if (itemIndex != -1) {
-      final item = _items[itemIndex];
-      _items[itemIndex] = item.copyWith(
-        quantity: item.quantity + consumption.quantity,
-      );
-    }
-
-    // Supprimer la consommation
-    _consumptions.removeAt(consumptionIndex);
-
-    notifyListeners();
-  }
-
-  // Mettre à jour la quantité d'une consommation existante
-  void updateConsumptionQuantity(String consumptionId, int newQuantity) {
-    final consumptionIndex = _consumptions.indexWhere(
-      (c) => c.id == consumptionId,
-    );
-    if (consumptionIndex == -1 || newQuantity < 0) return;
-
-    final consumption = _consumptions[consumptionIndex];
-    final itemIndex = _items.indexWhere(
-      (item) => item.id == consumption.stockItemId,
-    );
-    if (itemIndex == -1) return;
-
-    final item = _items[itemIndex];
-    final quantityDiff = newQuantity - consumption.quantity;
-
-    // Vérifier si on a assez de stock pour l'augmentation
-    if (quantityDiff > 0 && item.quantity < quantityDiff) return;
-
-    // Mettre à jour le stock
-    _items[itemIndex] = item.copyWith(quantity: item.quantity - quantityDiff);
-
-    // Mettre à jour la consommation
-    _consumptions[consumptionIndex] = consumption.copyWith(
-      quantity: newQuantity,
-    );
-
+  // Clear error
+  void clearError() {
+    _error = null;
     notifyListeners();
   }
 }

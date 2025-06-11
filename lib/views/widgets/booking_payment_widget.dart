@@ -408,6 +408,19 @@ class BookingPaymentWidget extends StatelessWidget {
                           children: [
                             Expanded(
                               child: _PaymentMethodButton(
+                                icon: Icons.account_balance,
+                                label: 'Virement',
+                                isSelected:
+                                    selectedMethod == PaymentMethod.transfer,
+                                onTap:
+                                    () => setState(() {
+                                      selectedMethod = PaymentMethod.transfer;
+                                    }),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _PaymentMethodButton(
                                 icon: Icons.credit_card,
                                 label: 'CB',
                                 isSelected:
@@ -428,19 +441,6 @@ class BookingPaymentWidget extends StatelessWidget {
                                 onTap:
                                     () => setState(() {
                                       selectedMethod = PaymentMethod.cash;
-                                    }),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _PaymentMethodButton(
-                                icon: Icons.account_balance,
-                                label: 'Virement',
-                                isSelected:
-                                    selectedMethod == PaymentMethod.transfer,
-                                onTap:
-                                    () => setState(() {
-                                      selectedMethod = PaymentMethod.transfer;
                                     }),
                               ),
                             ),
@@ -542,10 +542,7 @@ class BookingPaymentWidget extends StatelessWidget {
 
                   // Ensuite supprimer le paiement et afficher le message
                   final bookingViewModel = context.read<BookingViewModel>();
-                  bookingViewModel.cancelPayment(
-                    bookingId: booking.id,
-                    paymentId: payment.id,
-                  );
+                  bookingViewModel.cancelPayment(payment.id);
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

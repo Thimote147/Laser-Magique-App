@@ -40,10 +40,10 @@ class Activity {
   // Méthode pour créer un objet Activity à partir d'un Map
   factory Activity.fromMap(Map<String, dynamic> map) {
     return Activity(
-      id: map['id'],
-      name: map['name'],
-      description: map['description'],
-      pricePerPerson: map['pricePerPerson'],
+      id: map['id'] ?? '',
+      name: map['name'] ?? map['activity_name'] ?? 'Activité inconnue',
+      description: map['description'] ?? map['activity_description'],
+      pricePerPerson: map['price_per_person']?.toDouble(),
     );
   }
 

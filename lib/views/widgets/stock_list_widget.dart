@@ -8,6 +8,45 @@ class StockList extends StatelessWidget {
 
   const StockList({Key? key, required this.items}) : super(key: key);
 
+  Future<void> _confirmDelete(BuildContext context, StockItem item) async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Supprimer l\'article'),
+          content: Text('Voulez-vous vraiment supprimer "${item.name}" ?'),
+          actions: [
+            TextButton(
+              child: const Text('Annuler'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text(
+                'Supprimer',
+                style: TextStyle(color: Colors.red),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                context.read<StockViewModel>().deleteItem(item.id).catchError((
+                  error,
+                ) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur: $error'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                });
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   IconData _getItemIcon(String category) {
     switch (category) {
       case 'DRINK':
@@ -128,16 +167,33 @@ class StockList extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _StockButton(
-                      icon: Icons.remove_rounded,
-                      onTap:
-                          () => context.read<StockViewModel>().adjustQuantity(
-                            item.id,
-                            -1,
-                          ),
+                      icon:
+                          item.quantity == 0
+                              ? Icons.delete_outline
+                              : Icons.remove_rounded,
+                      onTap: () {
+                        if (item.quantity == 0) {
+                          _confirmDelete(context, item);
+                        } else {
+                          context
+                              .read<StockViewModel>()
+                              .adjustQuantity(item.id, -1)
+                              .catchError((error) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Erreur: $error'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              });
+                        }
+                      },
                       color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.red.shade300
-                              : Colors.red.shade400,
+                          item.quantity == 0
+                              ? Colors.red
+                              : (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.red.shade300
+                                  : Colors.red.shade400),
                     ),
                     Container(
                       width: 40,
@@ -149,45 +205,67 @@ class StockList extends StatelessWidget {
                                 ? (Theme.of(context).brightness ==
                                         Brightness.dark
                                     ? Colors.red.shade900.withOpacity(0.3)
-                                    : Colors.red.shade50)
-                                : (Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Theme.of(context).colorScheme.surface
-                                    : Colors.grey.shade100),
-                        borderRadius: BorderRadius.circular(10),
+                                    : Colors.red.shade50.withOpacity(0.6))
+                                : Theme.of(context).brightness ==
+                                    Brightness.dark
+                                ? theme.primaryColor.withOpacity(0.15)
+                                : theme.primaryColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '${item.quantity}',
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
                           color:
                               isLowStock
                                   ? (Theme.of(context).brightness ==
                                           Brightness.dark
                                       ? Colors.red.shade300
                                       : Colors.red.shade700)
-                                  : Theme.of(context).colorScheme.onSurface,
+                                  : Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),
-                    _StockButton(
-                      icon: Icons.add_rounded,
-                      onTap:
-                          () => context.read<StockViewModel>().adjustQuantity(
-                            item.id,
-                            1,
-                          ),
-                      color: Colors.green.shade400,
-                    ),
-                    _StockButton(
-                      icon: Icons.add_box_rounded,
-                      onTap:
-                          () => context.read<StockViewModel>().adjustQuantity(
-                            item.id,
-                            24,
-                          ),
-                      color: Colors.green.shade600,
+                    Row(
+                      children: [
+                        _StockButton(
+                          icon: Icons.add_rounded,
+                          onTap: () {
+                            context
+                                .read<StockViewModel>()
+                                .adjustQuantity(item.id, 1)
+                                .catchError((error) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erreur: $error'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                });
+                          },
+                          color: Colors.green.shade400,
+                        ),
+                        const SizedBox(width: 4),
+                        _StockButton(
+                          icon: Icons.add_rounded,
+                          label: "24",
+                          onTap: () {
+                            context
+                                .read<StockViewModel>()
+                                .adjustQuantity(item.id, 24)
+                                .catchError((error) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erreur: $error'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                });
+                          },
+                          color: Colors.green.shade600,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -204,32 +282,48 @@ class _StockButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final Color color;
+  final String? label;
 
   const _StockButton({
     required this.icon,
     required this.onTap,
     required this.color,
+    this.label,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final buttonColor =
-        isDark ? color.withOpacity(0.2) : color.withOpacity(0.1);
-    final iconColor = isDark ? color.withAlpha(225) : color;
-
     return Material(
-      color: buttonColor,
-      borderRadius: BorderRadius.circular(10),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
         onTap: onTap,
-        overlayColor: MaterialStateProperty.all(color.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          width: 40,
+          width: label != null ? 52 : 40,
           height: 40,
-          alignment: Alignment.center,
-          child: Icon(icon, size: 24, color: iconColor),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(icon, color: color, size: 20),
+              if (label != null)
+                Positioned(
+                  right: 2,
+                  bottom: 2,
+                  child: Text(
+                    label!,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

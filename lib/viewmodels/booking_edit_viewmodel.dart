@@ -17,7 +17,7 @@ class BookingEditViewModel extends ChangeNotifier {
   int _numberOfGames = 1;
   Formula? _selectedFormula;
   double _depositAmount = 0.0;
-  PaymentMethod _paymentMethod = PaymentMethod.card;
+  PaymentMethod _paymentMethod = PaymentMethod.transfer;
 
   String get firstName => _firstName;
   String get lastName => _lastName;
@@ -122,6 +122,12 @@ class BookingEditViewModel extends ChangeNotifier {
 
     if (_selectedFormula == null) {
       return 'Veuillez sélectionner une formule';
+    }
+
+    // Validation du nombre minimum de participants
+    if (_selectedFormula!.minParticipants != null &&
+        _numberOfPersons < _selectedFormula!.minParticipants!) {
+      return 'Le nombre de participants doit être d\'au moins ${_selectedFormula!.minParticipants} pour cette formule';
     }
 
     if (_depositAmount > 0) {

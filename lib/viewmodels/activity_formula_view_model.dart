@@ -1,38 +1,126 @@
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import '../models/activity_model.dart';
 import '../models/formula_model.dart';
+import '../repositories/activity_repository.dart';
+import '../repositories/formula_repository.dart';
 
 class ActivityFormulaViewModel extends ChangeNotifier {
-  // Liste des activités disponibles
-  final List<Activity> _activities = [];
+  final ActivityRepository _activityRepository = ActivityRepository();
+  final FormulaRepository _formulaRepository = FormulaRepository();
 
-  // Liste des formules disponibles
-  final List<Formula> _formulas = [];
+  List<Activity> _activities = [];
+  List<Formula> _formulas = [];
+  bool _isLoading = true;
+  String? _error;
 
-  // Getters pour accéder aux listes
+  ActivityFormulaViewModel() {
+    _initializeData();
+    _setupSubscriptions();
+  }
+
+  // Getters
   List<Activity> get activities => List.unmodifiable(_activities);
   List<Formula> get formulas => List.unmodifiable(_formulas);
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  // Méthode pour ajouter une activité
-  void addActivity({
+  // Initialize data
+  Future<void> _initializeData() async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      _activities = await _activityRepository.getAllActivities();
+      _formulas = await _formulaRepository.getAllFormulas();
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error loading data: $e';
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Setup real-time subscriptions
+  void _setupSubscriptions() {
+    _activityRepository.streamActivities().listen(
+      (activities) {
+        _activities = activities;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = 'Subscription error: $e';
+        notifyListeners();
+      },
+    );
+
+    _formulaRepository.streamFormulas().listen(
+      (formulas) {
+        _formulas = formulas;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = 'Subscription error: $e';
+        notifyListeners();
+      },
+    );
+  }
+
+  // Activity methods
+  Future<void> addActivity({
     required String name,
     String? description,
     double? pricePerPerson,
-  }) {
-    final activity = Activity(
-      id: const Uuid().v4(),
-      name: name,
-      description: description,
-      pricePerPerson: pricePerPerson,
-    );
-
-    _activities.add(activity);
-    notifyListeners();
+  }) async {
+    try {
+      final activity = await _activityRepository.createActivity(
+        name: name,
+        description: description,
+        pricePerPerson: pricePerPerson,
+      );
+      _activities.add(activity);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error creating activity: $e';
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  // Méthode pour ajouter une formule
-  void addFormula({
+  Future<void> updateActivity(Activity activity) async {
+    try {
+      final updatedActivity = await _activityRepository.updateActivity(
+        activity,
+      );
+      final index = _activities.indexWhere((a) => a.id == activity.id);
+      if (index != -1) {
+        _activities[index] = updatedActivity;
+        notifyListeners();
+      }
+    } catch (e) {
+      _error = 'Error updating activity: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> deleteActivity(String id) async {
+    try {
+      await _activityRepository.deleteActivity(id);
+      _activities.removeWhere((a) => a.id == id);
+      _formulas.removeWhere((f) => f.activity.id == id);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error deleting activity: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // Formula methods
+  Future<void> addFormula({
     required String name,
     String? description,
     required Activity activity,
@@ -40,165 +128,117 @@ class ActivityFormulaViewModel extends ChangeNotifier {
     int? minParticipants,
     int? maxParticipants,
     int? defaultGameCount,
-  }) {
-    final formula = Formula(
-      id: const Uuid().v4(),
-      name: name,
-      description: description,
-      activity: activity,
-      price: price,
-      minParticipants: minParticipants,
-      maxParticipants: maxParticipants,
-      defaultGameCount: defaultGameCount,
-    );
-
-    _formulas.add(formula);
-    notifyListeners();
+  }) async {
+    try {
+      final formula = await _formulaRepository.createFormula(
+        name: name,
+        activityId: activity.id,
+        description: description,
+        price: price,
+        minParticipants: minParticipants,
+        maxParticipants: maxParticipants,
+        defaultGameCount: defaultGameCount,
+      );
+      _formulas.add(formula);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Error creating formula: $e';
+      notifyListeners();
+      rethrow;
+    }
   }
 
-  // Méthode pour supprimer une activité
-  void removeActivity(String activityId) {
-    _activities.removeWhere((activity) => activity.id == activityId);
-
-    // Supprimer également toutes les formules liées à cette activité
-    _formulas.removeWhere((formula) => formula.activity.id == activityId);
-
-    notifyListeners();
-  }
-
-  // Méthode pour supprimer une formule
-  void removeFormula(String formulaId) {
-    _formulas.removeWhere((formula) => formula.id == formulaId);
-    notifyListeners();
-  }
-
-  // Méthode pour mettre à jour une activité
-  void updateActivity(Activity updatedActivity) {
-    final index = _activities.indexWhere(
-      (activity) => activity.id == updatedActivity.id,
-    );
-
-    if (index != -1) {
-      _activities[index] = updatedActivity;
-
-      // Mettre à jour les formules qui utilisent cette activité
-      for (int i = 0; i < _formulas.length; i++) {
-        if (_formulas[i].activity.id == updatedActivity.id) {
-          _formulas[i] = _formulas[i].copyWith(activity: updatedActivity);
-        }
+  Future<void> updateFormula(Formula formula) async {
+    try {
+      final updatedFormula = await _formulaRepository.updateFormula(formula);
+      final index = _formulas.indexWhere((f) => f.id == formula.id);
+      if (index != -1) {
+        _formulas[index] = updatedFormula;
+        notifyListeners();
       }
-
+    } catch (e) {
+      _error = 'Error updating formula: $e';
       notifyListeners();
+      rethrow;
     }
   }
 
-  // Méthode pour mettre à jour une formule
-  void updateFormula(Formula updatedFormula) {
-    final index = _formulas.indexWhere(
-      (formula) => formula.id == updatedFormula.id,
-    );
-
-    if (index != -1) {
-      _formulas[index] = updatedFormula;
+  Future<void> deleteFormula(String id) async {
+    try {
+      await _formulaRepository.deleteFormula(id);
+      _formulas.removeWhere((f) => f.id == id);
       notifyListeners();
+    } catch (e) {
+      _error = 'Error deleting formula: $e';
+      notifyListeners();
+      rethrow;
     }
   }
 
-  // Méthode pour récupérer les formules d'une activité spécifique
+  // Helper methods
   List<Formula> getFormulasForActivity(String activityId) {
-    return _formulas
-        .where((formula) => formula.activity.id == activityId)
-        .toList();
+    return _formulas.where((f) => f.activity.id == activityId).toList();
   }
 
-  // Méthode pour trouver une activité par ID
   Activity? getActivityById(String id) {
     try {
-      return _activities.firstWhere((activity) => activity.id == id);
-    } catch (e) {
+      return _activities.firstWhere((a) => a.id == id);
+    } catch (_) {
       return null;
     }
   }
 
-  // Méthode pour trouver une formule par ID
   Formula? getFormulaById(String id) {
     try {
-      return _formulas.firstWhere((formula) => formula.id == id);
-    } catch (e) {
+      return _formulas.firstWhere((f) => f.id == id);
+    } catch (_) {
       return null;
     }
   }
 
-  // Méthode pour charger des données de test (pour démo)
-  void loadDummyData() {
-    // Ajouter des activités
-    final laserGameActivity = Activity(
-      id: '1',
-      name: 'Laser Game',
-      description: 'Jeu de tir laser en arène',
-      pricePerPerson: 8.0,
-    );
+  // Refresh data
+  Future<void> refresh() async {
+    await _initializeData();
+  }
 
-    _activities.add(laserGameActivity);
+  // Load dummy data for testing
+  Future<void> loadDummyData() async {
+    try {
+      // Create activities
+      final activity1 = await _activityRepository.createActivity(
+        name: "Laser Game",
+        description: "Une expérience de jeu laser immersive",
+        pricePerPerson: 8.0,
+      );
+      final activity2 = await _activityRepository.createActivity(
+        name: "Laser Ball",
+        description: "Un mélange de laser game et de paintball",
+        pricePerPerson: 12.0,
+      );
 
-    // Ajouter des formules
-    _formulas.addAll([
-      // Formules pour Laser Game
-      Formula(
-        id: '1',
-        name: 'Groupe',
-        description:
-            'Formule groupe standard: 2 à 20 joueurs, nombre de parties flexible',
-        activity: laserGameActivity,
-        price: 8.0,
-        minParticipants: 2,
-        maxParticipants: 20,
-        defaultGameCount: 1,
-        minGameCount: 1,
-        maxGameCount: null, // Illimité
-      ),
-      Formula(
-        id: '2',
-        name: 'Anniversaire',
-        description:
-            'Forfait anniversaire avec salle privée: 10 à 20 joueurs, exactement 3 parties',
-        activity: laserGameActivity,
-        price: 15.0,
-        minParticipants: 10,
-        maxParticipants: 20,
-        defaultGameCount: 3,
-        minGameCount: 3,
-        maxGameCount: 3,
-        fixedGameCount: true, // Le nombre de parties est fixe
-      ),
-      Formula(
-        id: '3',
-        name: 'Social Deal',
-        description:
-            'Offre promotionnelle Social Deal: 4 à 20 joueurs, 2 à 3 parties',
-        activity: laserGameActivity,
-        price: 12.0,
-        minParticipants: 4,
-        maxParticipants: 20,
-        defaultGameCount: 2,
-        minGameCount: 2,
-        maxGameCount: 3,
-      ),
-      Formula(
-        id: '4',
-        name: 'Team Building',
-        description:
-            'Formule pour les entreprises: nombre de joueurs et parties illimité',
-        activity: laserGameActivity,
+      // Create formulas
+      await _formulaRepository.createFormula(
+        name: "Standard",
+        description: "Une partie classique",
         price: 10.0,
-        minParticipants: null, // Illimité
-        maxParticipants: null, // Illimité
-        defaultGameCount: 2,
-        minGameCount: null, // Illimité
-        maxGameCount: null, // Illimité
-      ),
-    ]);
-
-    notifyListeners();
+        activityId: activity1.id,
+      );
+      await _formulaRepository.createFormula(
+        name: "Premium",
+        description: "Deux parties consécutives",
+        price: 18.0,
+        activityId: activity1.id,
+      );
+      await _formulaRepository.createFormula(
+        name: "Standard Ball",
+        description: "Une partie de Laser Ball",
+        price: 15.0,
+        activityId: activity2.id,
+      );
+    } catch (e) {
+      _error = 'Error loading dummy data: $e';
+      notifyListeners();
+      rethrow;
+    }
   }
 }

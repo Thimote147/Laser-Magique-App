@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/booking_model.dart';
+import '../../models/consumption_model.dart';
 import '../../viewmodels/stock_view_model.dart';
 import 'consumption_selector.dart';
 
@@ -36,22 +37,33 @@ class BookingConsumptionWidget extends StatelessWidget {
             ),
             child: ConsumptionSelector(
               stockVM: stockVM,
-              onConsumptionSelected: (stockItemId) {
-                final success = stockVM.addConsumption(
-                  bookingId: booking.id,
-                  stockItemId: stockItemId,
-                  quantity: 1,
-                );
+              onConsumptionSelected: (stockItemId) async {
+                try {
+                  final success = await stockVM.addConsumption(
+                    bookingId: booking.id,
+                    stockItemId: stockItemId,
+                    quantity: 1,
+                  );
 
-                Navigator.pop(context);
+                  Navigator.pop(context);
 
-                if (!success) {
-                  // Afficher un message d'erreur si l'ajout a échoué
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Impossible d\'ajouter cette consommation.',
+                  if (!success) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Stock insuffisant pour cette consommation.',
+                        ),
+                        backgroundColor: Colors.orange,
                       ),
+                    );
+                  }
+                } catch (e) {
+                  Navigator.pop(context);
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur: ${e.toString()}'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -66,8 +78,6 @@ class BookingConsumptionWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<StockViewModel>(
       builder: (context, stockVM, _) {
-        final consumptions = stockVM.getConsumptionsForBooking(booking.id);
-        final total = consumptions.fold(0.0, (sum, c) => sum + c.totalPrice);
         final theme = Theme.of(context);
 
         return Column(
@@ -80,173 +90,216 @@ class BookingConsumptionWidget extends StatelessWidget {
                   'Consommations',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                if (consumptions.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${total.toStringAsFixed(2)}€',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: theme.primaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
               ],
             ),
             const SizedBox(height: 16),
-            if (consumptions.isNotEmpty)
-              ListView.separated(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: consumptions.length,
-                separatorBuilder: (context, _) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final consumption = consumptions[index];
-                  final item = stockVM.items.firstWhere(
-                    (i) => i.id == consumption.stockItemId,
-                  );
+            FutureBuilder<List<Consumption>>(
+              future: stockVM.getConsumptionsForBooking(booking.id),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Erreur: ${snapshot.error}',
+                      style: TextStyle(color: theme.colorScheme.error),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.primaryColor.withOpacity(0.08),
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _getItemIcon(item.category),
-                                size: 16,
+                  );
+                }
+
+                final consumptions = snapshot.data ?? [];
+                final total = consumptions.fold(
+                  0.0,
+                  (sum, c) => sum + c.totalPrice,
+                );
+
+                return Column(
+                  children: [
+                    if (consumptions.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${total.toStringAsFixed(2)}€',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                                 color: theme.primaryColor,
                               ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  item.name,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${consumption.totalPrice.toStringAsFixed(2)}€',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _ConsumptionButton(
-                                icon: Icons.delete_rounded,
-                                onTap:
-                                    () => stockVM.cancelConsumption(
-                                      consumption.id,
-                                    ),
-                                color: Colors.red.shade400,
-                              ),
-                              Row(
-                                children: [
-                                  _ConsumptionButton(
-                                    icon: Icons.remove_rounded,
-                                    onTap:
-                                        consumption.quantity > 1
-                                            ? () => stockVM
-                                                .updateConsumptionQuantity(
-                                                  consumption.id,
-                                                  consumption.quantity - 1,
-                                                )
-                                            : null,
-                                    color: Colors.grey.shade700,
+                      ),
+                      const SizedBox(height: 16),
+                      ListView.separated(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: consumptions.length,
+                        separatorBuilder:
+                            (context, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final consumption = consumptions[index];
+                          final item = stockVM.items.firstWhere(
+                            (i) => i.id == consumption.stockItemId,
+                          );
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
                                   ),
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 8,
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor.withOpacity(0.08),
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(12),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${consumption.quantity}',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade800,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _getItemIcon(item.category),
+                                        size: 16,
+                                        color: theme.primaryColor,
                                       ),
-                                    ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${consumption.totalPrice.toStringAsFixed(2)}€',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.primaryColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  _ConsumptionButton(
-                                    icon: Icons.add_rounded,
-                                    onTap:
-                                        item.quantity > 0
-                                            ? () => stockVM
-                                                .updateConsumptionQuantity(
-                                                  consumption.id,
-                                                  consumption.quantity + 1,
-                                                )
-                                            : null,
-                                    color: Colors.green.shade400,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
                                   ),
-                                ],
-                              ),
-                            ],
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      _ConsumptionButton(
+                                        icon: Icons.delete_rounded,
+                                        onTap:
+                                            () => stockVM.cancelConsumption(
+                                              consumption.id,
+                                            ),
+                                        color: Colors.red.shade400,
+                                      ),
+                                      Row(
+                                        children: [
+                                          _ConsumptionButton(
+                                            icon: Icons.remove_rounded,
+                                            onTap:
+                                                consumption.quantity > 1
+                                                    ? () => stockVM
+                                                        .updateConsumptionQuantity(
+                                                          consumption.id,
+                                                          consumption.quantity -
+                                                              1,
+                                                        )
+                                                    : null,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                          Container(
+                                            margin: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              '${consumption.quantity}',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.grey.shade800,
+                                              ),
+                                            ),
+                                          ),
+                                          _ConsumptionButton(
+                                            icon: Icons.add_rounded,
+                                            onTap:
+                                                item.quantity > 0
+                                                    ? () => stockVM
+                                                        .updateConsumptionQuantity(
+                                                          consumption.id,
+                                                          consumption.quantity +
+                                                              1,
+                                                        )
+                                                    : null,
+                                            color: Colors.green.shade400,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ] else
+                      const Center(
+                        child: Text(
+                          'Aucune consommation',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey,
                           ),
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      ),
+                  ],
+                );
+              },
+            ),
             Padding(
               padding: const EdgeInsets.all(12),
               child: FilledButton.tonalIcon(

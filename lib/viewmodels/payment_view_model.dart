@@ -1,58 +1,98 @@
 import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 import '../models/payment_model.dart';
+import '../repositories/payment_repository.dart';
 
 class PaymentViewModel extends ChangeNotifier {
+  final PaymentRepository _repository = PaymentRepository();
+  bool _isLoading = false;
+  String? _error;
+  Map<String, List<Payment>> _bookingPayments = {};
+
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  // Récupère les paiements d'une réservation et souscrit aux mises à jour
+  void initializeForBooking(String bookingId) {
+    _repository
+        .getPaymentsStream(bookingId)
+        .listen(
+          (payments) {
+            _bookingPayments[bookingId] = payments;
+            notifyListeners();
+          },
+          onError: (error) {
+            _error = error.toString();
+            notifyListeners();
+          },
+        );
+  }
+
   // Ajoute un nouveau paiement à une réservation
-  void addPayment({
+  Future<void> addPayment({
     required Booking booking,
     required double amount,
     required PaymentMethod method,
     required PaymentType type,
-  }) {
-    final payment = Payment(
-      bookingId: booking.id,
-      amount: amount,
-      method: method,
-      type: type,
-      date: DateTime.now(),
-    );
+  }) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
 
-    final updatedPayments = [...booking.payments, payment];
-    final updatedBooking = booking.copyWith(payments: updatedPayments);
+      final payment = Payment(
+        bookingId: booking.id,
+        amount: amount,
+        method: method,
+        type: type,
+        date: DateTime.now(),
+      );
 
-    // On devrait mettre à jour la réservation dans le BookingViewModel
-    // TODO: Implémenter la mise à jour dans le BookingViewModel
+      await _repository.createPayment(payment);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   // Annule un paiement
-  void cancelPayment({required Booking booking, required String paymentId}) {
-    final updatedPayments =
-        booking.payments.where((payment) => payment.id != paymentId).toList();
-    final updatedBooking = booking.copyWith(payments: updatedPayments);
+  Future<void> cancelPayment({required String paymentId}) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
 
-    // TODO: Implémenter la mise à jour dans le BookingViewModel
+      await _repository.deletePayment(paymentId);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   // Calcule le total des paiements par méthode de paiement
-  Map<PaymentMethod, double> getPaymentsByMethod(Booking booking) {
+  Map<PaymentMethod, double> getPaymentsByMethod(String bookingId) {
+    final payments = _bookingPayments[bookingId] ?? [];
     final Map<PaymentMethod, double> totals = {};
-    for (final payment in booking.payments) {
+    for (final payment in payments) {
       totals[payment.method] = (totals[payment.method] ?? 0) + payment.amount;
     }
     return totals;
   }
 
   // Vérifie si un acompte a été versé
-  bool hasDeposit(Booking booking) {
-    return booking.payments.any(
-      (payment) => payment.type == PaymentType.deposit,
-    );
+  bool hasDeposit(String bookingId) {
+    final payments = _bookingPayments[bookingId] ?? [];
+    return payments.any((payment) => payment.type == PaymentType.deposit);
   }
 
   // Obtient le montant total de l'acompte
-  double getDepositAmount(Booking booking) {
-    return booking.payments
+  double getDepositAmount(String bookingId) {
+    final payments = _bookingPayments[bookingId] ?? [];
+    return payments
         .where((payment) => payment.type == PaymentType.deposit)
         .fold(0, (sum, payment) => sum + payment.amount);
   }
