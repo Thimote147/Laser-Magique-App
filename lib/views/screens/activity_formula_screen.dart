@@ -187,8 +187,7 @@ class ActivityFormulaScreen extends StatelessWidget {
     final defaultGameCountController = TextEditingController();
 
     final viewModel = context.read<ActivityFormulaViewModel>();
-    Activity? selectedActivity =
-        viewModel.activities.isNotEmpty ? viewModel.activities.first : null;
+    Activity? selectedActivity;
 
     showDialog(
       context: context,
@@ -201,38 +200,28 @@ class ActivityFormulaScreen extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (viewModel.activities.isEmpty)
-                          const Text(
-                            'Veuillez d\'abord créer une activité',
-                            style: TextStyle(color: Colors.red),
-                          )
-                        else
-                          DropdownButtonFormField<Activity>(
-                            value: selectedActivity,
-                            decoration: const InputDecoration(
-                              labelText: 'Activité *',
-                              border: OutlineInputBorder(),
-                            ),
-                            items:
-                                viewModel.activities
-                                    .map(
-                                      (activity) => DropdownMenuItem(
-                                        value: activity,
-                                        child: Text(activity.name),
-                                      ),
-                                    )
-                                    .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedActivity = value;
-                              });
-                            },
+                        DropdownButtonFormField<Activity>(
+                          value: selectedActivity,
+                          decoration: const InputDecoration(
+                            labelText: 'Activité *',
+                            border: OutlineInputBorder(),
                           ),
+                          items:
+                              viewModel.activities.map((activity) {
+                                return DropdownMenuItem(
+                                  value: activity,
+                                  child: Text(activity.name),
+                                );
+                              }).toList(),
+                          onChanged: (value) {
+                            setState(() => selectedActivity = value);
+                          },
+                        ),
                         const SizedBox(height: 16),
                         TextField(
                           controller: nameController,
                           decoration: const InputDecoration(
-                            labelText: 'Nom de la formule *',
+                            labelText: 'Nom *',
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -258,30 +247,22 @@ class ActivityFormulaScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: minParticipantsController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Min. participants',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: maxParticipantsController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Max. participants',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
+                        TextField(
+                          controller: minParticipantsController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nombre minimum de personnes',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: maxParticipantsController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nombre maximum de personnes',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
                         ),
                         const SizedBox(height: 16),
                         TextField(
@@ -300,19 +281,16 @@ class ActivityFormulaScreen extends StatelessWidget {
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Annuler'),
                     ),
-                    TextButton(
+                    ElevatedButton(
                       onPressed: () {
                         if (nameController.text.isNotEmpty &&
                             selectedActivity != null &&
                             priceController.text.isNotEmpty) {
                           viewModel.addFormula(
                             name: nameController.text,
-                            description:
-                                descriptionController.text.isNotEmpty
-                                    ? descriptionController.text
-                                    : null,
+                            description: descriptionController.text,
+                            price: double.tryParse(priceController.text) ?? 0.0,
                             activity: selectedActivity!,
-                            price: double.parse(priceController.text),
                             minParticipants:
                                 minParticipantsController.text.isNotEmpty
                                     ? int.parse(minParticipantsController.text)
@@ -329,7 +307,7 @@ class ActivityFormulaScreen extends StatelessWidget {
                           Navigator.pop(context);
                         }
                       },
-                      child: const Text('Ajouter'),
+                      child: const Text('Créer'),
                     ),
                   ],
                 ),
@@ -442,153 +420,119 @@ class ActivityFormulaScreen extends StatelessWidget {
     final defaultGameCountController = TextEditingController(
       text: formula.defaultGameCount?.toString() ?? '',
     );
+    final minGamesController = TextEditingController(
+      text: formula.minGames?.toString() ?? '',
+    );
+    final maxGamesController = TextEditingController(
+      text: formula.maxGames?.toString() ?? '',
+    );
 
-    Activity selectedActivity = formula.activity;
+    final viewModel = context.read<ActivityFormulaViewModel>();
 
     showDialog(
       context: context,
       builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setState) => AlertDialog(
-                  title: const Text('Modifier la formule'),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DropdownButtonFormField<Activity>(
-                          value: selectedActivity,
-                          decoration: const InputDecoration(
-                            labelText: 'Activité *',
-                            border: OutlineInputBorder(),
-                          ),
-                          items:
-                              viewModel.activities
-                                  .map(
-                                    (activity) => DropdownMenuItem(
-                                      value: activity,
-                                      child: Text(activity.name),
-                                    ),
-                                  )
-                                  .toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedActivity = value!;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nom de la formule *',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: descriptionController,
-                          decoration: const InputDecoration(
-                            labelText: 'Description',
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 3,
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: priceController,
-                          decoration: const InputDecoration(
-                            labelText: 'Prix *',
-                            border: OutlineInputBorder(),
-                            prefixText: '€ ',
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: minParticipantsController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Min. participants',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextField(
-                                controller: maxParticipantsController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Max. participants',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: defaultGameCountController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre de parties par défaut',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ],
+          (context) => AlertDialog(
+            title: Text('Modifier ${formula.name}'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Nom'),
+                  ),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                    maxLines: 3,
+                  ),
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(labelText: 'Prix'),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
                     ),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Annuler'),
+                  TextField(
+                    controller: minParticipantsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre minimum de personnes',
                     ),
-                    TextButton(
-                      onPressed: () {
-                        if (nameController.text.isNotEmpty &&
-                            priceController.text.isNotEmpty) {
-                          viewModel.updateFormula(
-                            formula.copyWith(
-                              name: nameController.text,
-                              description:
-                                  descriptionController.text.isNotEmpty
-                                      ? descriptionController.text
-                                      : null,
-                              activity: selectedActivity,
-                              price: double.parse(priceController.text),
-                              minParticipants:
-                                  minParticipantsController.text.isNotEmpty
-                                      ? int.parse(
-                                        minParticipantsController.text,
-                                      )
-                                      : null,
-                              maxParticipants:
-                                  maxParticipantsController.text.isNotEmpty
-                                      ? int.parse(
-                                        maxParticipantsController.text,
-                                      )
-                                      : null,
-                              defaultGameCount:
-                                  defaultGameCountController.text.isNotEmpty
-                                      ? int.parse(
-                                        defaultGameCountController.text,
-                                      )
-                                      : null,
-                            ),
-                          );
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: const Text('Enregistrer'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  TextField(
+                    controller: maxParticipantsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre maximum de personnes',
                     ),
-                  ],
-                ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  TextField(
+                    controller: defaultGameCountController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre de parties par défaut',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  TextField(
+                    controller: minGamesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre minimum de parties',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  TextField(
+                    controller: maxGamesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre maximum de parties',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  viewModel.updateFormula(
+                    formula.copyWith(
+                      name: nameController.text,
+                      description: descriptionController.text,
+                      price:
+                          double.tryParse(priceController.text) ??
+                          formula.price,
+                      minParticipants:
+                          minParticipantsController.text.isNotEmpty
+                              ? int.parse(minParticipantsController.text)
+                              : null,
+                      maxParticipants:
+                          maxParticipantsController.text.isNotEmpty
+                              ? int.parse(maxParticipantsController.text)
+                              : null,
+                      defaultGameCount:
+                          defaultGameCountController.text.isNotEmpty
+                              ? int.parse(defaultGameCountController.text)
+                              : null,
+                      minGames:
+                          minGamesController.text.isNotEmpty
+                              ? int.parse(minGamesController.text)
+                              : null,
+                      maxGames:
+                          maxGamesController.text.isNotEmpty
+                              ? int.parse(maxGamesController.text)
+                              : null,
+                    ),
+                  );
+                  Navigator.pop(context);
+                },
+                child: const Text('Enregistrer'),
+              ),
+            ],
           ),
     );
   }

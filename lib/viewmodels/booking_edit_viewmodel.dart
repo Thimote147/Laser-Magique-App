@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import '../models/booking_model.dart';
 import '../models/formula_model.dart';
 import '../models/payment_model.dart';
+import '../models/customer_model.dart';
 
 class BookingEditViewModel extends ChangeNotifier {
   final Booking? booking;
   final Function(Booking) onSave;
 
-  String _firstName = '';
-  String _lastName = '';
-  String _email = '';
-  String _phone = '';
+  Customer? _selectedCustomer;
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
   int _numberOfPersons = 1;
@@ -19,10 +17,8 @@ class BookingEditViewModel extends ChangeNotifier {
   double _depositAmount = 0.0;
   PaymentMethod _paymentMethod = PaymentMethod.transfer;
 
-  String get firstName => _firstName;
-  String get lastName => _lastName;
-  String get email => _email;
-  String get phone => _phone;
+  // Getters
+  Customer? get selectedCustomer => _selectedCustomer;
   DateTime get selectedDate => _selectedDate;
   TimeOfDay get selectedTime => _selectedTime;
   int get numberOfPersons => _numberOfPersons;
@@ -37,10 +33,12 @@ class BookingEditViewModel extends ChangeNotifier {
 
   void _initializeState() {
     if (booking != null) {
-      _firstName = booking!.firstName;
-      _lastName = booking!.lastName ?? '';
-      _email = booking!.email ?? '';
-      _phone = booking!.phone ?? '';
+      _selectedCustomer = Customer(
+        firstName: booking!.firstName,
+        lastName: booking!.lastName,
+        email: booking!.email,
+        phone: booking!.phone,
+      );
       _selectedDate = booking!.dateTime;
       _selectedTime = TimeOfDay(
         hour: booking!.dateTime.hour,
@@ -57,23 +55,8 @@ class BookingEditViewModel extends ChangeNotifier {
     }
   }
 
-  void setFirstName(String value) {
-    _firstName = value;
-    notifyListeners();
-  }
-
-  void setLastName(String value) {
-    _lastName = value;
-    notifyListeners();
-  }
-
-  void setEmail(String value) {
-    _email = value;
-    notifyListeners();
-  }
-
-  void setPhone(String value) {
-    _phone = value;
+  void setCustomer(Customer? customer) {
+    _selectedCustomer = customer;
     notifyListeners();
   }
 
@@ -91,8 +74,8 @@ class BookingEditViewModel extends ChangeNotifier {
     _selectedFormula = formula;
     if (formula?.defaultGameCount != null) {
       _numberOfGames = formula!.defaultGameCount!;
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   void setNumberOfPersons(int value) {
@@ -116,15 +99,14 @@ class BookingEditViewModel extends ChangeNotifier {
   }
 
   String? validate() {
-    if (_firstName.isEmpty) {
-      return 'Le prénom est obligatoire';
+    if (_selectedCustomer == null) {
+      return 'Veuillez sélectionner ou créer un client';
     }
 
     if (_selectedFormula == null) {
       return 'Veuillez sélectionner une formule';
     }
 
-    // Validation du nombre minimum de participants
     if (_selectedFormula!.minParticipants != null &&
         _numberOfPersons < _selectedFormula!.minParticipants!) {
       return 'Le nombre de participants doit être d\'au moins ${_selectedFormula!.minParticipants} pour cette formule';
@@ -142,6 +124,10 @@ class BookingEditViewModel extends ChangeNotifier {
   }
 
   void save() {
+    if (_selectedCustomer == null || _selectedFormula == null) {
+      return;
+    }
+
     final dateTime = DateTime(
       _selectedDate.year,
       _selectedDate.month,
@@ -160,13 +146,13 @@ class BookingEditViewModel extends ChangeNotifier {
               formula: _selectedFormula!,
             ))
         .copyWith(
-          firstName: _firstName,
-          lastName: _lastName.isEmpty ? null : _lastName,
+          firstName: _selectedCustomer!.firstName,
+          lastName: _selectedCustomer!.lastName,
           dateTime: dateTime,
           numberOfPersons: _numberOfPersons,
           numberOfGames: _numberOfGames,
-          email: _email.isEmpty ? null : _email,
-          phone: _phone.isEmpty ? null : _phone,
+          email: _selectedCustomer!.email,
+          phone: _selectedCustomer!.phone,
           formula: _selectedFormula!,
           deposit: _depositAmount,
           paymentMethod: _paymentMethod,

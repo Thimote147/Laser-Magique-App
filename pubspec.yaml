@@ -60,7 +60,7 @@ dependencies:
 
   path_provider: ^2.1.2
 
-  uuid: any
+  uuid: ^4.5.1
   provider: ^6.1.5
   http: any
 dev_dependencies:

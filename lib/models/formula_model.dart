@@ -4,15 +4,14 @@ class Formula {
   final String id;
   final String name;
   final String? description;
-  final Activity activity; // L'activité associée à cette formule
-  final double price; // Prix de la formule
-  final int? minParticipants; // Nombre minimum de participants requis
-  final int? maxParticipants; // Nombre maximum de participants
-  final int? defaultGameCount; // Nombre de parties par défaut
-  final int? minGameCount; // Nombre minimum de parties
-  final int? maxGameCount; // Nombre maximum de parties
-  final bool?
-  fixedGameCount; // Si le nombre de parties est fixe (non modifiable)
+  final Activity activity;
+  final double price;
+  final int? minParticipants;
+  final int? maxParticipants;
+  final int? defaultGameCount;
+  final int? minGames;
+  final int? maxGames;
+  final bool? isGameCountFixed;
 
   Formula({
     required this.id,
@@ -23,9 +22,9 @@ class Formula {
     this.minParticipants,
     this.maxParticipants,
     this.defaultGameCount,
-    this.minGameCount,
-    this.maxGameCount,
-    this.fixedGameCount,
+    this.minGames,
+    this.maxGames,
+    this.isGameCountFixed,
   });
 
   // Méthode pour créer une copie de Formula avec des champs modifiés
@@ -38,9 +37,9 @@ class Formula {
     int? minParticipants,
     int? maxParticipants,
     int? defaultGameCount,
-    int? minGameCount,
-    int? maxGameCount,
-    bool? fixedGameCount,
+    int? minGames,
+    int? maxGames,
+    bool? isGameCountFixed,
   }) {
     return Formula(
       id: id ?? this.id,
@@ -51,9 +50,9 @@ class Formula {
       minParticipants: minParticipants ?? this.minParticipants,
       maxParticipants: maxParticipants ?? this.maxParticipants,
       defaultGameCount: defaultGameCount ?? this.defaultGameCount,
-      minGameCount: minGameCount ?? this.minGameCount,
-      maxGameCount: maxGameCount ?? this.maxGameCount,
-      fixedGameCount: fixedGameCount ?? this.fixedGameCount,
+      minGames: minGames ?? this.minGames,
+      maxGames: maxGames ?? this.maxGames,
+      isGameCountFixed: isGameCountFixed ?? this.isGameCountFixed,
     );
   }
 
@@ -65,51 +64,45 @@ class Formula {
       'description': description,
       'activity': activity.toMap(),
       'price': price,
-      'minParticipants': minParticipants,
-      'maxParticipants': maxParticipants,
-      'defaultGameCount': defaultGameCount,
-      'minGameCount': minGameCount,
-      'maxGameCount': maxGameCount,
-      'fixedGameCount': fixedGameCount,
+      'min_persons': minParticipants,
+      'max_persons': maxParticipants,
+      'default_game_count': defaultGameCount,
+      'min_games': minGames,
+      'max_games': maxGames,
+      'is_game_count_fixed': isGameCountFixed,
     };
   }
 
   // Méthode pour créer un objet Formula à partir d'un Map
   factory Formula.fromMap(Map<String, dynamic> map) {
-    // Activities data comes from Supabase join as top-level properties
-    final activityData =
-        map['activities'] ??
-        map['activity'] ??
-        {
-          'id': map['activity_id'] ?? '',
-          'name': map['activity_name'] ?? 'Activité inconnue',
-          'description': map['activity_description'],
-          'price_per_person': map['price_per_person']?.toDouble(),
-        };
-
     return Formula(
-      id: map['id'] ?? map['formula_id'] ?? '',
-      name: map['name'] ?? map['formula_name'] ?? 'Formule inconnue',
-      description: map['description'] ?? map['formula_description'],
-      activity: Activity.fromMap(activityData),
-      price: (map['price'] ?? map['formula_price'] ?? 0.0).toDouble(),
-      minParticipants: map['min_participants']?.toInt(),
-      maxParticipants: map['max_participants']?.toInt(),
-      defaultGameCount: map['default_game_count']?.toInt(),
-      minGameCount: map['min_game_count']?.toInt(),
-      maxGameCount: map['max_game_count']?.toInt(),
-      fixedGameCount: map['fixed_game_count'] ?? false,
+      id: map['id'],
+      name: map['name'],
+      description: map['description'],
+      activity: Activity.fromMap(map['activity']),
+      price: map['price']?.toDouble() ?? 0.0,
+      minParticipants: map['min_persons'],
+      maxParticipants: map['max_persons'],
+      defaultGameCount: map['default_game_count'],
+      minGames: map['min_games'],
+      maxGames: map['max_games'],
+      isGameCountFixed: map['is_game_count_fixed'],
     );
   }
 
+  // Alias pour la compatibilité JSON
+  Map<String, dynamic> toJson() => toMap();
+  factory Formula.fromJson(Map<String, dynamic> json) => Formula.fromMap(json);
+
   @override
   String toString() {
-    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, defaultGameCount: $defaultGameCount, minGameCount: $minGameCount, maxGameCount: $maxGameCount, fixedGameCount: $fixedGameCount)';
+    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, defaultGameCount: $defaultGameCount, minGames: $minGames, maxGames: $maxGames, isGameCountFixed: $isGameCountFixed)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
+
     return other is Formula &&
         other.id == id &&
         other.name == name &&
@@ -119,9 +112,9 @@ class Formula {
         other.minParticipants == minParticipants &&
         other.maxParticipants == maxParticipants &&
         other.defaultGameCount == defaultGameCount &&
-        other.minGameCount == minGameCount &&
-        other.maxGameCount == maxGameCount &&
-        other.fixedGameCount == fixedGameCount;
+        other.minGames == minGames &&
+        other.maxGames == maxGames &&
+        other.isGameCountFixed == isGameCountFixed;
   }
 
   @override
@@ -134,8 +127,8 @@ class Formula {
         minParticipants.hashCode ^
         maxParticipants.hashCode ^
         defaultGameCount.hashCode ^
-        minGameCount.hashCode ^
-        maxGameCount.hashCode ^
-        fixedGameCount.hashCode;
+        minGames.hashCode ^
+        maxGames.hashCode ^
+        isGameCountFixed.hashCode;
   }
 }

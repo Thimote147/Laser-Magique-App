@@ -70,26 +70,27 @@ class BookingRepository {
   }
 
   Future<Booking> updateBooking(Booking booking) async {
-    final response =
-        await _client
-            .from('bookings')
-            .update({
-              'formula_id': booking.formula.id,
-              'first_name': booking.firstName,
-              'last_name': booking.lastName,
-              'email': booking.email,
-              'phone': booking.phone,
-              'date_time': booking.dateTime.toIso8601String(),
-              'number_of_persons': booking.numberOfPersons,
-              'number_of_games': booking.numberOfGames,
-              'is_cancelled': booking.isCancelled,
-              'deposit': booking.deposit,
-              'payment_method':
-                  booking.paymentMethod.toString().split('.').last,
-            })
-            .eq('id', booking.id)
-            .select()
-            .single();
+    final response = await _client.rpc(
+      'update_booking_with_customer',
+      params: {
+        'p_booking_id': booking.id,
+        'p_formula_id': booking.formula.id,
+        'p_first_name': booking.firstName,
+        'p_last_name': booking.lastName,
+        'p_email': booking.email,
+        'p_phone': booking.phone,
+        'p_date_time': booking.dateTime.toIso8601String(),
+        'p_number_of_persons': booking.numberOfPersons,
+        'p_number_of_games': booking.numberOfGames,
+        'p_is_cancelled': booking.isCancelled,
+        'p_deposit': booking.deposit,
+        'p_payment_method': booking.paymentMethod.toString().split('.').last,
+      },
+    );
+
+    if (response == null) {
+      throw Exception('Failed to update booking');
+    }
 
     return Booking.fromMap(response);
   }
@@ -161,5 +162,25 @@ class BookingRepository {
 
   Future<void> cancelPayment(String paymentId) async {
     await _client.from('payments').delete().eq('id', paymentId);
+  }
+
+  Future<Booking> cancelBooking(String bookingId) async {
+    try {
+      final response = await _client.rpc(
+        'cancel_booking',
+        params: {'p_booking_id': bookingId},
+      );
+
+      if (response == null) {
+        throw Exception('Échec de l\'annulation de la réservation');
+      }
+
+      return Booking.fromMap(response);
+    } catch (e) {
+      if (e is PostgrestException) {
+        throw Exception(e.message);
+      }
+      rethrow;
+    }
   }
 }

@@ -10,6 +10,7 @@ import 'viewmodels/activity_formula_view_model.dart';
 import 'viewmodels/stock_view_model.dart';
 import 'viewmodels/employee_profile_view_model.dart';
 import 'viewmodels/settings_view_model.dart';
+import 'viewmodels/customer_view_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +60,7 @@ class LaserMagiqueApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StockViewModel()),
         ChangeNotifierProvider(create: (_) => EmployeeProfileViewModel()),
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
+        ChangeNotifierProvider(create: (_) => CustomerViewModel()),
         ChangeNotifierProxyProvider2<
           ActivityFormulaViewModel,
           StockViewModel,

@@ -12,6 +12,7 @@ class ActivityFormulaViewModel extends ChangeNotifier {
   List<Formula> _formulas = [];
   bool _isLoading = true;
   String? _error;
+  Activity? _selectedActivity;
 
   ActivityFormulaViewModel() {
     _initializeData();
@@ -23,6 +24,12 @@ class ActivityFormulaViewModel extends ChangeNotifier {
   List<Formula> get formulas => List.unmodifiable(_formulas);
   bool get isLoading => _isLoading;
   String? get error => _error;
+  Activity? get selectedActivity => _selectedActivity;
+
+  void setSelectedActivity(Activity? activity) {
+    _selectedActivity = activity;
+    notifyListeners();
+  }
 
   // Initialize data
   Future<void> _initializeData() async {

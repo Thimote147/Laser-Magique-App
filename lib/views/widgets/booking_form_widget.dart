@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'dart:io' show Platform;
 import '../../models/booking_model.dart';
 import '../../models/formula_model.dart';
-import '../../viewmodels/booking_view_model.dart';
+import '../../models/customer_model.dart';
+import '../../models/payment_model.dart';
+
 import '../../viewmodels/activity_formula_view_model.dart';
+import '../../viewmodels/booking_edit_viewmodel.dart';
+import '../../viewmodels/customer_view_model.dart';
+import 'customer_selection_widget.dart';
 
 class BookingFormWidget extends StatefulWidget {
   final Booking? booking;
+  final VoidCallback? onSubmit;
 
-  const BookingFormWidget({super.key, this.booking});
+  const BookingFormWidget({super.key, this.booking, this.onSubmit});
 
   @override
   State<BookingFormWidget> createState() => _BookingFormWidgetState();
@@ -17,25 +25,27 @@ class BookingFormWidget extends StatefulWidget {
 
 class _BookingFormWidgetState extends State<BookingFormWidget> {
   final _formKey = GlobalKey<FormState>();
-  final firstNameController = TextEditingController();
-  final lastNameController = TextEditingController();
-  final emailController = TextEditingController();
-  final phoneController = TextEditingController();
   late DateTime selectedDate;
   late TimeOfDay selectedTime;
   late int numberOfPersons;
   late int numberOfGames;
-  Formula? selectedFormula;
+  Customer? selectedCustomer;
+  bool _isCreatingCustomer = false;
+  double _deposit = 0.0;
+  PaymentMethod _depositPaymentMethod = PaymentMethod.transfer;
+
+  final _depositController = TextEditingController(text: '0');
 
   @override
   void initState() {
     super.initState();
-    // Initialiser avec les valeurs de la réservation existante ou des valeurs par défaut
     if (widget.booking != null) {
-      firstNameController.text = widget.booking!.firstName;
-      lastNameController.text = widget.booking!.lastName ?? '';
-      emailController.text = widget.booking!.email ?? '';
-      phoneController.text = widget.booking!.phone ?? '';
+      selectedCustomer = Customer(
+        firstName: widget.booking!.firstName,
+        lastName: widget.booking!.lastName,
+        email: widget.booking!.email,
+        phone: widget.booking!.phone,
+      );
       selectedDate = widget.booking!.dateTime;
       selectedTime = TimeOfDay(
         hour: widget.booking!.dateTime.hour,
@@ -43,32 +53,314 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
       );
       numberOfPersons = widget.booking!.numberOfPersons;
       numberOfGames = widget.booking!.numberOfGames;
-      selectedFormula = widget.booking!.formula;
+
+      // Mise à jour des valeurs monétaires
+      _deposit = widget.booking!.deposit;
+      _depositController.text = _deposit.toString();
+      _depositPaymentMethod = widget.booking!.paymentMethod;
+
+      // Synchronisation initiale avec le ViewModel
+      final bookingEditViewModel = context.read<BookingEditViewModel>();
+      bookingEditViewModel.setFormula(widget.booking!.formula);
     } else {
       selectedDate = DateTime.now();
       selectedTime = TimeOfDay.now();
       numberOfPersons = 1;
       numberOfGames = 1;
     }
+
+    // Planifier l'initialisation de la formule après la construction
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final activityFormulaViewModel = context.read<ActivityFormulaViewModel>();
+      final bookingEditViewModel = context.read<BookingEditViewModel>();
+
+      // Initialise la formule si nécessaire
+      if (bookingEditViewModel.selectedFormula == null &&
+          activityFormulaViewModel.formulas.isNotEmpty) {
+        bookingEditViewModel.setFormula(
+          activityFormulaViewModel.formulas.first,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
-    firstNameController.dispose();
-    lastNameController.dispose();
-    emailController.dispose();
-    phoneController.dispose();
+    _depositController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showAdaptiveDatePicker(BuildContext context) async {
+    final bookingEditViewModel = context.read<BookingEditViewModel>();
+
+    if (Platform.isIOS) {
+      await showCupertinoModalPopup(
+        context: context,
+        builder: (BuildContext context) {
+          return Container(
+            height: 216,
+            padding: const EdgeInsets.only(top: 6.0),
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            color: CupertinoColors.systemBackground.resolveFrom(context),
+            child: SafeArea(
+              top: false,
+              child: CupertinoDatePicker(
+                initialDateTime: selectedDate,
+                minimumDate: DateTime.now(),
+                maximumDate: DateTime.now().add(const Duration(days: 365)),
+                mode: CupertinoDatePickerMode.date,
+                onDateTimeChanged: (DateTime newDate) {
+                  setState(() => selectedDate = newDate);
+                  bookingEditViewModel.setDate(newDate);
+                },
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      final pickedDate = await showDatePicker(
+        context: context,
+        locale: const Locale('fr', 'FR'),
+        initialDate: selectedDate,
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+      );
+      if (pickedDate != null) {
+        setState(() => selectedDate = pickedDate);
+        bookingEditViewModel.setDate(pickedDate);
+      }
+    }
+  }
+
+  Future<void> _showAdaptiveTimePicker(BuildContext context) async {
+    final bookingEditViewModel = context.read<BookingEditViewModel>();
+
+    if (Platform.isIOS) {
+      await showCupertinoModalPopup(
+        context: context,
+        builder: (BuildContext context) {
+          return Container(
+            height: 216,
+            padding: const EdgeInsets.only(top: 6.0),
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            color: CupertinoColors.systemBackground.resolveFrom(context),
+            child: SafeArea(
+              top: false,
+              child: CupertinoDatePicker(
+                initialDateTime: DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  selectedTime.hour,
+                  selectedTime.minute,
+                ),
+                mode: CupertinoDatePickerMode.time,
+                use24hFormat: true,
+                onDateTimeChanged: (DateTime newDateTime) {
+                  final newTime = TimeOfDay(
+                    hour: newDateTime.hour,
+                    minute: newDateTime.minute,
+                  );
+                  setState(() => selectedTime = newTime);
+                  bookingEditViewModel.setTime(newTime);
+                },
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: selectedTime,
+      );
+      if (pickedTime != null) {
+        setState(() => selectedTime = pickedTime);
+        bookingEditViewModel.setTime(pickedTime);
+      }
+    }
+  }
+
+  void _submitForm() {
+    if (_formKey.currentState!.validate()) {
+      final viewModel = context.read<BookingEditViewModel>();
+      final customerViewModel = context.read<CustomerViewModel>();
+
+      // Vérifier d'abord la formule
+      if (viewModel.selectedFormula == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez sélectionner une formule'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Vérifier le nombre de personnes
+      final minPersons = viewModel.selectedFormula!.minParticipants ?? 1;
+      final maxPersons = viewModel.selectedFormula!.maxParticipants;
+
+      if (numberOfPersons < minPersons) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Le nombre minimum de participants est de $minPersons pour cette formule',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (maxPersons != null && numberOfPersons > maxPersons) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Le nombre maximum de participants est de $maxPersons pour cette formule',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Ensuite vérifier le client
+      if (_isCreatingCustomer) {
+        viewModel.setCustomer(selectedCustomer);
+      } else if (selectedCustomer != null) {
+        viewModel.setCustomer(selectedCustomer);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Veuillez sélectionner ou créer un client'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Mettre à jour toutes les valeurs dans le ViewModel
+      viewModel.setDate(selectedDate);
+      viewModel.setTime(selectedTime);
+      viewModel.setFormula(
+        viewModel.selectedFormula!,
+      ); // On peut utiliser ! car on a vérifié plus haut
+      viewModel.setNumberOfPersons(numberOfPersons);
+      viewModel.setNumberOfGames(numberOfGames);
+      viewModel.setDepositAmount(_deposit);
+      viewModel.setPaymentMethod(_depositPaymentMethod);
+
+      viewModel.save();
+
+      // Vider la liste des clients après la sauvegarde
+      customerViewModel.clearSearchResults();
+
+      if (widget.onSubmit != null) {
+        widget.onSubmit!();
+      }
+    }
+  }
+
+  Widget _buildFormulaSelector(
+    ActivityFormulaViewModel activityFormulaViewModel,
+    BookingEditViewModel bookingEditViewModel,
+  ) {
+    if (activityFormulaViewModel.isLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Chargement des formules...',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final formulas = activityFormulaViewModel.formulas;
+    if (formulas.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Text(
+          'Aucune formule disponible',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.error,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<Formula>(
+              value: bookingEditViewModel.selectedFormula,
+              isExpanded: true,
+              isDense: true,
+              icon: const Icon(Icons.expand_more_rounded, size: 20),
+              hint: Text(
+                'Sélectionnez une formule',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              items:
+                  formulas
+                      .map(
+                        (formula) => DropdownMenuItem(
+                          value: formula,
+                          child: Text(
+                            '${formula.activity.name} - ${formula.name}',
+                          ),
+                        ),
+                      )
+                      .toList(),
+              onChanged: (Formula? value) {
+                if (value != null) {
+                  bookingEditViewModel.setFormula(value);
+                }
+              },
+            ),
+          ),
+        ),
+        if (bookingEditViewModel.selectedFormula != null) ...[
+          const SizedBox(width: 12),
+          Text(
+            '${bookingEditViewModel.selectedFormula!.price.toStringAsFixed(2)}€',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final bookingEditViewModel = context.watch<BookingEditViewModel>();
     final activityFormulaViewModel = context.watch<ActivityFormulaViewModel>();
-
-    if (selectedFormula == null &&
-        activityFormulaViewModel.formulas.isNotEmpty) {
-      selectedFormula = activityFormulaViewModel.formulas.first;
-    }
 
     return Form(
       key: _formKey,
@@ -77,171 +369,768 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextFormField(
-              controller: firstNameController,
-              decoration: const InputDecoration(
-                labelText: 'Prénom *',
-                hintText: 'Entrez le prénom',
-                border: OutlineInputBorder(),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    _isCreatingCustomer
+                        ? Icons.person_add_rounded
+                        : Icons.person_rounded,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _isCreatingCustomer
+                        ? 'Nouveau client'
+                        : 'Informations client',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Le prénom est obligatoire';
-                }
-                return null;
-              },
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: lastNameController,
-              decoration: const InputDecoration(
-                labelText: 'Nom',
-                hintText: 'Entrez le nom',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'Entrez l\'email',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Téléphone',
-                hintText: 'Entrez le numéro de téléphone',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: const Text('Date'),
-              subtitle: Text(DateFormat.yMMMMd('fr_FR').format(selectedDate)),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: () async {
-                final pickedDate = await showDatePicker(
-                  context: context,
-                  locale: const Locale('fr', 'FR'),
-                  initialDate: selectedDate,
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                );
-                if (pickedDate != null) {
-                  setState(() => selectedDate = pickedDate);
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              title: const Text('Heure'),
-              subtitle: Text(selectedTime.format(context)),
-              trailing: const Icon(Icons.access_time),
-              onTap: () async {
-                final pickedTime = await showTimePicker(
-                  context: context,
-                  initialTime: selectedTime,
-                );
-                if (pickedTime != null) {
-                  setState(() => selectedTime = pickedTime);
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            if (activityFormulaViewModel.formulas.isNotEmpty)
-              DropdownButtonFormField<Formula>(
-                value: selectedFormula,
-                decoration: const InputDecoration(
-                  labelText: 'Formule',
-                  border: OutlineInputBorder(),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
                 ),
-                items:
-                    activityFormulaViewModel.formulas
-                        .map(
-                          (formula) => DropdownMenuItem<Formula>(
-                            value: formula,
-                            child: Text(
-                              '${formula.activity.name} - ${formula.name}',
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (selectedCustomer != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant.withOpacity(0.5),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          topRight: Radius.circular(12),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${selectedCustomer!.firstName} ${selectedCustomer!.lastName ?? ''}'
+                                      .trim(),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium?.copyWith(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (selectedCustomer!.email != null ||
+                                    selectedCustomer!.phone != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Wrap(
+                                      spacing: 12,
+                                      runSpacing: 4,
+                                      children: [
+                                        if (selectedCustomer!.email != null)
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.email_rounded,
+                                                size: 14,
+                                                color:
+                                                    Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                selectedCustomer!.email!,
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall?.copyWith(
+                                                  color:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        if (selectedCustomer!.phone != null)
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.phone_rounded,
+                                                size: 14,
+                                                color:
+                                                    Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                selectedCustomer!.phone!,
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall?.copyWith(
+                                                  color:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                        )
-                        .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      selectedFormula = value;
-                      if (value.defaultGameCount != null) {
-                        numberOfGames = value.defaultGameCount!;
-                      }
-                    });
-                  }
-                },
+                          IconButton.outlined(
+                            icon: const Icon(Icons.edit_rounded, size: 16),
+                            tooltip: 'Modifier le client',
+                            onPressed: () {
+                              setState(() {
+                                selectedCustomer = null;
+                              });
+                              bookingEditViewModel.setCustomer(null);
+                            },
+                            style: IconButton.styleFrom(
+                              padding: const EdgeInsets.all(6),
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.topCenter,
+                    child:
+                        selectedCustomer == null
+                            ? Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: CustomerSelectionWidget(
+                                initialCustomer: selectedCustomer,
+                                onCustomerSelected: (customer) {
+                                  setState(() {
+                                    selectedCustomer = customer;
+                                  });
+                                  bookingEditViewModel.setCustomer(customer);
+                                },
+                              ),
+                            )
+                            : const SizedBox.shrink(),
+                  ),
+                ],
               ),
+            ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<int>(
-                    value: numberOfPersons,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre de personnes',
-                      border: OutlineInputBorder(),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.event_rounded,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Date et heure',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
                     ),
-                    items:
-                        List.generate(20, (index) => index + 1)
-                            .map(
-                              (value) => DropdownMenuItem<int>(
-                                value: value,
-                                child: Text(value.toString()),
+                  ),
+                ],
+              ),
+            ),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                ),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _showAdaptiveDatePicker(context),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Date',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodyMedium?.copyWith(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  DateFormat.yMMMMd(
+                                    'fr_FR',
+                                  ).format(selectedDate),
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => _showAdaptiveTimePicker(context),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.access_time_rounded,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                            )
-                            .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => numberOfPersons = value);
-                      }
-                    },
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Heure',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium?.copyWith(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    selectedTime.format(context),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<int>(
-                    value: numberOfGames,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre de parties',
-                      border: OutlineInputBorder(),
-                    ),
-                    items:
-                        List.generate(5, (index) => index + 1)
-                            .map(
-                              (value) => DropdownMenuItem<int>(
-                                value: value,
-                                child: Text(value.toString()),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => numberOfGames = value);
-                      }
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _submitForm,
-              child: Text(
-                widget.booking == null
-                    ? 'Créer la réservation'
-                    : 'Enregistrer les modifications',
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.sports_esports_rounded,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Détails de l\'activité',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Formule',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          _buildFormulaSelector(
+                            activityFormulaViewModel,
+                            bookingEditViewModel,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Nombre de personnes et parties
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceVariant.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Personnes',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.copyWith(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                DropdownButtonHideUnderline(
+                                  child: DropdownButton<int>(
+                                    value: numberOfPersons,
+                                    isExpanded: true,
+                                    isDense: true,
+                                    icon: const Icon(
+                                      Icons.expand_more_rounded,
+                                      size: 20,
+                                    ),
+                                    items:
+                                        List.generate(10, (i) => i + 1)
+                                            .map(
+                                              (n) => DropdownMenuItem(
+                                                enabled:
+                                                    bookingEditViewModel
+                                                            .selectedFormula ==
+                                                        null ||
+                                                    (n >=
+                                                            (bookingEditViewModel
+                                                                    .selectedFormula
+                                                                    ?.minParticipants ??
+                                                                1) &&
+                                                        (bookingEditViewModel
+                                                                    .selectedFormula
+                                                                    ?.maxParticipants ==
+                                                                null ||
+                                                            n <=
+                                                                bookingEditViewModel
+                                                                    .selectedFormula!
+                                                                    .maxParticipants!)),
+                                                value: n,
+                                                child: Text(
+                                                  n.toString(),
+                                                  style:
+                                                      n <
+                                                              (bookingEditViewModel
+                                                                      .selectedFormula
+                                                                      ?.minParticipants ??
+                                                                  1)
+                                                          ? const TextStyle(
+                                                            color: Colors.red,
+                                                          )
+                                                          : null,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (int? value) {
+                                      if (value != null) {
+                                        setState(() => numberOfPersons = value);
+                                        bookingEditViewModel.setNumberOfPersons(
+                                          value,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceVariant.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Parties',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.copyWith(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                DropdownButtonHideUnderline(
+                                  child: DropdownButton<int>(
+                                    value: numberOfGames,
+                                    isExpanded: true,
+                                    isDense: true,
+                                    icon: const Icon(
+                                      Icons.expand_more_rounded,
+                                      size: 20,
+                                    ),
+                                    items:
+                                        List.generate(5, (i) => i + 1)
+                                            .map(
+                                              (n) => DropdownMenuItem(
+                                                value: n,
+                                                child: Text(n.toString()),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (int? value) {
+                                      if (value != null) {
+                                        setState(() => numberOfGames = value);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (bookingEditViewModel.selectedFormula != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Total',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleMedium?.copyWith(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              '${(bookingEditViewModel.selectedFormula!.price * numberOfPersons * numberOfGames).toStringAsFixed(2)}€',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.payments_rounded,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Acompte',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Montant de l'acompte
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: 12,
+                              right: 12,
+                              top: 8,
+                            ),
+                            child: Text(
+                              'Montant',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          TextFormField(
+                            controller: _depositController,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w500),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                12,
+                                4,
+                                12,
+                                8,
+                              ),
+                              prefixText: '€ ',
+                              prefixStyle: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w500),
+                              border: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            onChanged: (value) {
+                              final depositValue =
+                                  double.tryParse(value) ?? 0.0;
+                              setState(() => _deposit = depositValue);
+                              bookingEditViewModel.setDepositAmount(
+                                depositValue,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Moyen de paiement
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 8),
+                          child: Text(
+                            'Paiement',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _PaymentMethodButton(
+                                label: 'Virement',
+                                icon: Icons.account_balance_rounded,
+                                isSelected:
+                                    _depositPaymentMethod ==
+                                    PaymentMethod.transfer,
+                                onPressed: () {
+                                  setState(
+                                    () =>
+                                        _depositPaymentMethod =
+                                            PaymentMethod.transfer,
+                                  );
+                                  bookingEditViewModel.setPaymentMethod(
+                                    PaymentMethod.transfer,
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _PaymentMethodButton(
+                                label: 'Carte',
+                                icon: Icons.credit_card_rounded,
+                                isSelected:
+                                    _depositPaymentMethod == PaymentMethod.card,
+                                onPressed: () {
+                                  setState(
+                                    () =>
+                                        _depositPaymentMethod =
+                                            PaymentMethod.card,
+                                  );
+                                  bookingEditViewModel.setPaymentMethod(
+                                    PaymentMethod.card,
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _PaymentMethodButton(
+                                label: 'Espèces',
+                                icon: Icons.euro_rounded,
+                                isSelected:
+                                    _depositPaymentMethod == PaymentMethod.cash,
+                                onPressed: () {
+                                  setState(
+                                    () =>
+                                        _depositPaymentMethod =
+                                            PaymentMethod.cash,
+                                  );
+                                  bookingEditViewModel.setPaymentMethod(
+                                    PaymentMethod.cash,
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -249,49 +1138,61 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
       ),
     );
   }
+}
 
-  void _submitForm() {
-    if (!_formKey.currentState!.validate()) return;
+class _PaymentMethodButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onPressed;
 
-    final viewModel = context.read<BookingViewModel>();
-    final dateTime = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    );
+  const _PaymentMethodButton({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onPressed,
+  });
 
-    if (widget.booking == null) {
-      // Création d'une nouvelle réservation
-      viewModel.addBooking(
-        firstName: firstNameController.text,
-        lastName:
-            lastNameController.text.isEmpty ? null : lastNameController.text,
-        dateTime: dateTime,
-        numberOfPersons: numberOfPersons,
-        numberOfGames: numberOfGames,
-        email: emailController.text.isEmpty ? null : emailController.text,
-        phone: phoneController.text.isEmpty ? null : phoneController.text,
-        formula: selectedFormula!,
-      );
-    } else {
-      // Modification d'une réservation existante
-      viewModel.updateBooking(
-        widget.booking!.copyWith(
-          firstName: firstNameController.text,
-          lastName:
-              lastNameController.text.isEmpty ? null : lastNameController.text,
-          dateTime: dateTime,
-          numberOfPersons: numberOfPersons,
-          numberOfGames: numberOfGames,
-          email: emailController.text.isEmpty ? null : emailController.text,
-          phone: phoneController.text.isEmpty ? null : phoneController.text,
-          formula: selectedFormula!,
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color:
+          isSelected
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color:
+                    isSelected
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color:
+                      isSelected
+                          ? Theme.of(context).colorScheme.onPrimaryContainer
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: isSelected ? FontWeight.w500 : null,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
-      );
-    }
-
-    Navigator.pop(context);
+      ),
+    );
   }
 }

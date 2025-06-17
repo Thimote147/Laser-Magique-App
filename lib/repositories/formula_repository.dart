@@ -10,7 +10,7 @@ class FormulaRepository {
         .from('formulas')
         .select('''
           *,
-          activities!inner (
+          activity:activities (
             id,
             name,
             description,
@@ -25,7 +25,15 @@ class FormulaRepository {
   Future<List<Formula>> getFormulasForActivity(String activityId) async {
     final response = await _client
         .from('formulas')
-        .select('*, activities(*)')
+        .select('''
+          *,
+          activity:activities (
+            id,
+            name,
+            description,
+            price_per_person
+          )
+        ''')
         .eq('activity_id', activityId)
         .order('name');
 
@@ -40,6 +48,9 @@ class FormulaRepository {
     int? minParticipants,
     int? maxParticipants,
     int? defaultGameCount,
+    int? minGames,
+    int? maxGames,
+    bool? isGameCountFixed,
   }) async {
     final response =
         await _client
@@ -49,24 +60,23 @@ class FormulaRepository {
               'activity_id': activityId,
               'description': description,
               'price': price,
-              'min_participants': minParticipants,
-              'max_participants': maxParticipants,
+              'min_persons': minParticipants,
+              'max_persons': maxParticipants,
               'default_game_count': defaultGameCount,
+              'min_games': minGames,
+              'max_games': maxGames,
+              'is_game_count_fixed': isGameCountFixed,
             })
             .select('''
-            *,
-            activities!inner (
-              id,
-              name,
-              description,
-              price_per_person
-            )
-          ''')
-            .maybeSingle();
-
-    if (response == null) {
-      throw Exception('Failed to create formula. The response was null.');
-    }
+          *,
+          activity:activities (
+            id,
+            name,
+            description,
+            price_per_person
+          )
+        ''')
+            .single();
 
     return Formula.fromMap(response);
   }
@@ -77,29 +87,29 @@ class FormulaRepository {
             .from('formulas')
             .update({
               'name': formula.name,
-              'activity_id': formula.activity.id,
               'description': formula.description,
               'price': formula.price,
-              'min_participants': formula.minParticipants,
-              'max_participants': formula.maxParticipants,
+              'min_persons': formula.minParticipants,
+              'max_persons': formula.maxParticipants,
               'default_game_count': formula.defaultGameCount,
+              'min_games': formula.minGames,
+              'max_games': formula.maxGames,
+              'is_game_count_fixed': formula.isGameCountFixed,
             })
             .eq('id', formula.id)
             .select('''
-            *,
-            activities!inner (
-              id,
-              name,
-              description,
-              price_per_person
-            )
-          ''')
-            .maybeSingle();
+          *,
+          activities (
+            id,
+            name,
+            description,
+            price_per_person
+          )
+        ''')
+            .single();
 
-    if (response == null) {
-      throw Exception('Failed to update formula. The response was null.');
-    }
-
+    final activity = response['activities'];
+    response['activity'] = activity;
     return Formula.fromMap(response);
   }
 
@@ -108,13 +118,11 @@ class FormulaRepository {
   }
 
   Stream<List<Formula>> streamFormulas() {
-    return _client
-        .from('formulas')
-        .stream(primaryKey: ['id'])
-        .order('name')
-        .map(
-          (response) =>
-              (response as List).map((json) => Formula.fromMap(json)).toList(),
-        );
+    return _client.from('formulas').stream(primaryKey: ['id']).execute().asyncMap(
+      (response) async {
+        // Pour chaque mise à jour du stream, on récupère les formules complètes
+        return await getAllFormulas();
+      },
+    );
   }
 }

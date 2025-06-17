@@ -5,10 +5,7 @@ import '../../models/booking_model.dart';
 import '../../viewmodels/activity_formula_view_model.dart';
 import '../../viewmodels/booking_edit_viewmodel.dart';
 import '../../viewmodels/booking_view_model.dart';
-import '../widgets/booking_form/contact_fields.dart';
-import '../widgets/booking_form/date_time_selectors.dart';
-import '../widgets/booking_form/deposit_section.dart';
-import '../widgets/booking_form/formula_section.dart';
+import '../widgets/booking_form_widget.dart';
 
 class BookingEditScreen extends StatelessWidget {
   final Booking? booking;
@@ -78,78 +75,7 @@ class BookingEditScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (booking?.isCancelled ?? false)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.cancel, color: Colors.red.shade400),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Text(
-                              'Réservation annulée',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ContactFields(
-                    firstName: viewModel.firstName,
-                    lastName: viewModel.lastName,
-                    email: viewModel.email,
-                    phone: viewModel.phone,
-                    onFirstNameChanged: viewModel.setFirstName,
-                    onLastNameChanged: viewModel.setLastName,
-                    onEmailChanged: viewModel.setEmail,
-                    onPhoneChanged: viewModel.setPhone,
-                  ),
-                  const SizedBox(height: 16),
-                  DateTimeSelectors(
-                    selectedDate: viewModel.selectedDate,
-                    selectedTime: viewModel.selectedTime,
-                    onDateChanged: viewModel.setDate,
-                    onTimeChanged: viewModel.setTime,
-                  ),
-                  const SizedBox(height: 16),
-                  FormulaSection(
-                    selectedFormula: viewModel.selectedFormula,
-                    formulas: formulaViewModel.formulas,
-                    onFormulaChanged: viewModel.setFormula,
-                    numberOfPersons: viewModel.numberOfPersons,
-                    numberOfGames: viewModel.numberOfGames,
-                    onPersonsChanged: viewModel.setNumberOfPersons,
-                    onGamesChanged: viewModel.setNumberOfGames,
-                  ),
-                  if (booking == null) ...[
-                    const SizedBox(height: 16),
-                    DepositSection(
-                      selectedFormula: viewModel.selectedFormula,
-                      numberOfPersons: viewModel.numberOfPersons,
-                      numberOfGames: viewModel.numberOfGames,
-                      depositAmount: viewModel.depositAmount,
-                      paymentMethod: viewModel.paymentMethod,
-                      onDepositChanged: viewModel.setDepositAmount,
-                      onPaymentMethodChanged: viewModel.setPaymentMethod,
-                    ),
-                  ],
-                ],
-              ),
-            ),
+            body: BookingFormWidget(booking: booking),
           );
         },
       ),
