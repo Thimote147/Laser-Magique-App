@@ -7,51 +7,52 @@ import '../repositories/stock_repository.dart';
 class StockViewModel extends ChangeNotifier {
   final StockRepository _repository = StockRepository();
   List<StockItem> _items = [];
-  List<Consumption> _consumptions = [];
+  Map<String, List<Consumption>> _consumptionsPerBooking = {};
   String _searchQuery = '';
   bool _isLoading = true;
   String? _error;
+  bool _initialized = false;
 
   StockViewModel() {
     _initializeData();
-    _setupSubscriptions();
   }
 
   // Getters
   List<StockItem> get items => List.unmodifiable(_items);
-  List<Consumption> get consumptions => List.unmodifiable(_consumptions);
   bool get isLoading => _isLoading;
   String? get error => _error;
 
   // Initialize data
   Future<void> _initializeData() async {
+    if (_initialized) return;
+
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
       _items = await _repository.getAllStockItems();
+
+      // Setup real-time subscription for stock items
+      _repository.streamStockItems().listen(
+        (items) {
+          _items = items;
+          notifyListeners();
+        },
+        onError: (e) {
+          _error = 'Subscription error: $e';
+          notifyListeners();
+        },
+      );
+
       _isLoading = false;
+      _initialized = true;
       notifyListeners();
     } catch (e) {
-      _error = 'Error loading stock items: $e';
+      _error = 'Error loading data: $e';
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  // Setup real-time subscriptions
-  void _setupSubscriptions() {
-    _repository.streamStockItems().listen(
-      (items) {
-        _items = items;
-        notifyListeners();
-      },
-      onError: (e) {
-        _error = 'Subscription error: $e';
-        notifyListeners();
-      },
-    );
   }
 
   // Filtered getters
@@ -78,11 +79,54 @@ class StockViewModel extends ChangeNotifier {
   List<StockItem> get lowStockItems =>
       filteredItems.where((item) => item.isLowStock).toList();
 
-  // Get the total consumption cost for a booking
-  double getConsumptionsTotalForBooking(String bookingId) {
-    return _consumptions
-        .where((c) => c.bookingId == bookingId)
-        .fold(0.0, (sum, c) => sum + c.totalPrice);
+  void subscribeToBookingConsumptions(String bookingId) {
+    if (_consumptionsPerBooking.containsKey(bookingId)) return;
+
+    _repository
+        .streamConsumptions(bookingId)
+        .listen(
+          (consumptions) {
+            _consumptionsPerBooking[bookingId] = consumptions;
+            notifyListeners();
+          },
+          onError: (e) {
+            _error = 'Error streaming consumptions: $e';
+            notifyListeners();
+          },
+        );
+  }
+
+  Future<List<(Consumption, StockItem)>> getConsumptionsWithStockItems(
+    String bookingId,
+  ) async {
+    if (!_initialized) {
+      await _initializeData();
+    }
+
+    try {
+      if (!_consumptionsPerBooking.containsKey(bookingId)) {
+        final consumptions = await _repository.getConsumptionsForBooking(
+          bookingId,
+        );
+        _consumptionsPerBooking[bookingId] = consumptions;
+        // Subscribe for future updates
+        subscribeToBookingConsumptions(bookingId);
+      }
+
+      final consumptions = _consumptionsPerBooking[bookingId] ?? [];
+
+      return consumptions.map((consumption) {
+        final stockItem = _items.firstWhere(
+          (item) => item.id == consumption.stockItemId,
+          orElse: () => throw Exception('Article introuvable'),
+        );
+        return (consumption, stockItem);
+      }).toList();
+    } catch (e) {
+      _error = 'Erreur lors de la récupération des consommations: $e';
+      notifyListeners();
+      return [];
+    }
   }
 
   // Search functionality
@@ -91,10 +135,48 @@ class StockViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Stock management
+  Future<bool> addConsumption({
+    required String bookingId,
+    required String stockItemId,
+    required int quantity,
+  }) async {
+    try {
+      final consumption = await _repository.addConsumption(
+        bookingId: bookingId,
+        stockItemId: stockItemId,
+        quantity: quantity,
+      );
+
+      // Mettre à jour la liste des consommations si une nouvelle consommation a été créée
+      // Ajouter la nouvelle consommation à la liste existante ou créer une nouvelle liste
+      _consumptionsPerBooking[bookingId] = [
+        ...(_consumptionsPerBooking[bookingId] ?? []),
+        consumption,
+      ];
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = 'Error adding consumption: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Stock Items Management
+  Future<void> deleteItem(String itemId) async {
+    try {
+      await _repository.deleteStockItem(itemId);
+      _items.removeWhere((item) => item.id == itemId);
+      notifyListeners();
+    } catch (e) {
+      _error = 'Erreur lors de la suppression : ${e.toString()}';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> adjustQuantity(String itemId, int adjustment) async {
     try {
-      // Trouver l'article dans la liste locale
       final item = _items.firstWhere(
         (item) => item.id == itemId,
         orElse: () => throw Exception('Article non trouvé'),
@@ -127,117 +209,6 @@ class StockViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> updateConsumptionQuantity(
-    String consumptionId,
-    int newQuantity,
-  ) async {
-    try {
-      final consumption = _consumptions.firstWhere(
-        (c) => c.id == consumptionId,
-      );
-      final stockItem = _items.firstWhere(
-        (i) => i.id == consumption.stockItemId,
-      );
-
-      // Calculate the quantity difference
-      final quantityDiff = newQuantity - consumption.quantity;
-
-      // Check if we have enough stock
-      if (stockItem.quantity - quantityDiff < 0) {
-        throw Exception('Not enough stock available');
-      }
-
-      // Update the stock item quantity
-      await _repository.updateStockItem(
-        stockItem.copyWith(quantity: stockItem.quantity - quantityDiff),
-      );
-
-      // Update the consumption
-      await _repository.updateConsumption(
-        consumption.copyWith(quantity: newQuantity),
-      );
-    } catch (e) {
-      _error = 'Error updating consumption quantity: $e';
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  // Consumption management
-  Future<List<Consumption>> getConsumptionsForBooking(String bookingId) async {
-    try {
-      final consumptions = await _repository.getConsumptionsForBooking(
-        bookingId,
-      );
-      _consumptions = consumptions;
-      notifyListeners();
-      return consumptions;
-    } catch (e) {
-      _error = 'Error loading consumptions: $e';
-      notifyListeners();
-      return [];
-    }
-  }
-
-  Future<bool> addConsumption({
-    required String bookingId,
-    required String stockItemId,
-    required int quantity,
-  }) async {
-    try {
-      final item = _items.firstWhere((item) => item.id == stockItemId);
-      if (item.quantity < quantity) {
-        _error = 'Not enough stock available';
-        notifyListeners();
-        return false;
-      }
-
-      final success = await _repository.addConsumption(
-        bookingId: bookingId,
-        stockItemId: stockItemId,
-        quantity: quantity,
-      );
-
-      if (success) {
-        await getConsumptionsForBooking(bookingId);
-      } else {
-        _error = 'Failed to add consumption';
-        notifyListeners();
-      }
-      return success;
-    } catch (e) {
-      _error = 'Error adding consumption: $e';
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  Future<void> cancelConsumption(String consumptionId) async {
-    try {
-      final consumption = _consumptions.firstWhere(
-        (c) => c.id == consumptionId,
-      );
-      final stockItem = _items.firstWhere(
-        (i) => i.id == consumption.stockItemId,
-      );
-
-      // Return the quantity to stock
-      await adjustQuantity(stockItem.id, consumption.quantity);
-
-      // Delete the consumption
-      await _repository.deleteConsumption(consumptionId);
-
-      // Update local state
-      _consumptions.removeWhere((c) => c.id == consumptionId);
-      notifyListeners();
-    } catch (e) {
-      _error = 'Error canceling consumption: $e';
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  // Stock Items
   Future<void> addItem({
     required String name,
     required int quantity,
@@ -277,21 +248,102 @@ class StockViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteItem(String itemId) async {
-    try {
-      await _repository.deleteStockItem(itemId);
-      _items.removeWhere((item) => item.id == itemId);
-      notifyListeners();
-    } catch (e) {
-      _error = 'Erreur lors de la suppression : ${e.toString()}';
-      notifyListeners();
-      rethrow;
-    }
+  // Get total consumption cost for a booking
+  double getConsumptionsTotalForBooking(String bookingId) {
+    final consumptions = _consumptionsPerBooking[bookingId] ?? [];
+    return consumptions.fold(0.0, (sum, c) => sum + (c.quantity * c.unitPrice));
   }
 
   // Clear error
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  Future<void> updateConsumptionQuantity({
+    required Consumption consumption,
+    required int newQuantity,
+  }) async {
+    if (newQuantity < 1) {
+      throw Exception('La quantité ne peut pas être inférieure à 1');
+    }
+
+    try {
+      // Optimistic update - mettre à jour l'UI immédiatement
+      final bookingConsumptions =
+          _consumptionsPerBooking[consumption.bookingId];
+      if (bookingConsumptions != null) {
+        final index = bookingConsumptions.indexWhere(
+          (c) => c.id == consumption.id,
+        );
+        if (index != -1) {
+          final updatedConsumption = consumption.copyWith(
+            quantity: newQuantity,
+          );
+          bookingConsumptions[index] = updatedConsumption;
+          notifyListeners();
+        }
+      }
+
+      // Mettre à jour dans la base de données
+      final updatedConsumption = await _repository.updateConsumption(
+        consumption.copyWith(quantity: newQuantity),
+      );
+
+      // En cas de succès, mettre à jour avec les données exactes de la base
+      if (bookingConsumptions != null) {
+        final index = bookingConsumptions.indexWhere(
+          (c) => c.id == consumption.id,
+        );
+        if (index != -1) {
+          bookingConsumptions[index] = updatedConsumption;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      // En cas d'erreur, restaurer l'état précédent
+      final bookingConsumptions =
+          _consumptionsPerBooking[consumption.bookingId];
+      if (bookingConsumptions != null) {
+        final index = bookingConsumptions.indexWhere(
+          (c) => c.id == consumption.id,
+        );
+        if (index != -1) {
+          bookingConsumptions[index] = consumption;
+          notifyListeners();
+        }
+      }
+
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> deleteConsumption({required Consumption consumption}) async {
+    try {
+      await _repository.deleteConsumption(consumption.id);
+
+      // Mettre à jour la liste locale des consommations
+      final bookingConsumptions =
+          _consumptionsPerBooking[consumption.bookingId];
+      if (bookingConsumptions != null) {
+        bookingConsumptions.removeWhere((c) => c.id == consumption.id);
+        notifyListeners();
+      }
+    } catch (e) {
+      _error = 'Error deleting consumption: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  double calculateConsumptionTotal(
+    List<(Consumption, StockItem)> consumptions,
+  ) {
+    return consumptions.fold(
+      0,
+      (total, pair) => total + (pair.$1.quantity * pair.$1.unitPrice),
+    );
   }
 }

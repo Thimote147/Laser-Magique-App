@@ -36,12 +36,11 @@ class _PaymentMethodButton extends StatelessWidget {
   final VoidCallback onTap;
 
   const _PaymentMethodButton({
-    Key? key,
     required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -90,472 +89,473 @@ class BookingPaymentWidget extends StatelessWidget {
 
   const BookingPaymentWidget({super.key, required this.booking});
 
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<BookingViewModel>(
-      builder: (context, bookingViewModel, child) {
-        final updatedBooking = bookingViewModel.bookings.firstWhere(
-          (b) => b.id == booking.id,
-          orElse: () => booking,
-        );
+  double get _totalPaid =>
+      booking.payments.fold(0.0, (sum, payment) => sum + payment.amount);
+  double get _remainingAmount => booking.formula.price - _totalPaid;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tête avec résumé des paiements
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.zero,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Paiements',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      FilledButton.tonalIcon(
-                        onPressed:
-                            updatedBooking.remainingBalance > 0
-                                ? () => _showAddPaymentDialog(context)
-                                : null,
-                        icon: const Icon(Icons.add_circle, size: 24),
-                        label: const Text(
-                          'Nouveau paiement',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildPaymentSummary(updatedBooking),
-              ],
-            ),
-
-            // Liste des paiements
-            if (updatedBooking.payments.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(0, 24.0, 0, 8.0),
-                child: Text(
-                  'Historique des paiements',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                ),
-              ),
-              ...updatedBooking.payments.map(
-                (payment) => _buildPaymentCard(context, payment),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildPaymentSummary(Booking booking) {
-    return Builder(
-      builder: (context) {
-        final totalPayments = booking.totalPaid;
-        final remaining = booking.remainingBalance;
-        final theme = Theme.of(context);
-
-        return Card(
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
+  Widget _buildPaymentHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Prix total',
-                          style: TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${booking.totalPrice.toStringAsFixed(2)}€',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: theme.primaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            remaining <= 0
-                                ? Colors.green.shade50
-                                : Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        remaining <= 0 ? 'PAYÉ' : 'EN ATTENTE',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color:
-                              remaining <= 0
-                                  ? Colors.green.shade700
-                                  : Colors.orange.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Montant total',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                const Divider(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Total payé',
-                          style: TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${totalPayments.toStringAsFixed(2)}€',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color:
-                                totalPayments > 0
-                                    ? Colors.green.shade700
-                                    : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'Reste à payer',
-                          style: TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${remaining.toStringAsFixed(2)}€',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color:
-                                remaining > 0
-                                    ? Colors.orange.shade700
-                                    : Colors.green.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  '${booking.formula.price.toStringAsFixed(2)}€',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ],
             ),
           ),
-        );
-      },
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color:
+                  _remainingAmount > 0
+                      ? Theme.of(context).colorScheme.errorContainer
+                      : Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _remainingAmount > 0 ? 'EN ATTENTE' : 'PAYÉ',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color:
+                    _remainingAmount > 0
+                        ? Theme.of(context).colorScheme.error
+                        : Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildPaymentCard(BuildContext context, Payment payment) {
-    final theme = Theme.of(context);
-
-    IconData getPaymentIcon() {
-      switch (payment.method) {
-        case PaymentMethod.card:
-          return Icons.credit_card;
-        case PaymentMethod.cash:
-          return Icons.payments;
-        case PaymentMethod.transfer:
-          return Icons.account_balance;
-      }
-    }
-
-    Color getPaymentColor() {
-      switch (payment.method) {
-        case PaymentMethod.card:
-          return Colors.blue;
-        case PaymentMethod.cash:
-          return Colors.green;
-        case PaymentMethod.transfer:
-          return Colors.purple;
-      }
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8.0),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: getPaymentColor().withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildPaymentDetails(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Total payé',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_totalPaid.toStringAsFixed(2)}€',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color:
+                        _totalPaid > 0
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Icon(getPaymentIcon(), color: getPaymentColor(), size: 24),
-        ),
-        title: Row(
-          children: [
-            Text(
-              payment.type == PaymentType.deposit ? 'Acompte' : 'Paiement',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+          const VerticalDivider(width: 32),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Reste à payer',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_remainingAmount.toStringAsFixed(2)}€',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color:
+                        _remainingAmount > 0
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentHistory(BuildContext context) {
+    if (booking.payments.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Text(
+          'Historique des paiements',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...booking.payments
+            .map(
+              (payment) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      payment.type.displayName,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.copyWith(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${payment.amount.toStringAsFixed(2)}€',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const VerticalDivider(width: 32),
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Moyen de paiement',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.copyWith(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      payment.method.displayName,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          onPressed:
+                              () => _showDeletePaymentDialog(context, payment),
+                          color: Theme.of(context).colorScheme.error,
+                          tooltip: 'Supprimer le paiement',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Le ${payment.date.day} ${_getMonthName(payment.date.month)} ${payment.date.year}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Text(
-                payment.method.displayName,
-                style: TextStyle(fontSize: 12, color: theme.primaryColor),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Text(
-          'Le ${payment.date.day}/${payment.date.month}/${payment.date.year}',
-          style: TextStyle(color: Colors.grey[600]),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${payment.amount.toStringAsFixed(2)}€',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              color: Colors.red,
-              onPressed: () => _showDeletePaymentDialog(context, payment),
-            ),
-          ],
+            )
+            .toList(),
+      ],
+    );
+  }
+
+  Widget _buildAddPaymentButton(BuildContext context) {
+    if (_remainingAmount <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      child: OutlinedButton.icon(
+        onPressed: () => _showAddPaymentDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Nouveau paiement'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
   }
 
-  Future<void> _showAddPaymentDialog(BuildContext context) async {
-    double? amount;
-    PaymentMethod selectedMethod = PaymentMethod.card;
-    PaymentType selectedType = PaymentType.deposit;
-
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Nouveau paiement'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'Montant',
-                        prefixText: '€',
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d+[,\.]?\d{0,2}'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          // Remplace la virgule par un point pour le parsing
-                          final parsableValue = value.replaceAll(',', '.');
-                          amount = double.tryParse(parsableValue);
-                          print('Amount parsed: $amount'); // Pour débogage
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Column(
-                      children: [
-                        const Text(
-                          'Méthode de paiement',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: _PaymentMethodButton(
-                                icon: Icons.account_balance,
-                                label: 'Virement',
-                                isSelected:
-                                    selectedMethod == PaymentMethod.transfer,
-                                onTap:
-                                    () => setState(() {
-                                      selectedMethod = PaymentMethod.transfer;
-                                    }),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _PaymentMethodButton(
-                                icon: Icons.credit_card,
-                                label: 'CB',
-                                isSelected:
-                                    selectedMethod == PaymentMethod.card,
-                                onTap:
-                                    () => setState(() {
-                                      selectedMethod = PaymentMethod.card;
-                                    }),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _PaymentMethodButton(
-                                icon: Icons.payments,
-                                label: 'Espèces',
-                                isSelected:
-                                    selectedMethod == PaymentMethod.cash,
-                                onTap:
-                                    () => setState(() {
-                                      selectedMethod = PaymentMethod.cash;
-                                    }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Column(
-                      children: [
-                        const Text(
-                          'Type de paiement',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: _PaymentMethodButton(
-                                icon: Icons.download,
-                                label: 'Acompte',
-                                isSelected: selectedType == PaymentType.deposit,
-                                onTap:
-                                    () => setState(() {
-                                      selectedType = PaymentType.deposit;
-                                    }),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _PaymentMethodButton(
-                                icon: Icons.check_circle,
-                                label: 'Solde',
-                                isSelected: selectedType == PaymentType.balance,
-                                onTap:
-                                    () => setState(() {
-                                      selectedType = PaymentType.balance;
-                                    }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('Annuler'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-                FilledButton(
-                  onPressed:
-                      amount != null && amount! > 0
-                          ? () {
-                            final bookingViewModel =
-                                context.read<BookingViewModel>();
-                            bookingViewModel.addPayment(
-                              bookingId: booking.id,
-                              amount: amount!,
-                              method: selectedMethod,
-                              type: selectedType,
-                            );
-                            Navigator.of(context).pop();
-                          }
-                          : null,
-                  child: const Text('Ajouter'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPaymentHeader(context),
+        _buildPaymentDetails(context),
+        const SizedBox(height: 12),
+        _buildAddPaymentButton(context),
+        _buildPaymentHistory(context),
+      ],
     );
   }
 
-  void _showDeletePaymentDialog(BuildContext context, Payment payment) {
-    showDialog(
+  Future<void> _showAddPaymentDialog(BuildContext context) async {
+    final originalPayment = Payment(
+      bookingId: booking.id,
+      amount: _remainingAmount,
+      method: PaymentMethod.card,
+      type:
+          booking.payments.isEmpty ? PaymentType.deposit : PaymentType.balance,
+      date: DateTime.now(),
+    );
+
+    final payment = await showDialog<Payment>(
+      context: context,
+      builder:
+          (context) => _AddPaymentDialog(
+            booking: booking,
+            initialPayment: originalPayment,
+          ),
+    );
+
+    if (payment != null && context.mounted) {
+      await Provider.of<BookingViewModel>(context, listen: false).addPayment(
+        bookingId: payment.bookingId,
+        amount: payment.amount,
+        method: payment.method,
+        type: payment.type,
+      );
+    }
+  }
+
+  Future<void> _showDeletePaymentDialog(
+    BuildContext context,
+    Payment payment,
+  ) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
+            title: const Text('Supprimer le paiement ?'),
             content: Text(
               'Voulez-vous vraiment supprimer ce paiement de ${payment.amount.toStringAsFixed(2)}€ ?',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.of(context).pop(false),
                 child: const Text('Annuler'),
               ),
-              FilledButton(
-                onPressed: () {
-                  // D'abord fermer le dialogue
-                  Navigator.pop(context);
-
-                  // Ensuite supprimer le paiement et afficher le message
-                  final bookingViewModel = context.read<BookingViewModel>();
-                  bookingViewModel.cancelPayment(payment.id);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Paiement supprimé'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                style: FilledButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Supprimer'),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(
+                  'Supprimer',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
             ],
           ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await Provider.of<BookingViewModel>(
+        context,
+        listen: false,
+      ).cancelPayment(payment.id);
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'janvier',
+      'février',
+      'mars',
+      'avril',
+      'mai',
+      'juin',
+      'juillet',
+      'août',
+      'septembre',
+      'octobre',
+      'novembre',
+      'décembre',
+    ];
+    return months[month - 1];
+  }
+}
+
+class _AddPaymentDialog extends StatefulWidget {
+  final Booking booking;
+  final Payment initialPayment;
+
+  const _AddPaymentDialog({
+    required this.booking,
+    required this.initialPayment,
+  });
+
+  @override
+  _AddPaymentDialogState createState() => _AddPaymentDialogState();
+}
+
+class _AddPaymentDialogState extends State<_AddPaymentDialog> {
+  late Payment _payment;
+
+  @override
+  void initState() {
+    super.initState();
+    _payment = widget.initialPayment;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Nouveau paiement'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextFormField(
+            initialValue: _payment.amount.toStringAsFixed(2),
+            decoration: InputDecoration(
+              labelText: 'Montant',
+              suffixText: '€',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            onChanged: (value) {
+              setState(() {
+                _payment = _payment.copyWith(
+                  amount: double.tryParse(value) ?? _payment.amount,
+                );
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _PaymentMethodButton(
+                  icon: Icons.credit_card,
+                  label: 'CB',
+                  isSelected: _payment.method == PaymentMethod.card,
+                  onTap: () {
+                    setState(() {
+                      _payment = _payment.copyWith(method: PaymentMethod.card);
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _PaymentMethodButton(
+                  icon: Icons.euro_rounded,
+                  label: 'Espèces',
+                  isSelected: _payment.method == PaymentMethod.cash,
+                  onTap: () {
+                    setState(() {
+                      _payment = _payment.copyWith(method: PaymentMethod.cash);
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _PaymentMethodButton(
+                  icon: Icons.account_balance,
+                  label: 'Virement',
+                  isSelected: _payment.method == PaymentMethod.transfer,
+                  onTap: () {
+                    setState(() {
+                      _payment = _payment.copyWith(
+                        method: PaymentMethod.transfer,
+                      );
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_payment),
+          child: const Text('Ajouter'),
+        ),
+      ],
     );
   }
 }

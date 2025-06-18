@@ -170,6 +170,7 @@ CREATE TABLE consumptions (
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(booking_id, stock_item_id),
   CHECK (quantity > 0),
   CHECK (unit_price >= 0)
 );
@@ -630,6 +631,71 @@ BEGIN
 END;
 $$;
 
+-- Drop existing function before recreating it
+DROP FUNCTION IF EXISTS public.update_consumption(UUID, INTEGER);
+
+-- Function to update a consumption's quantity and related stock
+CREATE OR REPLACE FUNCTION public.update_consumption(
+  p_consumption_id UUID,  -- ID de la consommation à mettre à jour
+  p_new_quantity INTEGER  -- Nouvelle quantité à définir
+)
+RETURNS consumptions  -- Retourne l'enregistrement de consommation mis à jour
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_old_quantity INTEGER;
+  v_stock_item_id UUID;
+  v_current_stock INTEGER;
+  v_quantity_diff INTEGER;
+  v_result RECORD;
+BEGIN
+  -- 1. Récupérer les détails de la consommation actuelle
+  SELECT quantity, stock_item_id INTO v_old_quantity, v_stock_item_id
+  FROM consumptions
+  WHERE id = p_consumption_id;
+  
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Consommation introuvable';
+  END IF;
+  
+  -- Vérifier que la nouvelle quantité est positive
+  IF p_new_quantity <= 0 THEN
+    RAISE EXCEPTION 'La nouvelle quantité doit être positive';
+  END IF;
+  
+  -- 2. Calculer la différence de quantité
+  v_quantity_diff := p_new_quantity - v_old_quantity;
+  
+  -- 3. Vérifier le stock disponible si on augmente la quantité
+  IF v_quantity_diff > 0 THEN
+    SELECT quantity INTO v_current_stock
+    FROM stock_items
+    WHERE id = v_stock_item_id;
+    
+    IF v_current_stock < v_quantity_diff THEN
+      RAISE EXCEPTION 'Stock insuffisant. Stock actuel: %, Différence demandée: %', 
+        v_current_stock, v_quantity_diff;
+    END IF;
+  END IF;
+  
+  -- 4. Mettre à jour la consommation
+  UPDATE consumptions
+  SET quantity = p_new_quantity
+  WHERE id = p_consumption_id
+  RETURNING * INTO v_result;
+  
+  -- 5. Ajuster le stock (sera automatiquement fait par le trigger update_stock_quantity)
+  
+  RETURN v_result;
+END;
+$$;
+
+-- Grant access to the update_consumption function
+GRANT EXECUTE ON FUNCTION public.update_consumption(UUID, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_consumption(UUID, INTEGER) TO service_role;
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE formulas ENABLE ROW LEVEL SECURITY;
@@ -713,3 +779,5 @@ INSERT INTO formulas(
   is_game_count_fixed
 )
 VALUES ((SELECT id FROM activities WHERE name = 'Laser Game'), 'Groupe', 'OK', 8.00, 2, 20, 1, false);
+
+insert into stock_items(name, quantity, price, alert_threshold, category) VALUES ('test', 50, 2.00, 10, 'DRINK');

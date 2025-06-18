@@ -94,9 +94,13 @@ class StockRepository {
 
   // Consumptions
   Future<List<Consumption>> getConsumptionsForBooking(String? bookingId) async {
-    final query = _client.from('consumptions').select();
+    final query = _client
+        .from('consumptions')
+        .select('*, stock_items(*)'); // Inclure les données des items associés
+
     final filteredQuery =
         bookingId != null ? query.eq('booking_id', bookingId) : query;
+
     final finalQuery = filteredQuery.order('timestamp');
 
     final response = await finalQuery;
@@ -117,7 +121,7 @@ class StockRepository {
         );
   }
 
-  Future<bool> addConsumption({
+  Future<Consumption> addConsumption({
     required String bookingId,
     required String stockItemId,
     required int quantity,
@@ -130,71 +134,105 @@ class StockRepository {
               .eq('id', stockItemId)
               .single();
 
-      if (stockItem['quantity'] < quantity) {
-        return false;
+      final unitPrice = (stockItem['price'] as num).toDouble();
+      final currentStock = stockItem['quantity'] as int;
+
+      // Vérifier si nous avons assez de stock
+      if (currentStock < quantity) {
+        throw Exception('Quantité insuffisante en stock');
       }
 
-      // Update the stock item quantity first
-      await _client
-          .from('stock_items')
-          .update({'quantity': stockItem['quantity'] - quantity})
-          .eq('id', stockItemId);
+      // Rechercher une consommation existante
+      final existingConsumptions = await _client
+          .from('consumptions')
+          .select()
+          .eq('booking_id', bookingId)
+          .eq('stock_item_id', stockItemId);
 
-      // Then create the consumption record
-      await _client.from('consumptions').insert({
-        'booking_id': bookingId,
-        'stock_item_id': stockItemId,
-        'quantity': quantity,
-        'unit_price': stockItem['price'],
-        'timestamp': DateTime.now().toIso8601String(),
-      });
+      if (existingConsumptions.isNotEmpty) {
+        // Si une consommation existe déjà, mettre à jour la quantité
+        final existingConsumption = existingConsumptions[0];
+        final currentQuantity = existingConsumption['quantity'] as int;
+        final newQuantity = currentQuantity + quantity;
 
-      return true;
+        // Mettre à jour le stock
+        await _client
+            .from('stock_items')
+            .update({'quantity': currentStock - quantity})
+            .eq('id', stockItemId);
+
+        // Mettre à jour la consommation existante
+        final response =
+            await _client
+                .from('consumptions')
+                .update({
+                  'quantity': newQuantity,
+                  'timestamp': DateTime.now().toIso8601String(),
+                })
+                .eq('id', existingConsumption['id'])
+                .select('*, stock_items(*)')
+                .single();
+
+        return Consumption.fromMap(response);
+      } else {
+        // Vérifier si nous avons assez de stock pour la nouvelle consommation
+        if (currentStock < quantity) {
+          throw Exception('Quantité insuffisante en stock');
+        }
+
+        // Mettre à jour le stock
+        await _client
+            .from('stock_items')
+            .update({'quantity': currentStock - quantity})
+            .eq('id', stockItemId);
+
+        // Créer une nouvelle consommation
+        final response =
+            await _client
+                .from('consumptions')
+                .insert({
+                  'booking_id': bookingId,
+                  'stock_item_id': stockItemId,
+                  'quantity': quantity,
+                  'unit_price': unitPrice,
+                  'timestamp': DateTime.now().toIso8601String(),
+                })
+                .select('*, stock_items(*)')
+                .single();
+
+        return Consumption.fromMap(response);
+      }
     } catch (e) {
-      rethrow;
+      throw Exception(
+        'Erreur lors de l\'ajout de la consommation: ${e.toString()}',
+      );
     }
   }
 
-  Future<void> updateConsumption(Consumption consumption) async {
-    // First get the current consumption to calculate stock adjustment
-    final oldConsumption =
-        await _client
-            .from('consumptions')
-            .select()
-            .eq('id', consumption.id)
-            .single();
-
-    final quantityDiff = consumption.quantity - oldConsumption['quantity'];
-
-    // Begin transaction
+  Future<Consumption> updateConsumption(Consumption consumption) async {
     try {
-      // Update stock item quantity
-      final stockItem =
+      // Utiliser une procédure stockée pour effectuer la mise à jour en une seule transaction
+      final response =
           await _client
-              .from('stock_items')
-              .select()
-              .eq('id', consumption.stockItemId)
+              .rpc(
+                'update_consumption',
+                params: {
+                  'p_consumption_id': consumption.id,
+                  'p_new_quantity': consumption.quantity,
+                },
+              )
+              .select('*, stock_items(*)')
               .single();
 
-      if (stockItem['quantity'] - quantityDiff < 0) {
-        throw Exception('Not enough stock available');
-      }
-
-      await _client
-          .from('stock_items')
-          .update({'quantity': stockItem['quantity'] - quantityDiff})
-          .eq('id', consumption.stockItemId);
-
-      // Update consumption record
-      await _client
-          .from('consumptions')
-          .update({
-            'quantity': consumption.quantity,
-            'unit_price': consumption.unitPrice,
-          })
-          .eq('id', consumption.id);
+      return Consumption.fromMap(response);
     } catch (e) {
-      rethrow;
+      final message = e.toString().toLowerCase();
+      if (message.contains('stock insuffisant')) {
+        throw Exception('Stock insuffisant pour cette modification');
+      }
+      throw Exception(
+        'Erreur lors de la mise à jour de la consommation: ${e.toString()}',
+      );
     }
   }
 

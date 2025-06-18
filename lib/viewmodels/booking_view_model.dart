@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 import '../models/formula_model.dart';
@@ -10,6 +11,7 @@ class BookingViewModel extends ChangeNotifier {
   final BookingRepository _repository = BookingRepository();
   ActivityFormulaViewModel _activityFormulaViewModel;
   StockViewModel _stockViewModel;
+  Timer? _refreshTimer;
 
   List<Booking> _bookings = [];
   bool _isLoading = true;
@@ -17,7 +19,7 @@ class BookingViewModel extends ChangeNotifier {
 
   BookingViewModel(this._activityFormulaViewModel, this._stockViewModel) {
     _initializeData();
-    _setupSubscriptions();
+    _setupPeriodicRefresh();
   }
 
   // Getters
@@ -37,9 +39,23 @@ class BookingViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Initialize data
+  // Initialise les données
   Future<void> _initializeData() async {
     await loadBookings();
+  }
+
+  // Configure le rafraîchissement périodique
+  void _setupPeriodicRefresh() {
+    // Rafraîchit toutes les 30 secondes
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      loadBookings();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   /// Rafraîchit la liste des réservations
@@ -49,7 +65,28 @@ class BookingViewModel extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      _bookings = await _repository.getAllBookings();
+      final bookings = await _repository.getAllBookings();
+
+      // Compare les anciennes et nouvelles réservations
+      bool hasChanges = _bookings.length != bookings.length;
+      if (!hasChanges) {
+        for (int i = 0; i < _bookings.length; i++) {
+          if (_bookings[i].id != bookings[i].id ||
+              _bookings[i].dateTime != bookings[i].dateTime ||
+              _bookings[i].firstName != bookings[i].firstName ||
+              _bookings[i].isCancelled != bookings[i].isCancelled ||
+              _bookings[i].remainingBalance != bookings[i].remainingBalance) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
+
+      if (hasChanges) {
+        _bookings = bookings;
+        notifyListeners();
+      }
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -57,37 +94,6 @@ class BookingViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  // Setup real-time subscriptions
-  void _setupSubscriptions() {
-    _repository.streamBookings().listen(
-      (bookings) {
-        // Comparer les anciennes et nouvelles réservations avant de notifier
-        bool hasChanges = _bookings.length != bookings.length;
-        if (!hasChanges) {
-          for (int i = 0; i < _bookings.length; i++) {
-            if (_bookings[i].id != bookings[i].id ||
-                _bookings[i].dateTime != bookings[i].dateTime ||
-                _bookings[i].firstName != bookings[i].firstName ||
-                _bookings[i].isCancelled != bookings[i].isCancelled ||
-                _bookings[i].remainingBalance != bookings[i].remainingBalance) {
-              hasChanges = true;
-              break;
-            }
-          }
-        }
-
-        if (hasChanges) {
-          _bookings = bookings;
-          notifyListeners();
-        }
-      },
-      onError: (e) {
-        _error = 'Subscription error: $e';
-        notifyListeners();
-      },
-    );
   }
 
   // Booking management
@@ -234,10 +240,5 @@ class BookingViewModel extends ChangeNotifier {
     _activityFormulaViewModel = activityFormulaViewModel;
     _stockViewModel = stockViewModel;
     notifyListeners(); // Notifier en cas de changements dans les dépendances
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

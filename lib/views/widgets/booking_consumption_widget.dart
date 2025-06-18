@@ -2,14 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/booking_model.dart';
 import '../../models/consumption_model.dart';
+import '../../models/stock_item_model.dart';
 import '../../viewmodels/stock_view_model.dart';
 import 'consumption_selector.dart';
 
-class BookingConsumptionWidget extends StatelessWidget {
+class BookingConsumptionWidget extends StatefulWidget {
   final Booking booking;
 
   const BookingConsumptionWidget({Key? key, required this.booking})
     : super(key: key);
+
+  @override
+  State<BookingConsumptionWidget> createState() =>
+      _BookingConsumptionWidgetState();
+}
+
+class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
+  Future<List<(Consumption, StockItem)>> _getConsumptions() {
+    final stockVM = Provider.of<StockViewModel>(context, listen: false);
+    return stockVM.getConsumptionsWithStockItems(widget.booking.id);
+  }
 
   IconData _getItemIcon(String category) {
     switch (category) {
@@ -40,7 +52,7 @@ class BookingConsumptionWidget extends StatelessWidget {
               onConsumptionSelected: (stockItemId) async {
                 try {
                   final success = await stockVM.addConsumption(
-                    bookingId: booking.id,
+                    bookingId: widget.booking.id,
                     stockItemId: stockItemId,
                     quantity: 1,
                   );
@@ -57,6 +69,12 @@ class BookingConsumptionWidget extends StatelessWidget {
                         backgroundColor: Colors.orange,
                       ),
                     );
+                    return;
+                  }
+
+                  // Force rebuild to refresh the consumptions list
+                  if (mounted) {
+                    setState(() {});
                   }
                 } catch (e) {
                   Navigator.pop(context);
@@ -74,286 +92,274 @@ class BookingConsumptionWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildConsumptionHeader(BuildContext context, double totalAmount) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Montant total',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${totalAmount.toStringAsFixed(2)}€',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddConsumptionButton(
+    BuildContext context,
+    StockViewModel stockVM,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      child: OutlinedButton.icon(
+        onPressed: () => _showAddConsumptionDialog(context, stockVM),
+        icon: const Icon(Icons.add),
+        label: const Text('Nouvelle consommation'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConsumptionsList(
+    BuildContext context,
+    List<(Consumption, StockItem)> consumptions,
+  ) {
+    if (consumptions.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Text(
+          'Liste des consommations',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...consumptions.map((pair) {
+          final consumption = pair.$1;
+          final stockItem = pair.$2;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Icône de la catégorie
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _getItemIcon(stockItem.category),
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Nom du produit
+                  Expanded(
+                    child: Text(
+                      stockItem.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+
+                  // Contrôles de quantité et prix
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Material(
+                        type: MaterialType.transparency,
+                        child: IconButton(
+                          icon: Icon(
+                            consumption.quantity > 1
+                                ? Icons.remove
+                                : Icons.delete_outline,
+                            size: 20,
+                            color:
+                                consumption.quantity > 1
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.error,
+                          ),
+                          onPressed: () async {
+                            try {
+                              final stockVM = Provider.of<StockViewModel>(
+                                context,
+                                listen: false,
+                              );
+                              if (consumption.quantity > 1) {
+                                await stockVM.updateConsumptionQuantity(
+                                  consumption: consumption,
+                                  newQuantity: consumption.quantity - 1,
+                                );
+                              } else {
+                                await stockVM.deleteConsumption(
+                                  consumption: consumption,
+                                );
+                              }
+                              setState(() {});
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString()),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(40, 40),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${consumption.quantity}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Material(
+                        type: MaterialType.transparency,
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.add,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          onPressed: () async {
+                            try {
+                              final stockVM = Provider.of<StockViewModel>(
+                                context,
+                                listen: false,
+                              );
+                              await stockVM.updateConsumptionQuantity(
+                                consumption: consumption,
+                                newQuantity: consumption.quantity + 1,
+                              );
+                              setState(() {});
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString()),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(40, 40),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '${(consumption.quantity * consumption.unitPrice).toStringAsFixed(2)}€',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<StockViewModel>(
       builder: (context, stockVM, _) {
-        final theme = Theme.of(context);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Consommations',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        return FutureBuilder<List<(Consumption, StockItem)>>(
+          future: _getConsumptions(),
+          builder: (context, snapshot) {
+            // Afficher un indicateur de chargement uniquement lors du premier chargement
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FutureBuilder<List<Consumption>>(
-              future: stockVM.getConsumptionsForBooking(booking.id),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Erreur: ${snapshot.error}',
-                      style: TextStyle(color: theme.colorScheme.error),
-                    ),
-                  );
-                }
-
-                final consumptions = snapshot.data ?? [];
-                final total = consumptions.fold(
-                  0.0,
-                  (sum, c) => sum + c.totalPrice,
-                );
-
-                return Column(
-                  children: [
-                    if (consumptions.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${total.toStringAsFixed(2)}€',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: theme.primaryColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ListView.separated(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: consumptions.length,
-                        separatorBuilder:
-                            (context, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final consumption = consumptions[index];
-                          final item = stockVM.items.firstWhere(
-                            (i) => i.id == consumption.stockItemId,
-                          );
-
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: theme.primaryColor.withOpacity(0.08),
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(12),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        _getItemIcon(item.category),
-                                        size: 16,
-                                        color: theme.primaryColor,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          item.name,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        '${consumption.totalPrice.toStringAsFixed(2)}€',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: theme.primaryColor,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      _ConsumptionButton(
-                                        icon: Icons.delete_rounded,
-                                        onTap:
-                                            () => stockVM.cancelConsumption(
-                                              consumption.id,
-                                            ),
-                                        color: Colors.red.shade400,
-                                      ),
-                                      Row(
-                                        children: [
-                                          _ConsumptionButton(
-                                            icon: Icons.remove_rounded,
-                                            onTap:
-                                                consumption.quantity > 1
-                                                    ? () => stockVM
-                                                        .updateConsumptionQuantity(
-                                                          consumption.id,
-                                                          consumption.quantity -
-                                                              1,
-                                                        )
-                                                    : null,
-                                            color: Colors.grey.shade700,
-                                          ),
-                                          Container(
-                                            margin: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey.shade100,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              '${consumption.quantity}',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.grey.shade800,
-                                              ),
-                                            ),
-                                          ),
-                                          _ConsumptionButton(
-                                            icon: Icons.add_rounded,
-                                            onTap:
-                                                item.quantity > 0
-                                                    ? () => stockVM
-                                                        .updateConsumptionQuantity(
-                                                          consumption.id,
-                                                          consumption.quantity +
-                                                              1,
-                                                        )
-                                                    : null,
-                                            color: Colors.green.shade400,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ] else
-                      const Center(
-                        child: Text(
-                          'Aucune consommation',
-                          style: TextStyle(
-                            fontStyle: FontStyle.italic,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: FilledButton.tonalIcon(
-                onPressed: () => _showAddConsumptionDialog(context, stockVM),
-                icon: const Icon(Icons.add_circle, size: 24),
-                label: const Text(
-                  'Nouvelle consommation',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                child: const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: CircularProgressIndicator(),
                   ),
                 ),
-              ),
-            ),
-          ],
+              );
+            }
+
+            final consumptions = snapshot.data ?? [];
+            final totalAmount = stockVM.calculateConsumptionTotal(consumptions);
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildConsumptionHeader(context, totalAmount),
+                _buildAddConsumptionButton(context, stockVM),
+                _buildConsumptionsList(context, consumptions),
+              ],
+            );
+          },
         );
       },
-    );
-  }
-}
-
-class _ConsumptionButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
-  final Color color;
-
-  const _ConsumptionButton({
-    required this.icon,
-    required this.onTap,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          alignment: Alignment.center,
-          child: Icon(
-            icon,
-            size: 22,
-            color: onTap == null ? color.withOpacity(0.3) : color,
-          ),
-        ),
-      ),
     );
   }
 }

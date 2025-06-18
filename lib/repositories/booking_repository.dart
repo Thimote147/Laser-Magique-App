@@ -8,13 +8,19 @@ import '../models/payment_model.dart';
 class BookingRepository {
   final SupabaseClient _client = SupabaseConfig.client;
 
+  // Récupère la liste des réservations
   Future<List<Booking>> getAllBookings() async {
-    final response = await _client
-        .from('booking_summaries')
-        .select()
-        .order('date_time');
+    try {
+      final response = await _client
+          .from('booking_summaries')
+          .select()
+          .order('date_time');
 
-    return (response as List).map((json) => Booking.fromMap(json)).toList();
+      return (response as List).map((json) => Booking.fromMap(json)).toList();
+    } catch (e) {
+      debugPrint('Error fetching bookings: $e');
+      rethrow;
+    }
   }
 
   Future<List<Booking>> getBookingsForDay(DateTime date) async {
@@ -97,53 +103,6 @@ class BookingRepository {
 
   Future<void> deleteBooking(String id) async {
     await _client.from('bookings').delete().eq('id', id);
-  }
-
-  Stream<List<Booking>> streamBookings() {
-    const maxRetries = 3;
-    var retryCount = 0;
-    var retryDelay = const Duration(seconds: 1);
-
-    return _client
-        .from('booking_summaries')
-        .stream(primaryKey: ['id'])
-        .order('date_time')
-        .handleError(
-          (error) {
-            debugPrint('Error in booking stream: $error');
-            if (retryCount >= maxRetries) {
-              debugPrint('Max retry attempts reached ($maxRetries)');
-              throw Exception('Failed to reconnect after $maxRetries attempts');
-            }
-
-            retryCount++;
-            debugPrint(
-              'Retry attempt $retryCount/$maxRetries after ${retryDelay.inSeconds}s',
-            );
-
-            // Implémente un délai de reconnexion exponentiel
-            final currentDelay = retryDelay;
-            retryDelay *= 2;
-
-            return Future.delayed(
-              currentDelay,
-            ).asStream().asyncExpand((_) => streamBookings());
-          },
-          test:
-              (error) =>
-                  error
-                      is! FormatException, // Ne pas réessayer pour les erreurs de format
-        )
-        .map((response) {
-          try {
-            return (response as List)
-                .map((json) => Booking.fromMap(json))
-                .toList();
-          } catch (e) {
-            debugPrint('Error parsing booking data: $e');
-            return <Booking>[];
-          }
-        });
   }
 
   Future<void> addPayment({
