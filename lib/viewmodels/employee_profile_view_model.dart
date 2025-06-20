@@ -26,6 +26,10 @@ class EmployeeProfileViewModel extends ChangeNotifier {
   UserRole get role => _role;
   String get roleString =>
       _role == UserRole.admin ? 'Administrateur' : 'Membre';
+  String get initials =>
+      _firstName.isNotEmpty && _lastName.isNotEmpty
+          ? '${_firstName[0]}${_lastName[0]}'.toUpperCase()
+          : '';
   List<WorkDay> get workDays => List.unmodifiable(_workDays);
 
   // Constructeur qui charge les données de test

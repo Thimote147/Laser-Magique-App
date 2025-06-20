@@ -13,16 +13,20 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profileVM = Provider.of<EmployeeProfileViewModel>(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
       body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
+          const SizedBox(height: 8),
           // Prévisualisation du profil
           _buildProfilePreview(context, profileVM),
 
+          const SizedBox(height: 24),
           // Section Application
-          _buildSectionTitle('Application'),
+          _buildSectionHeader(context, 'Application', Icons.settings_rounded),
 
           // Notifications
           Consumer<SettingsViewModel>(
@@ -82,10 +86,10 @@ class SettingsScreen extends StatelessWidget {
             },
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),
 
           // Section Support
-          _buildSectionTitle('Support'),
+          _buildSectionHeader(context, 'Support', Icons.help_outline_rounded),
 
           // Aide
           _buildSettingsItem(
@@ -114,22 +118,40 @@ class SettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionHeader(
+    BuildContext context,
+    String title,
+    IconData icon,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.indigo,
-        ),
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurfaceVariant,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -144,17 +166,17 @@ class SettingsScreen extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.3)),
+        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.2)),
       ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Container(
@@ -163,7 +185,7 @@ class SettingsScreen extends StatelessWidget {
                   color: colorScheme.primary.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: colorScheme.primary, size: 24),
+                child: Icon(icon, color: colorScheme.primary, size: 22),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -190,7 +212,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                Icons.chevron_right_rounded,
                 size: 24,
                 color: colorScheme.onSurfaceVariant.withOpacity(0.8),
               ),
@@ -218,11 +240,16 @@ class SettingsScreen extends StatelessWidget {
     EmployeeProfileViewModel profileVM,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: isDark ? 1 : 2,
+      shadowColor: colorScheme.shadow.withOpacity(0.2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: colorScheme.outline.withOpacity(0.1)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
@@ -241,37 +268,69 @@ class SettingsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
+                    // Avatar
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colorScheme.primary.withOpacity(0.1),
+                        border: Border.all(
+                          color: colorScheme.primary.withOpacity(0.2),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          profileVM.initials,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
                     Expanded(
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             profileVM.fullName,
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: colorScheme.onSurface,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(height: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: 10,
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color:
-                                  profileVM.role == UserRole.admin
-                                      ? Colors.redAccent.withOpacity(0.15)
-                                      : Colors.green.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(16),
+                              color: (profileVM.role == UserRole.admin
+                                      ? colorScheme.error
+                                      : colorScheme.primary)
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: (profileVM.role == UserRole.admin
+                                        ? colorScheme.error
+                                        : colorScheme.primary)
+                                    .withOpacity(0.2),
+                                width: 1,
+                              ),
                             ),
                             child: Text(
                               profileVM.roleString,
                               style: TextStyle(
                                 color:
                                     profileVM.role == UserRole.admin
-                                        ? Colors.redAccent
-                                        : Colors.green[700],
+                                        ? colorScheme.error
+                                        : colorScheme.primary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -280,17 +339,29 @@ class SettingsScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      color: colorScheme.primary.withOpacity(0.7),
-                      size: 24,
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colorScheme.primary.withOpacity(0.1),
+                      ),
+                      child: Icon(
+                        Icons.chevron_right,
+                        color: colorScheme.primary,
+                        size: 20,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          const Divider(height: 1, thickness: 1),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: colorScheme.outlineVariant.withOpacity(0.2),
+          ),
           // Partie inférieure - Statistiques (cliquer redirige vers heures de travail)
           Material(
             color: Colors.transparent,
@@ -303,7 +374,7 @@ class SettingsScreen extends StatelessWidget {
                 );
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   children: [
                     IntrinsicHeight(
@@ -315,11 +386,14 @@ class SettingsScreen extends StatelessWidget {
                             label: 'Taux horaire',
                             value:
                                 '${profileVM.hourlyRate.toStringAsFixed(2)}€',
+                            icon: Icons.payments_rounded,
                           ),
                           VerticalDivider(
                             thickness: 1,
                             width: 1,
-                            color: Colors.grey.withOpacity(0.2),
+                            indent: 8,
+                            endIndent: 8,
+                            color: colorScheme.outlineVariant.withOpacity(0.2),
                           ),
                           _buildProfileStat(
                             context,
@@ -327,17 +401,21 @@ class SettingsScreen extends StatelessWidget {
                             value: _formatHoursToHourMinutes(
                               _calculateTotalHours(profileVM),
                             ),
+                            icon: Icons.access_time_rounded,
                           ),
                           VerticalDivider(
                             thickness: 1,
                             width: 1,
-                            color: Colors.grey.withOpacity(0.2),
+                            indent: 8,
+                            endIndent: 8,
+                            color: colorScheme.outlineVariant.withOpacity(0.2),
                           ),
                           _buildProfileStat(
                             context,
                             label: 'Revenus du mois',
                             value:
                                 '${profileVM.getCurrentMonthEarnings().toStringAsFixed(2)}€',
+                            icon: Icons.euro_rounded,
                           ),
                         ],
                       ),
@@ -356,22 +434,41 @@ class SettingsScreen extends StatelessWidget {
     BuildContext context, {
     required String label,
     required String value,
+    required IconData icon,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Expanded(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: colorScheme.primary, size: 16),
+          ),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16, // Légèrement réduit
               fontWeight: FontWeight.w600,
               color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -404,14 +501,14 @@ class SettingsScreen extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.3)),
+        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.2)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Container(
@@ -420,7 +517,7 @@ class SettingsScreen extends StatelessWidget {
                 color: colorScheme.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: colorScheme.primary, size: 24),
+              child: Icon(icon, color: colorScheme.primary, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(

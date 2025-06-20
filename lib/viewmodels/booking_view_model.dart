@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 import '../models/formula_model.dart';
-import '../models/payment_model.dart';
+import '../models/payment_model.dart' as payment_model;
 import '../repositories/booking_repository.dart';
 import 'activity_formula_view_model.dart';
 
@@ -26,6 +26,8 @@ class BookingViewModel extends ChangeNotifier {
   final BookingRepository _repository = BookingRepository();
   ActivityFormulaViewModel _activityFormulaViewModel;
   Timer? _refreshTimer;
+  Timer? _debounceTimer;
+  DateTime? _lastManualRefresh;
 
   List<Booking> _bookings = [];
   Map<String, Booking> _bookingCache = {};
@@ -58,16 +60,31 @@ class BookingViewModel extends ChangeNotifier {
 
   // Configure le rafraîchissement périodique
   void _setupPeriodicRefresh() {
-    // Rafraîchit toutes les 30 secondes
+    // Rafraîchit toutes les 30 secondes si aucune action utilisateur récente
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      loadBookings();
+      final now = DateTime.now();
+      // Ne rafraîchit que si aucun refresh manuel n'a été fait dans les 30 dernières secondes
+      if (_lastManualRefresh == null ||
+          now.difference(_lastManualRefresh!) > const Duration(seconds: 30)) {
+        loadBookings();
+      }
     });
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  /// Déclenche un refresh immédiat avec debounce
+  Future<void> _triggerImmediateRefresh() async {
+    _lastManualRefresh = DateTime.now();
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      await loadBookings();
+    });
   }
 
   /// Rafraîchit la liste des réservations
@@ -122,7 +139,8 @@ class BookingViewModel extends ChangeNotifier {
     String? phone,
     required Formula formula,
     double deposit = 0.0,
-    PaymentMethod paymentMethod = PaymentMethod.card,
+    payment_model.PaymentMethod paymentMethod =
+        payment_model.PaymentMethod.card,
   }) async {
     try {
       // Validate that the formula exists and is up to date
@@ -135,7 +153,7 @@ class BookingViewModel extends ChangeNotifier {
         );
       }
 
-      await _repository.createBooking(
+      final newBooking = await _repository.createBooking(
         firstName: firstName,
         lastName: lastName,
         dateTime: dateTime,
@@ -147,6 +165,15 @@ class BookingViewModel extends ChangeNotifier {
         deposit: deposit,
         paymentMethod: paymentMethod,
       );
+
+      // Mise à jour optimiste du cache
+      _bookingCache[newBooking.id] = newBooking;
+      _bookings = [..._bookings, newBooking]
+        ..sort((a, b) => a.dateTimeLocal.compareTo(b.dateTimeLocal));
+      notifyListeners();
+
+      // Refresh différé pour s'assurer que les données sont à jour
+      await _triggerImmediateRefresh();
     } catch (e) {
       _error = 'Error creating booking: $e';
       notifyListeners();
@@ -156,7 +183,19 @@ class BookingViewModel extends ChangeNotifier {
 
   Future<void> updateBooking(Booking booking) async {
     try {
+      // Mise à jour optimiste du cache
+      _bookingCache[booking.id] = booking;
+      final index = _bookings.indexWhere((b) => b.id == booking.id);
+      if (index != -1) {
+        _bookings[index] = booking;
+        notifyListeners();
+      }
+
+      // Envoyer la mise à jour au serveur
       await _repository.updateBooking(booking);
+
+      // Refresh différé pour s'assurer que les données sont à jour
+      await _triggerImmediateRefresh();
     } catch (e) {
       _error = 'Error updating booking: $e';
       notifyListeners();
@@ -166,7 +205,16 @@ class BookingViewModel extends ChangeNotifier {
 
   Future<void> deleteBooking(String id) async {
     try {
+      // Suppression optimiste du cache
+      _bookingCache.remove(id);
+      _bookings.removeWhere((b) => b.id == id);
+      notifyListeners();
+
+      // Supprimer du serveur
       await _repository.deleteBooking(id);
+
+      // Refresh différé pour s'assurer que les données sont à jour
+      await _triggerImmediateRefresh();
     } catch (e) {
       _error = 'Error deleting booking: $e';
       notifyListeners();
@@ -178,8 +226,8 @@ class BookingViewModel extends ChangeNotifier {
   Future<void> addPayment({
     required String bookingId,
     required double amount,
-    required PaymentMethod method,
-    required PaymentType type,
+    required payment_model.PaymentMethod method,
+    required payment_model.PaymentType type,
     DateTime? date,
   }) async {
     try {
@@ -190,6 +238,31 @@ class BookingViewModel extends ChangeNotifier {
         type: type,
         date: date,
       );
+
+      // Mise à jour optimiste du solde
+      final booking = _bookingCache[bookingId];
+      if (booking != null) {
+        final newPayment = payment_model.Payment(
+          id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+          bookingId: bookingId,
+          amount: amount,
+          method: method,
+          type: type,
+          date: date ?? DateTime.now(),
+        );
+        final updatedBooking = booking.copyWith(
+          payments: [...booking.payments, newPayment],
+        );
+        _bookingCache[bookingId] = updatedBooking;
+        final index = _bookings.indexWhere((b) => b.id == bookingId);
+        if (index != -1) {
+          _bookings[index] = updatedBooking;
+          notifyListeners();
+        }
+      }
+
+      // Refresh différé pour s'assurer que les données sont à jour
+      await _triggerImmediateRefresh();
     } catch (e) {
       _error = 'Error adding payment: $e';
       notifyListeners();
@@ -200,6 +273,8 @@ class BookingViewModel extends ChangeNotifier {
   Future<void> cancelPayment(String paymentId) async {
     try {
       await _repository.cancelPayment(paymentId);
+      // Refresh différé pour s'assurer que les données sont à jour
+      await _triggerImmediateRefresh();
     } catch (e) {
       _error = 'Error canceling payment: $e';
       notifyListeners();
@@ -237,7 +312,23 @@ class BookingViewModel extends ChangeNotifier {
   Future<void> toggleCancellationStatus(String bookingId) async {
     try {
       final booking = _bookings.firstWhere((b) => b.id == bookingId);
-      await updateBooking(booking.copyWith(isCancelled: !booking.isCancelled));
+      final updatedBooking = booking.copyWith(
+        isCancelled: !booking.isCancelled,
+      );
+
+      // Mise à jour optimiste
+      _bookingCache[bookingId] = updatedBooking;
+      final index = _bookings.indexWhere((b) => b.id == bookingId);
+      if (index != -1) {
+        _bookings[index] = updatedBooking;
+        notifyListeners();
+      }
+
+      // Envoyer au serveur
+      await updateBooking(updatedBooking);
+
+      // Refresh différé
+      await _triggerImmediateRefresh();
     } catch (e) {
       _error = 'Error updating booking status: $e';
       notifyListeners();
@@ -247,7 +338,7 @@ class BookingViewModel extends ChangeNotifier {
 
   // Refresh data
   Future<void> refresh() async {
-    await _initializeData();
+    await _triggerImmediateRefresh();
   }
 
   // Clear error
@@ -321,17 +412,25 @@ class BookingViewModel extends ChangeNotifier {
       if (booking != null) {
         // Mise à jour optimiste du cache
         final newTotalPrice = booking.formulaPrice + consumptionsTotal;
-        updateBookingInCache(
-          bookingId,
-          newTotalPrice: newTotalPrice,
-          newConsumptionsTotal: consumptionsTotal,
+        final updatedBooking = booking.copyWith(
+          consumptionsTotal: consumptionsTotal,
+          totalPrice: newTotalPrice,
         );
+        _bookingCache[bookingId] = updatedBooking;
+        final index = _bookings.indexWhere((b) => b.id == bookingId);
+        if (index != -1) {
+          _bookings[index] = updatedBooking;
+          notifyListeners();
+        }
 
         // Synchronisation avec la base
         await _repository.updateBookingTotals(
           bookingId: bookingId,
           consumptionsTotal: consumptionsTotal,
         );
+
+        // Refresh différé
+        await _triggerImmediateRefresh();
       }
     } catch (e) {
       _error = 'Error updating booking totals: $e';
