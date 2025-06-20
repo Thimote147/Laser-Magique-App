@@ -77,9 +77,8 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
       // Initialise la formule si nécessaire
       if (bookingEditViewModel.selectedFormula == null &&
           activityFormulaViewModel.formulas.isNotEmpty) {
-        bookingEditViewModel.setFormula(
-          activityFormulaViewModel.formulas.first,
-        );
+        final firstFormula = activityFormulaViewModel.formulas.first;
+        _adjustValuesToFormula(firstFormula);
       }
     });
   }
@@ -188,11 +187,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      final viewModel = context.read<BookingEditViewModel>();
-      final customerViewModel = context.read<CustomerViewModel>();
+      final bookingEditViewModel = context.read<BookingEditViewModel>();
 
-      // Vérifier d'abord la formule
-      if (viewModel.selectedFormula == null) {
+      // Validate formula
+      if (bookingEditViewModel.selectedFormula == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Veuillez sélectionner une formule'),
@@ -202,16 +200,15 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         return;
       }
 
-      // Vérifier le nombre de personnes
-      final minPersons = viewModel.selectedFormula!.minParticipants ?? 1;
-      final maxPersons = viewModel.selectedFormula!.maxParticipants;
+      // Validate participants
+      final minPersons =
+          bookingEditViewModel.selectedFormula!.minParticipants ?? 1;
+      final maxPersons = bookingEditViewModel.selectedFormula!.maxParticipants;
 
       if (numberOfPersons < minPersons) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Le nombre minimum de participants est de $minPersons pour cette formule',
-            ),
+            content: Text('Minimum $minPersons personne(s) requis'),
             backgroundColor: Colors.red,
           ),
         );
@@ -221,50 +218,49 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
       if (maxPersons != null && numberOfPersons > maxPersons) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Le nombre maximum de participants est de $maxPersons pour cette formule',
-            ),
+            content: Text('Maximum $maxPersons personne(s) autorisé'),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
-      // Ensuite vérifier le client
-      if (_isCreatingCustomer) {
-        viewModel.setCustomer(selectedCustomer);
-      } else if (selectedCustomer != null) {
-        viewModel.setCustomer(selectedCustomer);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez sélectionner ou créer un client'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Mettre à jour toutes les valeurs dans le ViewModel
-      viewModel.setDate(selectedDate);
-      viewModel.setTime(selectedTime);
-      viewModel.setFormula(
-        viewModel.selectedFormula!,
-      ); // On peut utiliser ! car on a vérifié plus haut
-      viewModel.setNumberOfPersons(numberOfPersons);
-      viewModel.setNumberOfGames(numberOfGames);
-      viewModel.setDepositAmount(_deposit);
-      viewModel.setPaymentMethod(_depositPaymentMethod);
-
-      viewModel.save();
-
-      // Vider la liste des clients après la sauvegarde
-      customerViewModel.clearSearchResults();
+      // Update state in view model
+      bookingEditViewModel
+        ..setNumberOfPersons(numberOfPersons)
+        ..setNumberOfGames(numberOfGames)
+        ..setDepositAmount(_deposit)
+        ..setPaymentMethod(_depositPaymentMethod)
+        ..save();
 
       if (widget.onSubmit != null) {
         widget.onSubmit!();
       }
     }
+  }
+
+  void _adjustValuesToFormula(Formula formula, {bool silentMode = false}) {
+    // Ajuster le nombre de personnes si nécessaire
+    if (numberOfPersons < formula.minParticipants) {
+      setState(() => numberOfPersons = formula.minParticipants);
+    } else if (formula.maxParticipants != null &&
+        numberOfPersons > formula.maxParticipants!) {
+      setState(() => numberOfPersons = formula.maxParticipants!);
+    }
+
+    // Ajuster le nombre de parties si nécessaire
+    if (numberOfGames < formula.minGames) {
+      setState(() => numberOfGames = formula.minGames);
+    } else if (formula.maxGames != null && numberOfGames > formula.maxGames!) {
+      setState(() => numberOfGames = formula.maxGames!);
+    }
+
+    // Mettre à jour le ViewModel avec les nouvelles valeurs
+    final bookingEditViewModel = context.read<BookingEditViewModel>();
+    bookingEditViewModel
+      ..setFormula(formula)
+      ..setNumberOfPersons(numberOfPersons)
+      ..setNumberOfGames(numberOfGames);
   }
 
   Widget _buildFormulaSelector(
@@ -337,7 +333,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                       .toList(),
               onChanged: (Formula? value) {
                 if (value != null) {
-                  bookingEditViewModel.setFormula(value);
+                  _adjustValuesToFormula(value);
                 }
               },
             ),
@@ -780,62 +776,86 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                                         ).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                DropdownButtonHideUnderline(
-                                  child: DropdownButton<int>(
-                                    value: numberOfPersons,
-                                    isExpanded: true,
-                                    isDense: true,
-                                    icon: const Icon(
-                                      Icons.expand_more_rounded,
-                                      size: 20,
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    IconButton.filled(
+                                      icon: const Icon(Icons.remove, size: 16),
+                                      style: IconButton.styleFrom(
+                                        minimumSize: const Size(36, 36),
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.surface,
+                                        foregroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                      ),
+                                      onPressed:
+                                          numberOfPersons >
+                                                  (bookingEditViewModel
+                                                          .selectedFormula
+                                                          ?.minParticipants ??
+                                                      1)
+                                              ? () {
+                                                setState(
+                                                  () => numberOfPersons--,
+                                                );
+                                                bookingEditViewModel
+                                                    .setNumberOfPersons(
+                                                      numberOfPersons,
+                                                    );
+                                              }
+                                              : null,
                                     ),
-                                    items:
-                                        List.generate(10, (i) => i + 1)
-                                            .map(
-                                              (n) => DropdownMenuItem(
-                                                enabled:
-                                                    bookingEditViewModel
-                                                            .selectedFormula ==
-                                                        null ||
-                                                    (n >=
-                                                            (bookingEditViewModel
-                                                                    .selectedFormula
-                                                                    ?.minParticipants ??
-                                                                1) &&
-                                                        (bookingEditViewModel
-                                                                    .selectedFormula
-                                                                    ?.maxParticipants ==
-                                                                null ||
-                                                            n <=
-                                                                bookingEditViewModel
-                                                                    .selectedFormula!
-                                                                    .maxParticipants!)),
-                                                value: n,
-                                                child: Text(
-                                                  n.toString(),
-                                                  style:
-                                                      n <
-                                                              (bookingEditViewModel
-                                                                      .selectedFormula
-                                                                      ?.minParticipants ??
-                                                                  1)
-                                                          ? const TextStyle(
-                                                            color: Colors.red,
-                                                          )
-                                                          : null,
-                                                ),
-                                              ),
-                                            )
-                                            .toList(),
-                                    onChanged: (int? value) {
-                                      if (value != null) {
-                                        setState(() => numberOfPersons = value);
-                                        bookingEditViewModel.setNumberOfPersons(
-                                          value,
-                                        );
-                                      }
-                                    },
-                                  ),
+                                    Expanded(
+                                      child: Text(
+                                        numberOfPersons.toString(),
+                                        textAlign: TextAlign.center,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
+                                      ),
+                                    ),
+                                    IconButton.filled(
+                                      icon: const Icon(Icons.add, size: 16),
+                                      style: IconButton.styleFrom(
+                                        minimumSize: const Size(36, 36),
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.surface,
+                                        foregroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                      ),
+                                      onPressed:
+                                          bookingEditViewModel
+                                                          .selectedFormula
+                                                          ?.maxParticipants ==
+                                                      null ||
+                                                  numberOfPersons <
+                                                      bookingEditViewModel
+                                                          .selectedFormula!
+                                                          .maxParticipants!
+                                              ? () {
+                                                setState(
+                                                  () => numberOfPersons++,
+                                                );
+                                                bookingEditViewModel
+                                                    .setNumberOfPersons(
+                                                      numberOfPersons,
+                                                    );
+                                              }
+                                              : null,
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -868,30 +888,82 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                                         ).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                DropdownButtonHideUnderline(
-                                  child: DropdownButton<int>(
-                                    value: numberOfGames,
-                                    isExpanded: true,
-                                    isDense: true,
-                                    icon: const Icon(
-                                      Icons.expand_more_rounded,
-                                      size: 20,
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    IconButton.filled(
+                                      icon: const Icon(Icons.remove, size: 16),
+                                      style: IconButton.styleFrom(
+                                        minimumSize: const Size(36, 36),
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.surface,
+                                        foregroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                      ),
+                                      onPressed:
+                                          numberOfGames >
+                                                  (bookingEditViewModel
+                                                          .selectedFormula
+                                                          ?.minGames ??
+                                                      1)
+                                              ? () {
+                                                setState(() => numberOfGames--);
+                                                bookingEditViewModel
+                                                    .setNumberOfGames(
+                                                      numberOfGames,
+                                                    );
+                                              }
+                                              : null,
                                     ),
-                                    items:
-                                        List.generate(5, (i) => i + 1)
-                                            .map(
-                                              (n) => DropdownMenuItem(
-                                                value: n,
-                                                child: Text(n.toString()),
-                                              ),
-                                            )
-                                            .toList(),
-                                    onChanged: (int? value) {
-                                      if (value != null) {
-                                        setState(() => numberOfGames = value);
-                                      }
-                                    },
-                                  ),
+                                    Expanded(
+                                      child: Text(
+                                        numberOfGames.toString(),
+                                        textAlign: TextAlign.center,
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
+                                      ),
+                                    ),
+                                    IconButton.filled(
+                                      icon: const Icon(Icons.add, size: 16),
+                                      style: IconButton.styleFrom(
+                                        minimumSize: const Size(36, 36),
+                                        padding: EdgeInsets.zero,
+                                        backgroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.surface,
+                                        foregroundColor:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                      ),
+                                      onPressed:
+                                          bookingEditViewModel
+                                                          .selectedFormula
+                                                          ?.maxGames ==
+                                                      null ||
+                                                  numberOfGames <
+                                                      bookingEditViewModel
+                                                          .selectedFormula!
+                                                          .maxGames!
+                                              ? () {
+                                                setState(() => numberOfGames++);
+                                                bookingEditViewModel
+                                                    .setNumberOfGames(
+                                                      numberOfGames,
+                                                    );
+                                              }
+                                              : null,
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -1155,37 +1227,48 @@ class _PaymentMethodButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color:
-          isSelected
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onPressed,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color:
+            isSelected
+                ? Theme.of(context).primaryColor.withOpacity(0.1)
+                : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        border: Border.all(
+          color:
+              isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                size: 20,
+                size: 24,
                 color:
                     isSelected
-                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey.shade700,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                style: TextStyle(
+                  fontSize: 12,
                   color:
                       isSelected
-                          ? Theme.of(context).colorScheme.onPrimaryContainer
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: isSelected ? FontWeight.w500 : null,
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey.shade700,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
                 textAlign: TextAlign.center,
               ),

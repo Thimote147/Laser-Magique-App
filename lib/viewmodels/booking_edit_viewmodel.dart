@@ -4,6 +4,26 @@ import '../models/formula_model.dart';
 import '../models/payment_model.dart';
 import '../models/customer_model.dart';
 
+/// Manages the state and logic for editing or creating a booking.
+///
+/// Timezone handling:
+/// - All UI interactions use local time zone
+/// - Times are converted to UTC when saving to database
+/// - When editing an existing booking, UTC times are converted to local for display
+///
+/// The booking form workflow:
+/// 1. User selects date/time in their local timezone
+/// 2. ViewModel stores selection as local DateTime
+/// 3. On save, local time is converted to UTC for storage
+/// 4. When loading a booking for edit, UTC time is converted back to local
+///
+/// Example:
+/// ```dart
+/// viewModel.setDate(localDate);  // User's local date
+/// viewModel.setTime(localTime);  // User's local time
+/// viewModel.save();  // Automatically converts to UTC for storage
+/// ```
+
 class BookingEditViewModel extends ChangeNotifier {
   final Booking? booking;
   final Function(Booking) onSave;
@@ -21,6 +41,14 @@ class BookingEditViewModel extends ChangeNotifier {
   Customer? get selectedCustomer => _selectedCustomer;
   DateTime get selectedDate => _selectedDate;
   TimeOfDay get selectedTime => _selectedTime;
+  DateTime get selectedDateTime => DateTime(
+    _selectedDate.year,
+    _selectedDate.month,
+    _selectedDate.day,
+    _selectedTime.hour,
+    _selectedTime.minute,
+  );
+  DateTime get selectedDateTimeUTC => selectedDateTime.toUtc();
   int get numberOfPersons => _numberOfPersons;
   int get numberOfGames => _numberOfGames;
   Formula? get selectedFormula => _selectedFormula;
@@ -39,10 +67,12 @@ class BookingEditViewModel extends ChangeNotifier {
         email: booking!.email,
         phone: booking!.phone,
       );
-      _selectedDate = booking!.dateTime;
+      // Convert UTC to local time
+      final localDateTime = booking!.dateTimeLocal;
+      _selectedDate = localDateTime;
       _selectedTime = TimeOfDay(
-        hour: booking!.dateTime.hour,
-        minute: booking!.dateTime.minute,
+        hour: localDateTime.hour,
+        minute: localDateTime.minute,
       );
       _numberOfPersons = booking!.numberOfPersons;
       _numberOfGames = booking!.numberOfGames;
@@ -61,19 +91,34 @@ class BookingEditViewModel extends ChangeNotifier {
   }
 
   void setDate(DateTime date) {
-    _selectedDate = date;
+    // Always store and work with local time
+    _selectedDate = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
     notifyListeners();
   }
 
   void setTime(TimeOfDay time) {
+    // Always store and work with local time
     _selectedTime = time;
+    _selectedDate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      time.hour,
+      time.minute,
+    );
     notifyListeners();
   }
 
   void setFormula(Formula? formula) {
     _selectedFormula = formula;
-    if (formula?.defaultGameCount != null) {
-      _numberOfGames = formula!.defaultGameCount!;
+    if (formula != null) {
+      _numberOfGames = formula.minGames;
     }
     notifyListeners();
   }
@@ -128,19 +173,14 @@ class BookingEditViewModel extends ChangeNotifier {
       return;
     }
 
-    final dateTime = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
-    );
+    // Convert to UTC for storage
+    final dateTime = selectedDateTimeUTC;
 
     final updatedBooking = (booking ??
             Booking(
               id: '',
               firstName: '',
-              dateTime: DateTime.now(),
+              dateTime: DateTime.now().toUtc(),
               numberOfPersons: 1,
               numberOfGames: 1,
               formula: _selectedFormula!,

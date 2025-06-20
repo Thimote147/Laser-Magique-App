@@ -45,8 +45,12 @@ class BookingDetailsWidget extends StatelessWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.calendar_today),
-              title: Text(DateFormat.yMMMMd('fr_FR').format(booking.dateTime)),
-              subtitle: Text(DateFormat.Hm('fr_FR').format(booking.dateTime)),
+              title: Text(
+                DateFormat.yMMMMd('fr_FR').format(booking.dateTimeLocal),
+              ),
+              subtitle: Text(
+                DateFormat.Hm('fr_FR').format(booking.dateTimeLocal),
+              ),
             ),
           ),
 

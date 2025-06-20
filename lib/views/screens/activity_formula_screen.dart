@@ -3,44 +3,125 @@ import 'package:provider/provider.dart';
 import '../../viewmodels/activity_formula_view_model.dart';
 import '../../models/activity_model.dart';
 import '../../models/formula_model.dart';
+import '../widgets/activity_form_widget.dart';
+import '../widgets/formula_form_widget.dart';
 
 class ActivityFormulaScreen extends StatelessWidget {
   const ActivityFormulaScreen({super.key});
 
+  Widget _buildTab(String text, IconData icon) {
+    return Tab(
+      height: 36,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  text,
+                  overflow: TextOverflow.ellipsis,
+                  style: DefaultTextStyle.of(context).style,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Formules et activités'),
-          bottom: const TabBar(
-            tabs: [Tab(text: 'Activités'), Tab(text: 'Formules')],
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          tabBarTheme: TabBarTheme(
+            labelColor: theme.colorScheme.primary,
+            unselectedLabelColor: theme.colorScheme.onSurface,
           ),
         ),
-        body: Consumer<ActivityFormulaViewModel>(
-          builder: (context, viewModel, child) {
-            return TabBarView(
-              children: [
-                _buildActivitiesList(context, viewModel),
-                _buildFormulasList(context, viewModel),
-              ],
-            );
-          },
-        ),
-        floatingActionButton: Builder(
-          builder:
-              (context) => FloatingActionButton(
-                onPressed: () {
-                  final currentIndex = DefaultTabController.of(context).index;
-                  if (currentIndex == 0) {
-                    _showAddActivityDialog(context);
-                  } else {
-                    _showAddFormulaDialog(context);
-                  }
-                },
-                child: const Icon(Icons.add),
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Formules et activités'),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(56),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TabBar(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    indicator: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: theme.colorScheme.primary,
+                        width: 1,
+                      ),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                    labelColor: theme.colorScheme.primary,
+                    unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overlayColor: MaterialStateProperty.all(Colors.transparent),
+                    tabs: [
+                      _buildTab('Activités', Icons.category_outlined),
+                      _buildTab(
+                        'Formules',
+                        Icons.format_list_bulleted_outlined,
+                      ),
+                    ],
+                    isScrollable: false,
+                  ),
+                ),
               ),
+            ),
+          ),
+          body: Consumer<ActivityFormulaViewModel>(
+            builder: (context, viewModel, child) {
+              return TabBarView(
+                children: [
+                  _buildActivitiesList(context, viewModel),
+                  _buildFormulasList(context, viewModel),
+                ],
+              );
+            },
+          ),
+          floatingActionButton: Builder(
+            builder:
+                (context) => FloatingActionButton(
+                  onPressed: () {
+                    final currentIndex = DefaultTabController.of(context).index;
+                    if (currentIndex == 0) {
+                      _showAddActivityDialog(context);
+                    } else {
+                      _showAddFormulaDialog(context);
+                    }
+                  },
+                  child: const Icon(Icons.add),
+                ),
+          ),
         ),
       ),
     );
@@ -50,22 +131,121 @@ class ActivityFormulaScreen extends StatelessWidget {
     BuildContext context,
     ActivityFormulaViewModel viewModel,
   ) {
+    if (viewModel.activities.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.category_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Aucune activité',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Appuyez sur + pour en ajouter une',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
+      padding: const EdgeInsets.all(16),
       itemCount: viewModel.activities.length,
       itemBuilder: (context, index) {
         final activity = viewModel.activities[index];
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: ListTile(
-            title: Text(activity.name),
-            subtitle:
-                activity.description != null
-                    ? Text(activity.description!)
-                    : null,
-            trailing: IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed:
-                  () => _showEditActivityDialog(context, viewModel, activity),
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _showEditActivityDialog(context, viewModel, activity),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _getActivityIcon(activity.name),
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          activity.name,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed:
+                            () => _showEditActivityDialog(
+                              context,
+                              viewModel,
+                              activity,
+                            ),
+                        tooltip: 'Modifier l\'activité',
+                      ),
+                    ],
+                  ),
+                  if (activity.description != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      activity.description!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceVariant.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${viewModel.getFormulasForActivity(activity.id).length} formule(s)',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -77,25 +257,163 @@ class ActivityFormulaScreen extends StatelessWidget {
     BuildContext context,
     ActivityFormulaViewModel viewModel,
   ) {
+    if (viewModel.formulas.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.format_list_bulleted_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Aucune formule',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Appuyez sur + pour en ajouter une',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
+      padding: const EdgeInsets.all(16),
       itemCount: viewModel.formulas.length,
       itemBuilder: (context, index) {
         final formula = viewModel.formulas[index];
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: ListTile(
-            title: Text('${formula.activity.name} - ${formula.name}'),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (formula.description != null) Text(formula.description!),
-                Text('Prix: ${formula.price.toStringAsFixed(2)}€'),
-              ],
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed:
-                  () => _showEditFormulaDialog(context, viewModel, formula),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _showEditFormulaDialog(context, viewModel, formula),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _getActivityIcon(formula.activity.name),
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              formula.activity.name,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              formula.name,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${formula.price.toStringAsFixed(2)}€',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed:
+                            () => _showEditFormulaDialog(
+                              context,
+                              viewModel,
+                              formula,
+                            ),
+                        tooltip: 'Modifier la formule',
+                      ),
+                    ],
+                  ),
+                  if (formula.description != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      formula.description!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildInfoChip(
+                        context,
+                        Icons.group_outlined,
+                        _formatMinMax(
+                          formula.minParticipants,
+                          formula.maxParticipants,
+                          'pers.',
+                        ),
+                      ),
+                      _buildInfoChip(
+                        context,
+                        Icons.timer_outlined,
+                        '${formula.durationMinutes} min',
+                      ),
+                      _buildInfoChip(
+                        context,
+                        Icons.sports_esports_outlined,
+                        _formatMinMax(
+                          formula.minGames,
+                          formula.maxGames,
+                          'parties',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -103,215 +421,99 @@ class ActivityFormulaScreen extends StatelessWidget {
     );
   }
 
-  void _showAddActivityDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final priceController = TextEditingController();
+  String _formatMinMax(int min, int? max, String suffix) {
+    if (max == null) {
+      return '$min+ $suffix';
+    }
+    return min == max ? '$min $suffix' : '$min-$max $suffix';
+  }
 
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Nouvelle activité'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: priceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Prix par personne',
-                      border: OutlineInputBorder(),
-                      prefixText: '€ ',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (nameController.text.isNotEmpty) {
-                    final viewModel = context.read<ActivityFormulaViewModel>();
-                    viewModel.addActivity(
-                      name: nameController.text,
-                      description:
-                          descriptionController.text.isNotEmpty
-                              ? descriptionController.text
-                              : null,
-                      pricePerPerson:
-                          priceController.text.isNotEmpty
-                              ? double.parse(priceController.text)
-                              : null,
-                    );
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Ajouter'),
-              ),
-            ],
+  Widget _buildInfoChip(BuildContext context, IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<T?> _showFormModal<T>(BuildContext context, Widget child) {
+    return showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      useRootNavigator: true,
+      builder: (context) => child,
+    );
+  }
+
+  void _showAddActivityDialog(BuildContext context) {
+    _showFormModal(
+      context,
+      ActivityFormWidget(
+        onSave: (name, description) {
+          final viewModel = context.read<ActivityFormulaViewModel>();
+          viewModel.addActivity(name: name, description: description);
+          Navigator.pop(context);
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
     );
   }
 
   void _showAddFormulaDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final descriptionController = TextEditingController();
-    final priceController = TextEditingController();
-    final minParticipantsController = TextEditingController();
-    final maxParticipantsController = TextEditingController();
-    final defaultGameCountController = TextEditingController();
-
     final viewModel = context.read<ActivityFormulaViewModel>();
-    Activity? selectedActivity;
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setState) => AlertDialog(
-                  title: const Text('Nouvelle formule'),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DropdownButtonFormField<Activity>(
-                          value: selectedActivity,
-                          decoration: const InputDecoration(
-                            labelText: 'Activité *',
-                            border: OutlineInputBorder(),
-                          ),
-                          items:
-                              viewModel.activities.map((activity) {
-                                return DropdownMenuItem(
-                                  value: activity,
-                                  child: Text(activity.name),
-                                );
-                              }).toList(),
-                          onChanged: (value) {
-                            setState(() => selectedActivity = value);
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nom *',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: descriptionController,
-                          decoration: const InputDecoration(
-                            labelText: 'Description',
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 3,
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: priceController,
-                          decoration: const InputDecoration(
-                            labelText: 'Prix *',
-                            border: OutlineInputBorder(),
-                            prefixText: '€ ',
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: minParticipantsController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre minimum de personnes',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: maxParticipantsController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre maximum de personnes',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: defaultGameCountController,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre de parties par défaut',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Annuler'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (nameController.text.isNotEmpty &&
-                            selectedActivity != null &&
-                            priceController.text.isNotEmpty) {
-                          viewModel.addFormula(
-                            name: nameController.text,
-                            description: descriptionController.text,
-                            price: double.tryParse(priceController.text) ?? 0.0,
-                            activity: selectedActivity!,
-                            minParticipants:
-                                minParticipantsController.text.isNotEmpty
-                                    ? int.parse(minParticipantsController.text)
-                                    : null,
-                            maxParticipants:
-                                maxParticipantsController.text.isNotEmpty
-                                    ? int.parse(maxParticipantsController.text)
-                                    : null,
-                            defaultGameCount:
-                                defaultGameCountController.text.isNotEmpty
-                                    ? int.parse(defaultGameCountController.text)
-                                    : null,
-                          );
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: const Text('Créer'),
-                    ),
-                  ],
-                ),
-          ),
+    _showFormModal(
+      context,
+      FormulaFormWidget(
+        activities: viewModel.activities,
+        onSave: (
+          name,
+          description,
+          activity,
+          price,
+          minParticipants,
+          maxParticipants,
+          durationMinutes,
+          minGames,
+          maxGames,
+        ) {
+          viewModel.addFormula(
+            name: name,
+            description: description,
+            activity: activity,
+            price: price,
+            minParticipants: minParticipants,
+            maxParticipants: maxParticipants,
+            durationMinutes: durationMinutes,
+            minGames: minGames,
+            maxGames: maxGames,
+          );
+          Navigator.pop(context);
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
     );
   }
 
@@ -320,82 +522,18 @@ class ActivityFormulaScreen extends StatelessWidget {
     ActivityFormulaViewModel viewModel,
     Activity activity,
   ) {
-    final nameController = TextEditingController(text: activity.name);
-    final descriptionController = TextEditingController(
-      text: activity.description ?? '',
-    );
-    final priceController = TextEditingController(
-      text: activity.pricePerPerson?.toString() ?? '',
-    );
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Modifier l\'activité'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: priceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Prix par personne',
-                      border: OutlineInputBorder(),
-                      prefixText: '€ ',
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (nameController.text.isNotEmpty) {
-                    viewModel.updateActivity(
-                      activity.copyWith(
-                        name: nameController.text,
-                        description:
-                            descriptionController.text.isNotEmpty
-                                ? descriptionController.text
-                                : null,
-                        pricePerPerson:
-                            priceController.text.isNotEmpty
-                                ? double.parse(priceController.text)
-                                : null,
-                      ),
-                    );
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Enregistrer'),
-              ),
-            ],
-          ),
+    _showFormModal(
+      context,
+      ActivityFormWidget(
+        activity: activity,
+        onSave: (name, description) {
+          viewModel.updateActivity(
+            activity.copyWith(name: name, description: description),
+          );
+          Navigator.pop(context);
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
     );
   }
 
@@ -404,136 +542,54 @@ class ActivityFormulaScreen extends StatelessWidget {
     ActivityFormulaViewModel viewModel,
     Formula formula,
   ) {
-    final nameController = TextEditingController(text: formula.name);
-    final descriptionController = TextEditingController(
-      text: formula.description ?? '',
-    );
-    final priceController = TextEditingController(
-      text: formula.price.toString(),
-    );
-    final minParticipantsController = TextEditingController(
-      text: formula.minParticipants?.toString() ?? '',
-    );
-    final maxParticipantsController = TextEditingController(
-      text: formula.maxParticipants?.toString() ?? '',
-    );
-    final defaultGameCountController = TextEditingController(
-      text: formula.defaultGameCount?.toString() ?? '',
-    );
-    final minGamesController = TextEditingController(
-      text: formula.minGames?.toString() ?? '',
-    );
-    final maxGamesController = TextEditingController(
-      text: formula.maxGames?.toString() ?? '',
-    );
-
-    final viewModel = context.read<ActivityFormulaViewModel>();
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('Modifier ${formula.name}'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Nom'),
-                  ),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: const InputDecoration(labelText: 'Description'),
-                    maxLines: 3,
-                  ),
-                  TextField(
-                    controller: priceController,
-                    decoration: const InputDecoration(labelText: 'Prix'),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                  ),
-                  TextField(
-                    controller: minParticipantsController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre minimum de personnes',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: maxParticipantsController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre maximum de personnes',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: defaultGameCountController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre de parties par défaut',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: minGamesController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre minimum de parties',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: maxGamesController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre maximum de parties',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ],
-              ),
+    _showFormModal(
+      context,
+      FormulaFormWidget(
+        formula: formula,
+        activities: viewModel.activities,
+        onSave: (
+          name,
+          description,
+          activity,
+          price,
+          minParticipants,
+          maxParticipants,
+          durationMinutes,
+          minGames,
+          maxGames,
+        ) {
+          viewModel.updateFormula(
+            formula.copyWith(
+              name: name,
+              description: description,
+              activity: activity,
+              price: price,
+              minParticipants: minParticipants,
+              maxParticipants: maxParticipants,
+              durationMinutes: durationMinutes,
+              minGames: minGames,
+              maxGames: maxGames,
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  viewModel.updateFormula(
-                    formula.copyWith(
-                      name: nameController.text,
-                      description: descriptionController.text,
-                      price:
-                          double.tryParse(priceController.text) ??
-                          formula.price,
-                      minParticipants:
-                          minParticipantsController.text.isNotEmpty
-                              ? int.parse(minParticipantsController.text)
-                              : null,
-                      maxParticipants:
-                          maxParticipantsController.text.isNotEmpty
-                              ? int.parse(maxParticipantsController.text)
-                              : null,
-                      defaultGameCount:
-                          defaultGameCountController.text.isNotEmpty
-                              ? int.parse(defaultGameCountController.text)
-                              : null,
-                      minGames:
-                          minGamesController.text.isNotEmpty
-                              ? int.parse(minGamesController.text)
-                              : null,
-                      maxGames:
-                          maxGamesController.text.isNotEmpty
-                              ? int.parse(maxGamesController.text)
-                              : null,
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text('Enregistrer'),
-              ),
-            ],
-          ),
+          );
+          Navigator.pop(context);
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
     );
+  }
+
+  IconData _getActivityIcon(String activityName) {
+    switch (activityName.toLowerCase()) {
+      case 'laser game':
+        return Icons.sports_esports;
+      case 'réalité virtuelle':
+        return Icons.vrpano;
+      case 'arcade':
+        return Icons.gamepad;
+      case 'karaoké':
+        return Icons.mic;
+      default:
+        return Icons.extension;
+    }
   }
 }

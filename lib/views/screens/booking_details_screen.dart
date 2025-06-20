@@ -8,23 +8,69 @@ import '../widgets/booking_consumption_widget.dart';
 import '../widgets/booking_payment_widget.dart';
 import 'booking_edit_screen.dart';
 
-class BookingDetailsScreen extends StatelessWidget {
+class BookingDetailsScreen extends StatefulWidget {
   final Booking booking;
 
   const BookingDetailsScreen({super.key, required this.booking});
 
   @override
+  State<BookingDetailsScreen> createState() => _BookingDetailsScreenState();
+}
+
+class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
+  late Booking _currentBooking;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentBooking = widget.booking;
+    _refreshBooking();
+  }
+
+  @override
+  void didUpdateWidget(BookingDetailsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.booking.id != widget.booking.id) {
+      _currentBooking = widget.booking;
+      _refreshBooking();
+    }
+  }
+
+  Future<void> _refreshBooking() async {
+    try {
+      if (!mounted) return;
+      final bookingViewModel = Provider.of<BookingViewModel>(
+        context,
+        listen: false,
+      );
+      final updatedBooking = await bookingViewModel.getBookingDetails(
+        widget.booking.id,
+      );
+      if (mounted) {
+        setState(() {
+          _currentBooking = updatedBooking;
+        });
+      }
+    } catch (e) {
+      // Silent error handling
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${booking.firstName} ${booking.lastName ?? ""}'),
+        title: Text(
+          '${_currentBooking.firstName} ${_currentBooking.lastName ?? ""}',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => BookingEditScreen(booking: booking),
+                  builder:
+                      (context) => BookingEditScreen(booking: _currentBooking),
                 ),
               );
             },
@@ -32,7 +78,7 @@ class BookingDetailsScreen extends StatelessWidget {
           PopupMenuButton(
             itemBuilder:
                 (context) => [
-                  if (booking.email != null)
+                  if (_currentBooking.email != null)
                     PopupMenuItem(
                       child: ListTile(
                         leading: const Icon(Icons.email, color: Colors.green),
@@ -42,11 +88,13 @@ class BookingDetailsScreen extends StatelessWidget {
                       onTap: () {
                         // Implémenter l'envoi d'email ici
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Email à ${booking.email}')),
+                          SnackBar(
+                            content: Text('Email à ${_currentBooking.email}'),
+                          ),
                         );
                       },
                     ),
-                  if (booking.phone != null)
+                  if (_currentBooking.phone != null)
                     PopupMenuItem(
                       child: ListTile(
                         leading: const Icon(Icons.phone, color: Colors.green),
@@ -56,45 +104,57 @@ class BookingDetailsScreen extends StatelessWidget {
                       onTap: () {
                         // Implémenter l'appel téléphonique ici
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Appel à ${booking.phone}')),
+                          SnackBar(
+                            content: Text('Appel à ${_currentBooking.phone}'),
+                          ),
                         );
                       },
                     ),
                   PopupMenuItem(
                     child: ListTile(
                       leading: Icon(
-                        booking.isCancelled ? Icons.restore : Icons.cancel,
+                        _currentBooking.isCancelled
+                            ? Icons.restore
+                            : Icons.cancel,
                         color:
-                            booking.isCancelled ? Colors.green : Colors.orange,
+                            _currentBooking.isCancelled
+                                ? Colors.green
+                                : Colors.orange,
                       ),
                       title: Text(
-                        booking.isCancelled
+                        _currentBooking.isCancelled
                             ? 'Restaurer la réservation'
                             : 'Marquer comme annulée',
                         style: TextStyle(
                           color:
-                              booking.isCancelled
+                              _currentBooking.isCancelled
                                   ? Colors.green
                                   : Colors.orange,
                         ),
                       ),
                       contentPadding: EdgeInsets.zero,
                     ),
-                    onTap: () {
-                      Provider.of<BookingViewModel>(
+                    onTap: () async {
+                      await Provider.of<BookingViewModel>(
                         context,
                         listen: false,
-                      ).toggleCancellationStatus(booking.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            booking.isCancelled
-                                ? 'La réservation a été restaurée'
-                                : 'La réservation a été marquée comme annulée',
+                      ).toggleCancellationStatus(_currentBooking.id);
+
+                      // Rafraîchir les données après le changement
+                      await _refreshBooking();
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              _currentBooking.isCancelled
+                                  ? 'La réservation a été restaurée'
+                                  : 'La réservation a été marquée comme annulée',
+                            ),
+                            duration: const Duration(seconds: 2),
                           ),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
+                        );
+                      }
                     },
                   ),
                   PopupMenuItem(
@@ -114,7 +174,7 @@ class BookingDetailsScreen extends StatelessWidget {
                             (context) => AlertDialog(
                               title: const Text('Confirmer la suppression'),
                               content: Text(
-                                'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
+                                'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} ?',
                               ),
                               actions: [
                                 TextButton(
@@ -138,7 +198,7 @@ class BookingDetailsScreen extends StatelessWidget {
                         Provider.of<BookingViewModel>(
                           context,
                           listen: false,
-                        ).removeBooking(booking.id);
+                        ).removeBooking(_currentBooking.id);
                         Navigator.of(context).pop();
                       }
                     },
@@ -152,7 +212,7 @@ class BookingDetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (booking.isCancelled)
+            if (_currentBooking.isCancelled)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(
@@ -217,8 +277,9 @@ class BookingDetailsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
-                    if (booking.email != null || booking.phone != null) ...[
-                      if (booking.email != null)
+                    if (_currentBooking.email != null ||
+                        _currentBooking.phone != null) ...[
+                      if (_currentBooking.email != null)
                         Container(
                           decoration: BoxDecoration(
                             color: Theme.of(
@@ -255,7 +316,7 @@ class BookingDetailsScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      booking.email!,
+                                      _currentBooking.email!,
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleMedium?.copyWith(
@@ -268,8 +329,9 @@ class BookingDetailsScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                      if (booking.phone != null) ...[
-                        if (booking.email != null) const SizedBox(height: 8),
+                      if (_currentBooking.phone != null) ...[
+                        if (_currentBooking.email != null)
+                          const SizedBox(height: 8),
                         Container(
                           decoration: BoxDecoration(
                             color: Theme.of(
@@ -306,7 +368,7 @@ class BookingDetailsScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      booking.phone!,
+                                      _currentBooking.phone!,
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleMedium?.copyWith(
@@ -395,12 +457,12 @@ class BookingDetailsScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  booking.formula.name,
+                                  _currentBooking.formula.name,
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(fontWeight: FontWeight.w500),
                                 ),
                                 Text(
-                                  booking.formula.activity.name,
+                                  _currentBooking.formula.activity.name,
                                   style: Theme.of(
                                     context,
                                   ).textTheme.bodyMedium?.copyWith(
@@ -440,7 +502,7 @@ class BookingDetailsScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${booking.numberOfPersons}',
+                                  '${_currentBooking.numberOfPersons}',
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(fontWeight: FontWeight.w500),
                                 ),
@@ -474,7 +536,7 @@ class BookingDetailsScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${booking.numberOfGames}',
+                                  '${_currentBooking.numberOfGames}',
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(fontWeight: FontWeight.w500),
                                 ),
@@ -565,7 +627,7 @@ class BookingDetailsScreen extends StatelessWidget {
                                   Text(
                                     DateFormat.yMMMMd(
                                       'fr_FR',
-                                    ).format(booking.dateTime),
+                                    ).format(_currentBooking.dateTimeLocal),
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -614,7 +676,7 @@ class BookingDetailsScreen extends StatelessWidget {
                                   Text(
                                     DateFormat.Hm(
                                       'fr_FR',
-                                    ).format(booking.dateTime),
+                                    ).format(_currentBooking.dateTimeLocal),
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -665,7 +727,7 @@ class BookingDetailsScreen extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: BookingPaymentWidget(booking: booking),
+                child: BookingPaymentWidget(booking: _currentBooking),
               ),
             ),
 
@@ -702,7 +764,10 @@ class BookingDetailsScreen extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: BookingConsumptionWidget(booking: booking),
+                child: BookingConsumptionWidget(
+                  booking: _currentBooking,
+                  onBookingUpdated: _refreshBooking,
+                ),
               ),
             ),
           ],

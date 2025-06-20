@@ -5,19 +5,34 @@ import '../models/formula_model.dart';
 import '../models/payment_model.dart';
 import '../repositories/booking_repository.dart';
 import 'activity_formula_view_model.dart';
-import 'stock_view_model.dart';
 
+/// Manages the state and business logic for bookings.
+///
+/// Important timezone handling notes:
+/// - All dates are stored in UTC in the database and model
+/// - UI components receive and display dates in local timezone
+/// - Date comparisons in [getBookingsForDay] handle timezone conversion internally
+///
+/// Example calendar date handling:
+/// ```dart
+/// // UI passes local date
+/// final localDate = DateTime.now();
+/// // ViewModel converts to UTC internally for filtering
+/// final bookings = viewModel.getBookingsForDay(localDate);
+/// // Results automatically convert back to local for display
+/// print(bookings.first.dateTimeLocal);
+/// ```
 class BookingViewModel extends ChangeNotifier {
   final BookingRepository _repository = BookingRepository();
   ActivityFormulaViewModel _activityFormulaViewModel;
-  StockViewModel _stockViewModel;
   Timer? _refreshTimer;
 
   List<Booking> _bookings = [];
+  Map<String, Booking> _bookingCache = {};
   bool _isLoading = true;
   String? _error;
 
-  BookingViewModel(this._activityFormulaViewModel, this._stockViewModel) {
+  BookingViewModel(this._activityFormulaViewModel) {
     _initializeData();
     _setupPeriodicRefresh();
   }
@@ -27,9 +42,6 @@ class BookingViewModel extends ChangeNotifier {
   List<Booking> get bookings => List.unmodifiable(
     _bookings.map(
       (booking) => booking.copyWith(
-        consumptionsTotal: _stockViewModel.getConsumptionsTotalForBooking(
-          booking.id,
-        ),
         formula:
             _activityFormulaViewModel.getFormulaById(booking.formula.id) ??
             booking.formula,
@@ -66,6 +78,9 @@ class BookingViewModel extends ChangeNotifier {
       notifyListeners();
 
       final bookings = await _repository.getAllBookings();
+      for (var booking in bookings) {
+        _bookingCache[booking.id] = booking;
+      }
 
       // Compare les anciennes et nouvelles réservations
       bool hasChanges = _bookings.length != bookings.length;
@@ -165,6 +180,7 @@ class BookingViewModel extends ChangeNotifier {
     required double amount,
     required PaymentMethod method,
     required PaymentType type,
+    DateTime? date,
   }) async {
     try {
       await _repository.addPayment(
@@ -172,6 +188,7 @@ class BookingViewModel extends ChangeNotifier {
         amount: amount,
         method: method,
         type: type,
+        date: date,
       );
     } catch (e) {
       _error = 'Error adding payment: $e';
@@ -191,18 +208,30 @@ class BookingViewModel extends ChangeNotifier {
   }
 
   // Booking queries
-  List<Booking> getBookingsForDay(DateTime date) {
-    final startOfDay = DateTime(date.year, date.month, date.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
+  List<Booking> getBookingsForDay(DateTime localDate) {
+    // Convert local date to UTC range for comparison
+    final startOfDayUTC = DateTime.utc(
+      localDate.year,
+      localDate.month,
+      localDate.day,
+    );
+    final endOfDayUTC = DateTime.utc(
+      localDate.year,
+      localDate.month,
+      localDate.day,
+      23,
+      59,
+      59,
+    );
 
     return bookings
         .where(
           (booking) =>
-              booking.dateTime.isAfter(startOfDay) &&
-              booking.dateTime.isBefore(endOfDay),
+              booking.dateTimeUTC.isAfter(startOfDayUTC) &&
+              booking.dateTimeUTC.isBefore(endOfDayUTC),
         )
         .toList()
-      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      ..sort((a, b) => a.dateTimeLocal.compareTo(b.dateTimeLocal));
   }
 
   Future<void> toggleCancellationStatus(String bookingId) async {
@@ -233,12 +262,105 @@ class BookingViewModel extends ChangeNotifier {
   }
 
   // Méthode pour mettre à jour les dépendances
-  void updateDependencies(
-    ActivityFormulaViewModel activityFormulaViewModel,
-    StockViewModel stockViewModel,
-  ) {
+  void updateDependencies(ActivityFormulaViewModel activityFormulaViewModel) {
     _activityFormulaViewModel = activityFormulaViewModel;
-    _stockViewModel = stockViewModel;
     notifyListeners(); // Notifier en cas de changements dans les dépendances
+  }
+
+  // Récupère une réservation spécifique avec ses données à jour
+  Future<Booking> getBooking(String bookingId) async {
+    try {
+      // Attendre un peu pour laisser le temps à la base de calculer les nouveaux totaux
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final booking = await _repository.getBooking(bookingId);
+
+      // Mettre à jour la réservation dans la liste locale si elle existe
+      final index = _bookings.indexWhere((b) => b.id == bookingId);
+      if (index != -1) {
+        _bookings[index] = booking;
+        notifyListeners();
+      }
+
+      return booking;
+    } catch (e) {
+      _error = 'Error fetching booking: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // Mise à jour optimiste du cache pour une réservation
+  void updateBookingInCache(
+    String bookingId, {
+    double? newTotalPrice,
+    double? newConsumptionsTotal,
+  }) {
+    if (_bookingCache.containsKey(bookingId)) {
+      final booking = _bookingCache[bookingId]!;
+      _bookingCache[bookingId] = booking.copyWith(
+        totalPrice: newTotalPrice ?? booking.totalPrice,
+        consumptionsTotal: newConsumptionsTotal ?? booking.consumptionsTotal,
+      );
+      notifyListeners();
+    }
+  }
+
+  // Récupère une réservation depuis le cache ou la base
+  Booking? getCachedBooking(String bookingId) {
+    return _bookingCache[bookingId];
+  }
+
+  // Calcule le nouveau total pour une réservation après modification des consommations
+  Future<void> updateBookingTotals(
+    String bookingId,
+    double consumptionsTotal,
+  ) async {
+    try {
+      final booking = _bookingCache[bookingId];
+      if (booking != null) {
+        // Mise à jour optimiste du cache
+        final newTotalPrice = booking.formulaPrice + consumptionsTotal;
+        updateBookingInCache(
+          bookingId,
+          newTotalPrice: newTotalPrice,
+          newConsumptionsTotal: consumptionsTotal,
+        );
+
+        // Synchronisation avec la base
+        await _repository.updateBookingTotals(
+          bookingId: bookingId,
+          consumptionsTotal: consumptionsTotal,
+        );
+      }
+    } catch (e) {
+      _error = 'Error updating booking totals: $e';
+      notifyListeners();
+      // En cas d'erreur, recharger les données depuis la base
+      await getBookingDetails(bookingId);
+    }
+  }
+
+  // Récupère les données à jour d'une réservation
+  Future<Booking> getBookingDetails(String bookingId) async {
+    try {
+      final booking = await _repository.getBookingDetails(bookingId);
+
+      // Mettre à jour le cache local
+      _bookingCache[bookingId] = booking;
+
+      // Mettre à jour la réservation dans la liste locale
+      final index = _bookings.indexWhere((b) => b.id == bookingId);
+      if (index != -1) {
+        _bookings[index] = booking;
+      }
+
+      notifyListeners();
+      return booking;
+    } catch (e) {
+      _error = 'Error fetching booking: $e';
+      notifyListeners();
+      rethrow;
+    }
   }
 }

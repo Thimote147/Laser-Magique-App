@@ -5,12 +5,17 @@ import '../../models/consumption_model.dart';
 import '../../models/stock_item_model.dart';
 import '../../viewmodels/stock_view_model.dart';
 import 'consumption_selector.dart';
+import '../../viewmodels/booking_view_model.dart';
 
 class BookingConsumptionWidget extends StatefulWidget {
   final Booking booking;
+  final VoidCallback? onBookingUpdated;
 
-  const BookingConsumptionWidget({Key? key, required this.booking})
-    : super(key: key);
+  const BookingConsumptionWidget({
+    super.key,
+    required this.booking,
+    this.onBookingUpdated,
+  });
 
   @override
   State<BookingConsumptionWidget> createState() =>
@@ -18,9 +23,59 @@ class BookingConsumptionWidget extends StatefulWidget {
 }
 
 class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
-  Future<List<(Consumption, StockItem)>> _getConsumptions() {
+  late Booking _currentBooking;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentBooking = widget.booking;
+    _refreshBookingData();
+  }
+
+  @override
+  void didUpdateWidget(BookingConsumptionWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.booking.id != widget.booking.id) {
+      _currentBooking = widget.booking;
+      _refreshBookingData();
+    }
+  }
+
+  Future<void> _refreshBookingData() async {
+    try {
+      if (!mounted) return;
+      final bookingViewModel = Provider.of<BookingViewModel>(
+        context,
+        listen: false,
+      );
+      final updatedBooking = await bookingViewModel.getBookingDetails(
+        _currentBooking.id,
+      );
+      if (mounted) {
+        setState(() {
+          _currentBooking = updatedBooking;
+        });
+      }
+    } catch (e) {
+      // Silent error handling
+    }
+  }
+
+  Future<List<(Consumption, StockItem)>> _getConsumptions() async {
     final stockVM = Provider.of<StockViewModel>(context, listen: false);
-    return stockVM.getConsumptionsWithStockItems(widget.booking.id);
+
+    // D'abord vérifier le cache
+    final cached = stockVM.getCachedConsumptions(_currentBooking.id);
+    if (cached != null) {
+      return cached;
+    }
+
+    // Si pas en cache, attendre que StockViewModel soit initialisé
+    while (!stockVM.isInitialized && mounted) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    return stockVM.getConsumptionsWithStockItems(_currentBooking.id);
   }
 
   IconData _getItemIcon(String category) {
@@ -52,7 +107,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
               onConsumptionSelected: (stockItemId) async {
                 try {
                   final success = await stockVM.addConsumption(
-                    bookingId: widget.booking.id,
+                    bookingId: _currentBooking.id,
                     stockItemId: stockItemId,
                     quantity: 1,
                   );
@@ -70,11 +125,12 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                       ),
                     );
                     return;
-                  }
-
-                  // Force rebuild to refresh the consumptions list
+                  } // Force le refresh de la réservation après l'ajout d'une consommation
                   if (mounted) {
-                    setState(() {});
+                    // Attendre 500ms pour laisser le temps à la base de données de se mettre à jour
+                    await Future.delayed(const Duration(milliseconds: 500));
+                    await _refreshBookingData(); // Rafraîchir les données après l'ajout
+                    widget.onBookingUpdated?.call(); // Notifier le parent
                   }
                 } catch (e) {
                   Navigator.pop(context);
@@ -179,7 +235,6 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  // Icône de la catégorie
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -195,8 +250,6 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                     ),
                   ),
                   const SizedBox(width: 12),
-
-                  // Nom du produit
                   Expanded(
                     child: Text(
                       stockItem.name,
@@ -206,8 +259,6 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                       ),
                     ),
                   ),
-
-                  // Contrôles de quantité et prix
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -230,6 +281,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                                 context,
                                 listen: false,
                               );
+
                               if (consumption.quantity > 1) {
                                 await stockVM.updateConsumptionQuantity(
                                   consumption: consumption,
@@ -240,7 +292,9 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                                   consumption: consumption,
                                 );
                               }
-                              setState(() {});
+
+                              // Notifier le parent immédiatement pour mettre à jour les totaux
+                              widget.onBookingUpdated?.call();
                             } catch (e) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -285,7 +339,9 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                                 consumption: consumption,
                                 newQuantity: consumption.quantity + 1,
                               );
-                              setState(() {});
+
+                              // Notifier le parent immédiatement pour mettre à jour les totaux
+                              widget.onBookingUpdated?.call();
                             } catch (e) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(

@@ -13,8 +13,7 @@ class FormulaRepository {
           activity:activities (
             id,
             name,
-            description,
-            price_per_person
+            description
           )
         ''')
         .order('name');
@@ -30,8 +29,7 @@ class FormulaRepository {
           activity:activities (
             id,
             name,
-            description,
-            price_per_person
+            description
           )
         ''')
         .eq('activity_id', activityId)
@@ -45,12 +43,11 @@ class FormulaRepository {
     required String activityId,
     String? description,
     required double price,
-    int? minParticipants,
+    required int minParticipants,
     int? maxParticipants,
-    int? defaultGameCount,
-    int? minGames,
+    required int durationMinutes,
+    required int minGames,
     int? maxGames,
-    bool? isGameCountFixed,
   }) async {
     final response =
         await _client
@@ -62,18 +59,16 @@ class FormulaRepository {
               'price': price,
               'min_persons': minParticipants,
               'max_persons': maxParticipants,
-              'default_game_count': defaultGameCount,
+              'duration_minutes': durationMinutes,
               'min_games': minGames,
               'max_games': maxGames,
-              'is_game_count_fixed': isGameCountFixed,
             })
             .select('''
           *,
           activity:activities (
             id,
             name,
-            description,
-            price_per_person
+            description
           )
         ''')
             .single();
@@ -91,10 +86,9 @@ class FormulaRepository {
               'price': formula.price,
               'min_persons': formula.minParticipants,
               'max_persons': formula.maxParticipants,
-              'default_game_count': formula.defaultGameCount,
+              'duration_minutes': formula.durationMinutes,
               'min_games': formula.minGames,
               'max_games': formula.maxGames,
-              'is_game_count_fixed': formula.isGameCountFixed,
             })
             .eq('id', formula.id)
             .select('''
@@ -102,8 +96,7 @@ class FormulaRepository {
           activities (
             id,
             name,
-            description,
-            price_per_person
+            description
           )
         ''')
             .single();

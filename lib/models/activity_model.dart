@@ -2,39 +2,21 @@ class Activity {
   final String id;
   final String name;
   final String? description;
-  final double?
-  pricePerPerson; // Prix de base par personne, peut être null si le prix est déterminé uniquement par la formule
 
-  Activity({
-    required this.id,
-    required this.name,
-    this.description,
-    this.pricePerPerson,
-  });
+  Activity({required this.id, required this.name, this.description});
 
   // Méthode pour créer une copie de Activity avec des champs modifiés
-  Activity copyWith({
-    String? id,
-    String? name,
-    String? description,
-    double? pricePerPerson,
-  }) {
+  Activity copyWith({String? id, String? name, String? description}) {
     return Activity(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
-      pricePerPerson: pricePerPerson ?? this.pricePerPerson,
     );
   }
 
   // Méthode pour convertir en Map pour la persistance
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'pricePerPerson': pricePerPerson,
-    };
+    return {'id': id, 'name': name, 'description': description};
   }
 
   // Méthode pour créer un objet Activity à partir d'un Map
@@ -43,13 +25,12 @@ class Activity {
       id: map['id'] ?? '',
       name: map['name'] ?? map['activity_name'] ?? 'Activité inconnue',
       description: map['description'] ?? map['activity_description'],
-      pricePerPerson: map['price_per_person']?.toDouble(),
     );
   }
 
   @override
   String toString() {
-    return 'Activity(id: $id, name: $name, description: $description, pricePerPerson: $pricePerPerson)';
+    return 'Activity(id: $id, name: $name, description: $description)';
   }
 
   @override
@@ -58,15 +39,11 @@ class Activity {
     return other is Activity &&
         other.id == id &&
         other.name == name &&
-        other.description == description &&
-        other.pricePerPerson == pricePerPerson;
+        other.description == description;
   }
 
   @override
   int get hashCode {
-    return id.hashCode ^
-        name.hashCode ^
-        description.hashCode ^
-        pricePerPerson.hashCode;
+    return id.hashCode ^ name.hashCode ^ description.hashCode;
   }
 }

@@ -252,7 +252,7 @@ class BookingListItem extends StatelessWidget {
                       SizedBox(
                         width: 42,
                         child: Text(
-                          DateFormat.Hm('fr_FR').format(booking.dateTime),
+                          DateFormat.Hm('fr_FR').format(booking.dateTimeLocal),
                           style: CancelledTextStyle.apply(
                             TextStyle(
                               color:

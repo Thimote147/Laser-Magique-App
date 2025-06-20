@@ -14,16 +14,11 @@ class ActivityRepository {
   Future<Activity> createActivity({
     required String name,
     String? description,
-    double? pricePerPerson,
   }) async {
     final response =
         await _client
             .from('activities')
-            .insert({
-              'name': name,
-              'description': description,
-              'price_per_person': pricePerPerson,
-            })
+            .insert({'name': name, 'description': description})
             .select()
             .single();
 
@@ -37,7 +32,6 @@ class ActivityRepository {
             .update({
               'name': activity.name,
               'description': activity.description,
-              'price_per_person': activity.pricePerPerson,
             })
             .eq('id', activity.id)
             .select()

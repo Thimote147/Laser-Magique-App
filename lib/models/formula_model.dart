@@ -6,12 +6,11 @@ class Formula {
   final String? description;
   final Activity activity;
   final double price;
-  final int? minParticipants;
+  final int minParticipants;
   final int? maxParticipants;
-  final int? defaultGameCount;
-  final int? minGames;
+  final int durationMinutes;
+  final int minGames;
   final int? maxGames;
-  final bool? isGameCountFixed;
 
   Formula({
     required this.id,
@@ -19,12 +18,11 @@ class Formula {
     this.description,
     required this.activity,
     required this.price,
-    this.minParticipants,
+    required this.minParticipants,
     this.maxParticipants,
-    this.defaultGameCount,
-    this.minGames,
+    required this.durationMinutes,
+    required this.minGames,
     this.maxGames,
-    this.isGameCountFixed,
   });
 
   // Méthode pour créer une copie de Formula avec des champs modifiés
@@ -36,10 +34,9 @@ class Formula {
     double? price,
     int? minParticipants,
     int? maxParticipants,
-    int? defaultGameCount,
+    int? durationMinutes,
     int? minGames,
     int? maxGames,
-    bool? isGameCountFixed,
   }) {
     return Formula(
       id: id ?? this.id,
@@ -49,10 +46,9 @@ class Formula {
       price: price ?? this.price,
       minParticipants: minParticipants ?? this.minParticipants,
       maxParticipants: maxParticipants ?? this.maxParticipants,
-      defaultGameCount: defaultGameCount ?? this.defaultGameCount,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
       minGames: minGames ?? this.minGames,
       maxGames: maxGames ?? this.maxGames,
-      isGameCountFixed: isGameCountFixed ?? this.isGameCountFixed,
     );
   }
 
@@ -66,10 +62,9 @@ class Formula {
       'price': price,
       'min_persons': minParticipants,
       'max_persons': maxParticipants,
-      'default_game_count': defaultGameCount,
+      'duration_minutes': durationMinutes,
       'min_games': minGames,
       'max_games': maxGames,
-      'is_game_count_fixed': isGameCountFixed,
     };
   }
 
@@ -81,12 +76,11 @@ class Formula {
       description: map['description'],
       activity: Activity.fromMap(map['activity']),
       price: map['price']?.toDouble() ?? 0.0,
-      minParticipants: map['min_persons'],
+      minParticipants: map['min_persons'] ?? 1,
       maxParticipants: map['max_persons'],
-      defaultGameCount: map['default_game_count'],
-      minGames: map['min_games'],
+      durationMinutes: map['duration_minutes'] ?? 15,
+      minGames: map['min_games'] ?? 1,
       maxGames: map['max_games'],
-      isGameCountFixed: map['is_game_count_fixed'],
     );
   }
 
@@ -96,7 +90,7 @@ class Formula {
 
   @override
   String toString() {
-    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, defaultGameCount: $defaultGameCount, minGames: $minGames, maxGames: $maxGames, isGameCountFixed: $isGameCountFixed)';
+    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, durationMinutes: $durationMinutes, minGames: $minGames, maxGames: $maxGames)';
   }
 
   @override
@@ -111,24 +105,21 @@ class Formula {
         other.price == price &&
         other.minParticipants == minParticipants &&
         other.maxParticipants == maxParticipants &&
-        other.defaultGameCount == defaultGameCount &&
+        other.durationMinutes == durationMinutes &&
         other.minGames == minGames &&
-        other.maxGames == maxGames &&
-        other.isGameCountFixed == isGameCountFixed;
+        other.maxGames == maxGames;
   }
 
   @override
-  int get hashCode {
-    return id.hashCode ^
-        name.hashCode ^
-        description.hashCode ^
-        activity.hashCode ^
-        price.hashCode ^
-        minParticipants.hashCode ^
-        maxParticipants.hashCode ^
-        defaultGameCount.hashCode ^
-        minGames.hashCode ^
-        maxGames.hashCode ^
-        isGameCountFixed.hashCode;
-  }
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      activity.hashCode ^
+      price.hashCode ^
+      minParticipants.hashCode ^
+      maxParticipants.hashCode ^
+      durationMinutes.hashCode ^
+      minGames.hashCode ^
+      maxGames.hashCode;
 }

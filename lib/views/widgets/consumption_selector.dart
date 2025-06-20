@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
 import '../../models/stock_item_model.dart';
 import '../../viewmodels/stock_view_model.dart';
 
+/// Widget de sélection des consommations avec une interface utilisateur moderne et interactive
+///
+/// Affiche une liste d'articles avec des onglets pour les différentes catégories,
+/// une barre de recherche avec debounce, des animations fluides et un feedback tactile.
 class ConsumptionSelector extends StatefulWidget {
   final StockViewModel stockVM;
   final Function(String stockItemId) onConsumptionSelected;
@@ -16,46 +22,112 @@ class ConsumptionSelector extends StatefulWidget {
   ConsumptionSelectorState createState() => ConsumptionSelectorState();
 }
 
+/// État du widget ConsumptionSelector
 class ConsumptionSelectorState extends State<ConsumptionSelector>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
+  /// Contrôleur pour les onglets
   late TabController _tabController;
+
+  /// ID de l'article sélectionné
   String? selectedItemId;
-  bool _isTabControllerInitialized = false;
+
+  /// Texte de recherche courant
   String _searchQuery = '';
+
+  /// Contrôleur pour le champ de recherche
   final TextEditingController _searchController = TextEditingController();
+
+  /// Horodatage de la dernière recherche pour le debounce
+  DateTime? _lastSearchTime;
+
+  /// Position du glissement pour la fermeture du modal
+  double _dragOffset = 0.0;
+
+  /// Contrôleur pour les animations d'entrée
+  late AnimationController _animationController;
+
+  /// Animation d'échelle
+  late Animation<double> _scaleAnimation;
+
+  /// Animation d'opacité
+  late Animation<double> _opacityAnimation;
+
+  /// Clé pour le champ de recherche (accessibilité)
+  final GlobalKey _searchFieldKey = GlobalKey(debugLabel: 'searchField');
+
+  /// Clé pour la barre d'onglets (accessibilité)
+  final GlobalKey _tabBarKey = GlobalKey(debugLabel: 'tabBar');
+
+  /// Seuil de glissement pour fermer le modal
+  static const double _dragThreshold = 100.0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: 3,
+    _initializeTabController();
+    _initializeAnimations();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _initializeAnimations() {
+    _animationController = AnimationController(
       vsync: this,
-    ); // 3 onglets: Boissons, Nourriture, Autres
+      duration: const Duration(milliseconds: 200),
+    );
 
-    // Sélectionner l'onglet "Boissons" par défaut (index 0)
-    _tabController.index = 0;
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
 
-    // Ajouter un listener pour détecter les changements d'onglet
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _animationController.forward();
+  }
+
+  void _initializeTabController() {
+    int tabCount = 0;
+    if (widget.stockVM.drinks.isNotEmpty) tabCount++;
+    if (widget.stockVM.food.isNotEmpty) tabCount++;
+    if (widget.stockVM.others.isNotEmpty) tabCount++;
+
+    tabCount = tabCount.clamp(1, 3);
+
+    _tabController = TabController(length: tabCount, vsync: this);
+
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
-        setState(() {}); // Rafraîchir l'UI lors du changement d'onglet
+        setState(() {});
       }
     });
+  }
 
-    // Ajouter un listener pour le champ de recherche
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-        // Pas besoin de changer d'onglet lors d'une recherche
-      });
+  void _onSearchChanged() {
+    final now = DateTime.now();
+    _lastSearchTime = now;
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_lastSearchTime == now) {
+        setState(() {
+          _searchQuery = _searchController.text;
+        });
+      }
     });
+  }
 
-    // Marquer comme initialisé
-    _isTabControllerInitialized = true;
+  @override
+  void didUpdateWidget(ConsumptionSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stockVM != widget.stockVM) {
+      _tabController.dispose();
+      _initializeTabController();
+    }
   }
 
   @override
   void dispose() {
+    _animationController.dispose();
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -64,188 +136,389 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
   IconData _getItemIcon(String category) {
     switch (category) {
       case 'DRINK':
-        return Icons.local_bar;
+        return Icons.local_bar_rounded;
       case 'FOOD':
-        return Icons.restaurant;
+        return Icons.restaurant_rounded;
       case 'OTHER':
-        return Icons.category;
+        return Icons.category_rounded;
       default:
-        return Icons.inventory;
+        return Icons.inventory_2_rounded;
     }
   }
 
-  Widget _buildItemList(List<StockItem> items) {
-    if (items.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.sentiment_dissatisfied, size: 48, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'Aucun article disponible dans cette catégorie',
-              style: TextStyle(
-                fontSize: 16,
-                fontStyle: FontStyle.italic,
-                color: Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+  Widget _buildDragHandle(BuildContext context) {
+    final progress = (_dragOffset / _dragThreshold).clamp(0.0, 1.0);
+
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        setState(() {
+          _dragOffset += details.primaryDelta!;
+          if (_dragOffset > _dragThreshold) {
+            Navigator.pop(context);
+          }
+        });
+      },
+      onVerticalDragEnd: (_) {
+        if (_dragOffset <= _dragThreshold) {
+          setState(() => _dragOffset = 0.0);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        width: 40 + (progress * 20),
+        height: 4,
+        decoration: BoxDecoration(
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withOpacity(1.0 - progress * 0.3),
+          borderRadius: BorderRadius.circular(2),
         ),
-      );
-    }
-
-    // Filtrer les articles en fonction de la recherche
-    final filteredItems =
-        _searchQuery.isEmpty
-            ? items
-            : items
-                .where(
-                  (item) => item.name.toLowerCase().contains(
-                    _searchQuery.toLowerCase(),
-                  ),
-                )
-                .toList();
-
-    // Si la recherche ne donne aucun résultat
-    if (filteredItems.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off, size: 48, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              'Aucun résultat pour "$_searchQuery"',
-              style: const TextStyle(
-                fontSize: 16,
-                fontStyle: FontStyle.italic,
-                color: Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: () => _searchController.clear(),
-              icon: const Icon(Icons.clear),
-              label: const Text('Effacer la recherche'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Séparer les articles en stock et hors stock
-    final inStockItems =
-        filteredItems.where((item) => item.quantity > 0).toList();
-    final outOfStockItems =
-        filteredItems.where((item) => item.quantity <= 0).toList();
-    final allSortedItems = [...inStockItems, ...outOfStockItems];
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 4,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
       ),
-      itemCount: allSortedItems.length,
-      itemBuilder: (context, index) {
-        final item = allSortedItems[index];
-        final theme = Theme.of(context);
-        final isSelected = selectedItemId == item.id;
-        final hasStock = item.quantity > 0;
+    );
+  }
 
-        return InkWell(
-          onTap:
-              hasStock
-                  ? () {
-                    setState(() => selectedItemId = item.id);
-                    widget.onConsumptionSelected(item.id);
-                  }
+  Widget _buildSearchField(BuildContext context) {
+    return Semantics(
+      textField: true,
+      label: 'Rechercher un article',
+      hint: 'Double-tapez pour rechercher un article',
+      child: TextField(
+        key: _searchFieldKey,
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Rechercher un article...',
+          hintStyle: TextStyle(color: Theme.of(context).colorScheme.outline),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: Theme.of(context).colorScheme.outline,
+          ),
+          suffixIcon:
+              _searchQuery.isNotEmpty
+                  ? IconButton(
+                    tooltip: 'Effacer la recherche',
+                    icon: const Icon(Icons.clear_rounded),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
                   : null,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: BoxDecoration(
-              color:
-                  !hasStock
-                      ? Colors.grey.shade100
-                      : isSelected
-                      ? theme.primaryColor.withOpacity(0.15)
-                      : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color:
-                    !hasStock
-                        ? Colors.grey.shade300
-                        : isSelected
-                        ? theme.primaryColor
-                        : Colors.grey.shade200,
-                width: isSelected ? 2 : 1,
-              ),
+          filled: true,
+          fillColor: Theme.of(
+            context,
+          ).colorScheme.surfaceVariant.withOpacity(0.3),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 2,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+        ),
+        textInputAction: TextInputAction.search,
+        onChanged: (value) => setState(() => _searchQuery = value),
+      ),
+    );
+  }
+
+  Widget _buildItemList(List<StockItem> items) {
+    final filteredItems =
+        items
+            .where(
+              (item) =>
+                  item.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+            )
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+
+    if (filteredItems.isEmpty) {
+      return AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: _searchQuery.isEmpty ? 1.0 : 0.8,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _getItemIcon(item.category),
-                  size: 20,
-                  color: hasStock ? theme.primaryColor : Colors.grey.shade400,
+                  _searchQuery.isEmpty
+                      ? Icons.inventory_2_outlined
+                      : Icons.search_off_rounded,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.outline,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        item.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 16),
+                Text(
+                  _searchQuery.isEmpty
+                      ? 'Aucun article disponible dans cette catégorie'
+                      : 'Aucun résultat trouvé pour "${_searchQuery}"',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                if (_searchQuery.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Essayez avec un autre terme',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      itemCount: filteredItems.length,
+      itemBuilder: (context, index) {
+        final item = filteredItems[index];
+        final isSelected = selectedItemId == item.id;
+        final hasStock = item.quantity > 0;
+        // Permet la sélection si l'article a du stock ou s'il est déjà sélectionné (pour permettre la désélection)
+        final canInteract = hasStock || isSelected;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap:
+                  canInteract
+                      ? () {
+                        // Si l'article est déjà sélectionné, on le désélectionne
+                        if (isSelected) {
+                          setState(() => selectedItemId = null);
+                          widget.onConsumptionSelected(
+                            '',
+                          ); // On envoie une chaîne vide pour indiquer la désélection
+                        } else {
+                          setState(() => selectedItemId = item.id);
+                          widget.onConsumptionSelected(item.id);
+                        }
+                        HapticFeedback.selectionClick();
+                      }
+                      : null,
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  color:
+                      !hasStock
+                          ? Theme.of(
+                            context,
+                          ).colorScheme.surfaceVariant.withOpacity(0.3)
+                          : isSelected
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color:
+                        !hasStock
+                            ? Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withOpacity(0.3)
+                            : isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withOpacity(0.3),
+                    width: isSelected ? 2 : 1,
+                  ),
+                  boxShadow:
+                      isSelected
+                          ? [
+                            BoxShadow(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1),
+                              blurRadius: 8,
+                              spreadRadius: 0,
+                            ),
+                          ]
+                          : null,
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color:
+                                hasStock
+                                    ? Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withOpacity(0.1)
+                                    : Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceVariant,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            _getItemIcon(item.category),
+                            size: 20,
+                            color:
+                                hasStock
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                        if (hasStock && item.quantity <= item.alertThreshold)
+                          Positioned(
+                            top: -4,
+                            right: -4,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.errorContainer,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.surface,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.warning_rounded,
+                                size: 10,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color:
+                                  hasStock
+                                      ? Theme.of(context).colorScheme.onSurface
+                                      : Theme.of(context).colorScheme.outline,
+                              decoration:
+                                  hasStock ? null : TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              if (hasStock)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        item.quantity <= item.alertThreshold
+                                            ? Theme.of(
+                                              context,
+                                            ).colorScheme.errorContainer
+                                            : Theme.of(
+                                              context,
+                                            ).colorScheme.tertiaryContainer,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Stock : ${item.quantity}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          item.quantity <= item.alertThreshold
+                                              ? Theme.of(
+                                                context,
+                                              ).colorScheme.error
+                                              : Theme.of(
+                                                context,
+                                              ).colorScheme.onTertiaryContainer,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.errorContainer,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Épuisé',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          Theme.of(context).colorScheme.error,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.secondaryContainer.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${item.price.toStringAsFixed(2)}€',
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                           color:
-                              hasStock ? Colors.black87 : Colors.grey.shade500,
-                          decoration:
-                              hasStock ? null : TextDecoration.lineThrough,
-                          decorationColor: Colors.grey.shade400,
+                              Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '${item.price.toStringAsFixed(2)}€',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: hasStock ? theme.primaryColor : Colors.grey.shade400,
-                  ),
-                ),
-                if (!hasStock)
-                  Container(
-                    margin: const EdgeInsets.only(left: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Épuisé',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red.shade800,
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         );
@@ -253,337 +526,352 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
     );
   }
 
+  Widget _buildTab(
+    String label,
+    IconData icon,
+    int index,
+    int count,
+    BuildContext context,
+  ) {
+    final isSelected = _tabController.index == index;
+    return Tab(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 6),
+            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color:
+                      isSelected
+                          ? Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.15)
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(10),
+                  border:
+                      isSelected
+                          ? Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.3),
+                            width: 1,
+                          )
+                          : null,
+                ),
+                child: Text(
+                  _searchQuery.isEmpty
+                      ? '$count'
+                      : '${_getFilteredCount(index)}',
+                  style: TextStyle(
+                    color:
+                        isSelected
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _getFilteredCount(int tabIndex) {
+    final query = _searchQuery.toLowerCase();
+    switch (tabIndex) {
+      case 0:
+        return widget.stockVM.drinks
+            .where((item) => item.name.toLowerCase().contains(query))
+            .length;
+      case 1:
+        return widget.stockVM.food
+            .where((item) => item.name.toLowerCase().contains(query))
+            .length;
+      case 2:
+        return widget.stockVM.others
+            .where((item) => item.name.toLowerCase().contains(query))
+            .length;
+      default:
+        return 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Vérifier si des articles sont disponibles
     final hasDrinks = widget.stockVM.drinks.isNotEmpty;
     final hasFood = widget.stockVM.food.isNotEmpty;
     final hasOthers = widget.stockVM.others.isNotEmpty;
     final hasAny = hasDrinks || hasFood || hasOthers;
 
-    // Déterminer l'onglet initial si aucun article n'est disponible dans l'onglet actuel
     if (!hasAny) {
-      // Aucun article disponible dans aucune catégorie
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.inventory_2_outlined,
               size: 64,
-              color: Colors.grey,
+              color: Theme.of(context).colorScheme.outline,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Aucun article disponible',
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.outline,
               ),
             ),
             const SizedBox(height: 8),
-            ElevatedButton(
+            FilledButton.icon(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Fermer'),
+              icon: const Icon(Icons.close),
+              label: const Text('Fermer'),
             ),
           ],
         ),
       );
     }
 
-    // Sélectionner automatiquement le premier onglet avec des articles si l'onglet actuel est vide
-    if (_isTabControllerInitialized) {
-      // Vérifier les onglets spécifiques
-      if (!hasDrinks && _tabController.index == 0) {
-        if (hasFood) {
-          _tabController.index = 1;
-        } else if (hasOthers) {
-          _tabController.index = 2;
-        }
-      } else if (!hasFood && _tabController.index == 1) {
-        if (hasDrinks) {
-          _tabController.index = 0;
-        } else if (hasOthers) {
-          _tabController.index = 2;
-        }
-      } else if (!hasOthers && _tabController.index == 2) {
-        if (hasDrinks) {
-          _tabController.index = 0;
-        } else if (hasFood) {
-          _tabController.index = 1;
-        }
-      }
+    final List<Widget> tabs = [];
+    final List<Widget> tabViews = [];
+
+    if (hasDrinks) {
+      tabs.add(
+        _buildTab(
+          'Boissons',
+          Icons.local_bar_rounded,
+          tabs.length,
+          widget.stockVM.drinks.length,
+          context,
+        ),
+      );
+      tabViews.add(
+        Builder(builder: (context) => _buildItemList(widget.stockVM.drinks)),
+      );
     }
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
+
+    if (hasFood) {
+      tabs.add(
+        _buildTab(
+          'Nourriture',
+          Icons.restaurant_rounded,
+          tabs.length,
+          widget.stockVM.food.length,
+          context,
+        ),
+      );
+      tabViews.add(
+        Builder(builder: (context) => _buildItemList(widget.stockVM.food)),
+      );
+    }
+
+    if (hasOthers) {
+      tabs.add(
+        _buildTab(
+          'Autres',
+          Icons.category_rounded,
+          tabs.length,
+          widget.stockVM.others.length,
+          context,
+        ),
+      );
+      tabViews.add(
+        Builder(builder: (context) => _buildItemList(widget.stockVM.others)),
+      );
+    }
+
+    if (tabs.isEmpty) {
+      tabs.add(const Tab(text: 'Aucun article'));
+      tabViews.add(const Center(child: Text('Aucun article disponible')));
+    }
+
+    return AnimatedBuilder(
+      animation: _animationController,
       builder:
-          (_, scrollController) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Ajouter une consommation',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                // Champ de recherche
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher dans toutes les catégories...',
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      suffixIcon:
-                          _searchQuery.isNotEmpty
-                              ? IconButton(
-                                icon: Icon(
-                                  Icons.clear,
-                                  color: Theme.of(context).primaryColor,
+          (context, child) => Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Opacity(
+              opacity: _opacityAnimation.value,
+              child: Semantics(
+                container: true,
+                label: 'Sélecteur de consommation',
+                hint: 'Faites glisser vers le bas pour fermer',
+                child: DraggableScrollableSheet(
+                  initialChildSize: 0.7,
+                  minChildSize: 0.5,
+                  maxChildSize: 0.95,
+                  snap: true,
+                  snapSizes: const [0.7, 0.95],
+                  builder:
+                      (_, scrollController) => Container(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              spreadRadius: 0,
+                              offset: const Offset(0, -2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            _buildDragHandle(context),
+
+                            // En-tête avec titre et bouton de fermeture
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 8, 16, 16),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.local_bar_rounded,
+                                    size: 24,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Ajouter une consommation',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton.filledTonal(
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () => Navigator.pop(context),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceVariant,
+                                      foregroundColor:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Champ de recherche optimisé
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              child: _buildSearchField(context),
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // TabBar avec sémantique et animations
+                            Container(
+                              height: 48,
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceVariant.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Semantics(
+                                container: true,
+                                label: 'Catégories de consommations',
+                                child: TabBar(
+                                  key: _tabBarKey,
+                                  controller: _tabController,
+                                  labelColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  unselectedLabelColor:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                  labelStyle: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  unselectedLabelStyle: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  indicator: BoxDecoration(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  indicatorSize: TabBarIndicatorSize.tab,
+                                  dividerColor: Colors.transparent,
+                                  labelPadding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  tabs: tabs,
                                 ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {
-                                    _searchQuery = '';
-                                  });
-                                },
-                              )
-                              : null,
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).primaryColor,
-                          width: 2,
+                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            // TabBarView avec animation de transition
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                physics: const BouncingScrollPhysics(),
+                                children: List.generate(
+                                  tabViews.length,
+                                  (index) => TweenAnimationBuilder<double>(
+                                    key: ValueKey('tab_$index'),
+                                    duration: const Duration(milliseconds: 300),
+                                    tween: Tween<double>(
+                                      begin: 0.0,
+                                      end:
+                                          _tabController.index == index
+                                              ? 1.0
+                                              : 0.0,
+                                    ),
+                                    builder:
+                                        (context, value, child) => Opacity(
+                                          opacity: value,
+                                          child: Transform.translate(
+                                            offset: Offset(0, 20 * (1 - value)),
+                                            child: child,
+                                          ),
+                                        ),
+                                    child: tabViews[index],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 14,
-                        horizontal: 16,
-                      ),
-                    ),
-                    textInputAction: TextInputAction.search,
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
-                  ),
                 ),
-                TabBar(
-                  controller: _tabController,
-                  labelColor: Theme.of(context).primaryColor,
-                  unselectedLabelColor: Colors.grey.shade700,
-                  indicatorColor: Theme.of(context).primaryColor,
-                  indicatorWeight: 3,
-                  isScrollable: true, // Permettre le défilement si nécessaire
-                  onTap: (index) {
-                    setState(() {}); // Forcer la mise à jour de l'UI
-                  },
-                  tabs: [
-                    Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('Boissons'),
-                          const SizedBox(width: 4),
-                          if (hasDrinks)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    _tabController.index == 0
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey.shade300,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                _searchQuery.isEmpty
-                                    ? '${widget.stockVM.drinks.length}'
-                                    : '${widget.stockVM.drinks.where((item) => item.name.toLowerCase().contains(_searchQuery.toLowerCase())).length}',
-                                style: TextStyle(
-                                  color:
-                                      _tabController.index == 0
-                                          ? Colors.white
-                                          : Colors.grey.shade700,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          else
-                            const Icon(
-                              Icons.warning,
-                              size: 14,
-                              color: Colors.orange,
-                            ),
-                        ],
-                      ),
-                    ),
-                    Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('Nourriture'),
-                          const SizedBox(width: 4),
-                          if (hasFood)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    _tabController.index == 1
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey.shade300,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                _searchQuery.isEmpty
-                                    ? '${widget.stockVM.food.length}'
-                                    : '${widget.stockVM.food.where((item) => item.name.toLowerCase().contains(_searchQuery.toLowerCase())).length}',
-                                style: TextStyle(
-                                  color:
-                                      _tabController.index == 1
-                                          ? Colors.white
-                                          : Colors.grey.shade700,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          else
-                            const Icon(
-                              Icons.warning,
-                              size: 14,
-                              color: Colors.orange,
-                            ),
-                        ],
-                      ),
-                    ),
-                    Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('Autres'),
-                          const SizedBox(width: 4),
-                          if (hasOthers)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    _tabController.index == 2
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey.shade300,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                _searchQuery.isEmpty
-                                    ? '${widget.stockVM.others.length}'
-                                    : '${widget.stockVM.others.where((item) => item.name.toLowerCase().contains(_searchQuery.toLowerCase())).length}',
-                                style: TextStyle(
-                                  color:
-                                      _tabController.index == 2
-                                          ? Colors.white
-                                          : Colors.grey.shade700,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          else
-                            const Icon(
-                              Icons.warning,
-                              size: 14,
-                              color: Colors.orange,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Onglet Boissons
-                      Builder(
-                        builder: (context) {
-                          final drinks = widget.stockVM.drinks;
-                          return _buildItemList(drinks);
-                        },
-                      ),
-                      // Onglet Nourriture
-                      Builder(
-                        builder: (context) {
-                          final food = widget.stockVM.food;
-                          return _buildItemList(food);
-                        },
-                      ),
-                      // Onglet Autres
-                      Builder(
-                        builder: (context) {
-                          final others = widget.stockVM.others;
-                          return _buildItemList(others);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                // Afficher des instructions ou des informations supplémentaires
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    'Sélectionnez un article pour l\'ajouter à la réservation',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
     );

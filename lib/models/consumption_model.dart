@@ -1,5 +1,3 @@
-import 'stock_item_model.dart';
-
 class Consumption {
   final String id;
   final String bookingId;

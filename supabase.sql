@@ -2,20 +2,29 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "moddatetime";
 
+-- Drop existing views if they exist
+DROP VIEW IF EXISTS booking_summaries CASCADE;
+DROP VIEW IF EXISTS low_stock_items CASCADE;
+DROP VIEW IF EXISTS v_formula CASCADE;
+
 -- Drop existing tables if they exist
 DROP TABLE IF EXISTS user_settings CASCADE;
 DROP TABLE IF EXISTS consumptions CASCADE;
 DROP TABLE IF EXISTS stock_items CASCADE;
 DROP TABLE IF EXISTS payments CASCADE;
 DROP TABLE IF EXISTS bookings CASCADE;
-DROP TABLE IF EXISTS customers CASCADE;
 DROP TABLE IF EXISTS formulas CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
 DROP TABLE IF EXISTS activities CASCADE;
 
--- Drop existing views if they exist
-DROP VIEW IF EXISTS booking_summaries CASCADE;
-DROP VIEW IF EXISTS low_stock_items CASCADE;
-DROP VIEW IF EXISTS v_formula CASCADE;
+-- Create activities table
+CREATE TABLE activities (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
 -- Drop existing types if they exist
 DROP TYPE IF EXISTS payment_method CASCADE;
@@ -29,16 +38,6 @@ CREATE TYPE payment_type AS ENUM ('deposit', 'balance');
 CREATE TYPE item_category AS ENUM ('DRINK', 'FOOD', 'OTHER');
 CREATE TYPE theme_mode AS ENUM ('system', 'light', 'dark');
 
--- Create activities table
-CREATE TABLE activities (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  description TEXT,
-  price_per_person DECIMAL(10,2),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 -- Create formulas table
 CREATE TABLE formulas (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -46,28 +45,20 @@ CREATE TABLE formulas (
   name TEXT NOT NULL,
   description TEXT,
   price DECIMAL(10,2) NOT NULL,
-  min_persons INTEGER,
+  min_persons INTEGER NOT NULL,
   max_persons INTEGER,
-  default_game_count INTEGER,
-  min_games INTEGER,
+  duration_minutes INTEGER NOT NULL DEFAULT 60,
+  min_games INTEGER NOT NULL DEFAULT 1,
   max_games INTEGER,
-  is_game_count_fixed BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   CHECK (min_persons > 0),
-  CHECK (max_persons >= min_persons),
-  CHECK (price >= 0)
+  CHECK (max_persons IS NULL OR max_persons >= min_persons),
+  CHECK (price >= 0),
+  CHECK (duration_minutes > 0),
+  CHECK (min_games > 0),
+  CHECK (max_games IS NULL OR max_games >= min_games)
 );
-
--- Create formula view
-CREATE OR REPLACE VIEW v_formula AS
-SELECT 
-    f.*,
-    a.name as activity_name,
-    a.description as activity_description,
-    a.price_per_person
-FROM formulas f
-JOIN activities a ON f.activity_id = a.id;
 
 -- Create customers table
 CREATE TABLE customers (
@@ -79,38 +70,6 @@ CREATE TABLE customers (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Create function to safely create a customer
-CREATE OR REPLACE FUNCTION create_customer(
-  p_first_name TEXT,
-  p_last_name TEXT,
-  p_phone TEXT,
-  p_email TEXT
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_customer_id UUID;
-BEGIN
-  INSERT INTO customers (
-    first_name,
-    last_name,
-    phone,
-    email
-  )
-  VALUES (
-    p_first_name,
-    p_last_name,
-    p_phone,
-    p_email
-  )
-  RETURNING id INTO v_customer_id;
-
-  RETURN v_customer_id;
-END;
-$$;
 
 -- Create bookings table
 CREATE TABLE bookings (
@@ -148,11 +107,12 @@ CREATE TABLE payments (
 -- Create stock items table
 CREATE TABLE stock_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   quantity INTEGER NOT NULL DEFAULT 0,
   price DECIMAL(10,2) NOT NULL,
   alert_threshold INTEGER NOT NULL,
   category item_category NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   CHECK (quantity >= 0),
@@ -185,72 +145,132 @@ CREATE TABLE user_settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
--- Create automatic timestamp update triggers
-CREATE TRIGGER handle_updated_at_activities
+-- Create views
+CREATE OR REPLACE VIEW low_stock_items AS 
+SELECT *
+FROM stock_items
+WHERE quantity <= alert_threshold 
+AND is_active = true;
+
+CREATE OR REPLACE VIEW v_formula AS
+SELECT 
+    f.*,
+    a.name as activity_name,
+    a.description as activity_description
+FROM formulas f
+JOIN activities a ON f.activity_id = a.id;
+
+-- Create function to safely create a customer
+CREATE OR REPLACE FUNCTION create_customer(
+  p_first_name TEXT,
+  p_last_name TEXT,
+  p_phone TEXT,
+  p_email TEXT
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_customer_id UUID;
+BEGIN
+  INSERT INTO customers (
+    first_name,
+    last_name,
+    phone,
+    email
+  )
+  VALUES (
+    p_first_name,
+    p_last_name,
+    p_phone,
+    p_email
+  )
+  RETURNING id INTO v_customer_id;
+
+  RETURN v_customer_id;
+END;
+$$;
+
+-- Create trigger function to update updated_at column
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for updating updated_at column
+CREATE TRIGGER update_activities_updated_at
   BEFORE UPDATE ON activities
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER handle_updated_at_formulas
+CREATE TRIGGER update_formulas_updated_at
   BEFORE UPDATE ON formulas
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER handle_updated_at_bookings
+CREATE TRIGGER update_bookings_updated_at
   BEFORE UPDATE ON bookings
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER handle_updated_at_payments
+CREATE TRIGGER update_payments_updated_at
   BEFORE UPDATE ON payments
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER handle_updated_at_stock_items
+CREATE TRIGGER update_stock_items_updated_at
   BEFORE UPDATE ON stock_items
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER handle_updated_at_consumptions
+CREATE TRIGGER update_consumptions_updated_at
   BEFORE UPDATE ON consumptions
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-CREATE TRIGGER handle_updated_at_user_settings
+CREATE TRIGGER update_user_settings_updated_at
   BEFORE UPDATE ON user_settings
-  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 -- Create function to update stock quantities
 CREATE OR REPLACE FUNCTION update_stock_quantity()
 RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    -- Vérifier si le stock est suffisant
+    -- Vérifier si le stock est suffisant et si l'article est actif
     IF NOT EXISTS (
       SELECT 1 
       FROM stock_items 
       WHERE id = NEW.stock_item_id 
       AND quantity >= NEW.quantity
+      AND is_active = true
     ) THEN
-      RAISE EXCEPTION 'Stock insuffisant';
+      RAISE EXCEPTION 'Stock insuffisant ou article inactif';
     END IF;
     
     UPDATE stock_items
     SET quantity = quantity - NEW.quantity
-    WHERE id = NEW.stock_item_id;
+    WHERE id = NEW.stock_item_id
+    AND is_active = true;
   ELSIF TG_OP = 'DELETE' THEN
     UPDATE stock_items
     SET quantity = quantity + OLD.quantity
     WHERE id = OLD.stock_item_id;
   ELSIF TG_OP = 'UPDATE' THEN
     IF NEW.quantity <> OLD.quantity THEN
-      -- Vérifier si le stock est suffisant pour l'augmentation de quantité
+      -- Vérifier si le stock est suffisant et si l'article est actif
       IF NEW.quantity > OLD.quantity AND NOT EXISTS (
         SELECT 1 
         FROM stock_items 
         WHERE id = NEW.stock_item_id 
         AND quantity >= (NEW.quantity - OLD.quantity)
+        AND is_active = true
       ) THEN
-        RAISE EXCEPTION 'Stock insuffisant pour l''augmentation de quantité';
+        RAISE EXCEPTION 'Stock insuffisant pour l''augmentation de quantité ou article inactif';
       END IF;
       
       UPDATE stock_items
       SET quantity = quantity + (OLD.quantity - NEW.quantity)
-      WHERE id = NEW.stock_item_id;
+      WHERE id = NEW.stock_item_id
+      AND is_active = true;
     END IF;
   END IF;
   RETURN NEW;
@@ -312,6 +332,12 @@ SELECT
   b.total_paid,
   b.created_at,
   b.updated_at,
+  f.name AS formula_name,
+  f.description AS formula_description,
+  a.id AS activity_id,
+  a.name AS activity_name,
+  a.description AS activity_description,
+  f.price AS formula_base_price,
   f.price * b.number_of_persons * b.number_of_games AS formula_price,
   COALESCE(SUM(cons.quantity * cons.unit_price), 0) AS consumptions_total,
   (f.price * b.number_of_persons * b.number_of_games + COALESCE(SUM(cons.quantity * cons.unit_price), 0)) AS total_price,
@@ -337,16 +363,24 @@ SELECT
   ) FILTER (WHERE p.id IS NOT NULL) AS payments
 FROM bookings b
 LEFT JOIN formulas f ON b.formula_id = f.id
+LEFT JOIN activities a ON f.activity_id = a.id
 LEFT JOIN customers cust ON b.customer_id = cust.id
-LEFT JOIN consumptions cons ON b.id = cons.booking_id
+LEFT JOIN consumptions cons ON b.id = cons.booking_id AND cons.quantity > 0
 LEFT JOIN payments p ON b.id = p.booking_id
-GROUP BY b.id, f.id, cust.id;
-
--- Create low_stock_items view
-CREATE OR REPLACE VIEW low_stock_items AS
-SELECT *
-FROM stock_items
-WHERE quantity <= alert_threshold;
+GROUP BY 
+  b.id,
+  f.id,
+  f.name,
+  f.description,
+  f.price,
+  a.id,
+  a.name,
+  a.description,
+  cust.id,
+  cust.first_name,
+  cust.last_name,
+  cust.email,
+  cust.phone;
 
 -- Drop existing search_customers function if it exists
 DROP FUNCTION IF EXISTS search_customers(TEXT);
@@ -765,8 +799,8 @@ CREATE INDEX idx_customers_name ON customers(first_name, last_name);
 INSERT INTO customers(first_name, last_name, email, phone) 
 VALUES ('Thimoté', 'Fétu', 'thimotefetu@gmail.com', '0492504409');
 
-INSERT INTO activities(name, description, price_per_person) 
-VALUES ('Laser Game', 'OK', 8.00);
+INSERT INTO activities(name, description) 
+VALUES ('Laser Game', 'Partie de laser game en équipe');
 
 INSERT INTO formulas(
   activity_id, 
@@ -775,9 +809,20 @@ INSERT INTO formulas(
   price, 
   min_persons, 
   max_persons, 
-  default_game_count, 
-  is_game_count_fixed
+  duration_minutes, 
+  min_games,
+  max_games
 )
-VALUES ((SELECT id FROM activities WHERE name = 'Laser Game'), 'Groupe', 'OK', 8.00, 2, 20, 1, false);
+VALUES (
+  (SELECT id FROM activities WHERE name = 'Laser Game'),
+  'Groupe standard',
+  'Une partie de laser game en groupe',
+  8.00,
+  2,
+  20,
+  15,
+  1,
+  NULL
+);
 
 insert into stock_items(name, quantity, price, alert_threshold, category) VALUES ('test', 50, 2.00, 10, 'DRINK');

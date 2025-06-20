@@ -24,8 +24,10 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
   @override
   void initState() {
     super.initState();
-    _focusedDay = DateTime.now();
-    _selectedDay = DateTime.now();
+    // Initialize with local time
+    final now = DateTime.now();
+    _focusedDay = now;
+    _selectedDay = now;
     _calendarFormat = CalendarFormat.month;
   }
 
@@ -51,8 +53,8 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
               children: [
                 TableCalendar(
                   locale: 'fr_FR',
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
+                  firstDay: DateTime(2020, 1, 1), // Using local time
+                  lastDay: DateTime(2030, 12, 31), // Using local time
                   focusedDay: _focusedDay,
                   calendarFormat: _calendarFormat,
                   startingDayOfWeek: StartingDayOfWeek.monday,

@@ -1,4 +1,3 @@
-import 'package:uuid/uuid.dart';
 import 'formula_model.dart';
 import 'payment_model.dart' as payment_model;
 
@@ -6,6 +5,7 @@ class Booking {
   final String id;
   final String firstName;
   final String? lastName;
+  // Always stored in UTC
   final DateTime dateTime;
   final int numberOfPersons;
   final int numberOfGames;
@@ -21,8 +21,15 @@ class Booking {
   double get formulaPrice => numberOfPersons * numberOfGames * formula.price;
   double get totalPaid =>
       payments.fold(0, (sum, payment) => sum + payment.amount);
-  double get totalPrice => formulaPrice + consumptionsTotal;
+  final double? _totalPrice;
+  double get totalPrice => _totalPrice ?? (formulaPrice + consumptionsTotal);
   double get remainingBalance => totalPrice - totalPaid;
+
+  // Always return UTC time
+  DateTime get dateTimeUTC => dateTime;
+
+  // Convert UTC to local for display
+  DateTime get dateTimeLocal => dateTime.toLocal();
 
   Booking({
     required this.id,
@@ -39,8 +46,8 @@ class Booking {
     this.paymentMethod = payment_model.PaymentMethod.transfer,
     this.payments = const [],
     this.consumptionsTotal = 0.0,
-  });
-
+    double? totalPrice,
+  }) : _totalPrice = totalPrice;
   Booking copyWith({
     String? id,
     String? firstName,
@@ -56,6 +63,7 @@ class Booking {
     payment_model.PaymentMethod? paymentMethod,
     List<payment_model.Payment>? payments,
     double? consumptionsTotal,
+    double? totalPrice,
   }) {
     return Booking(
       id: id ?? this.id,
@@ -72,6 +80,7 @@ class Booking {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       payments: payments ?? this.payments,
       consumptionsTotal: consumptionsTotal ?? this.consumptionsTotal,
+      totalPrice: totalPrice ?? _totalPrice,
     );
   }
 
@@ -80,7 +89,7 @@ class Booking {
       'id': id,
       'firstName': firstName,
       'lastName': lastName,
-      'dateTime': dateTime.millisecondsSinceEpoch,
+      'date_time': dateTimeUTC.toIso8601String(), // Stockage en UTC
       'numberOfPersons': numberOfPersons,
       'numberOfGames': numberOfGames,
       'email': email,
@@ -88,15 +97,14 @@ class Booking {
       'formula': formula.toMap(),
       'isCancelled': isCancelled,
       'deposit': deposit,
-      'paymentMethod': paymentMethod.index,
+      'paymentMethod': paymentMethod.toString().split('.').last,
       'payments': payments.map((x) => x.toMap()).toList(),
       'consumptionsTotal': consumptionsTotal,
     };
   }
 
   factory Booking.fromMap(Map<String, dynamic> map) {
-    // Si nous avons la formule directement dans l'objet, nous construisons un objet Formula
-    final formula =
+    Map<String, dynamic> formula =
         map['formula'] ??
         {
           'id': map['formula_id'],
@@ -107,17 +115,23 @@ class Booking {
           },
           'name': map['formula_name'] ?? 'Formule inconnue',
           'description': map['formula_description'] ?? '',
-          'price': map['formula_price']?.toDouble() ?? 0.0,
+          'price':
+              map['formula_base_price']?.toDouble() ??
+              map['price']?.toDouble() ??
+              0.0,
           'default_game_count': map['default_game_count']?.toInt(),
           'min_game_count': map['min_game_count']?.toInt(),
           'max_game_count': map['max_game_count']?.toInt(),
         };
 
+    // Ensure we store as UTC
+    var dateTime = DateTime.parse(map['date_time']).toUtc();
+
     return Booking(
       id: map['id'],
       firstName: map['first_name'] ?? '',
       lastName: map['last_name'],
-      dateTime: DateTime.parse(map['date_time']),
+      dateTime: dateTime,
       numberOfPersons: map['number_of_persons']?.toInt() ?? 1,
       numberOfGames: map['number_of_games']?.toInt() ?? 1,
       email: map['email'],
@@ -182,3 +196,20 @@ class Booking {
         consumptionsTotal.hashCode;
   }
 }
+
+/// Represents a booking in the system.
+/// 
+/// All datetime values are stored internally in UTC timezone.
+/// Use [dateTimeLocal] for display purposes and [dateTimeUTC] for storage.
+/// 
+/// Example:
+/// ```dart
+/// // Creating a new booking (converts local to UTC automatically)
+/// final booking = Booking(
+///   dateTime: DateTime.now().toUtc(),  // Always use UTC for storage
+///   ...
+/// );
+/// 
+/// // Displaying booking time (converts UTC to local automatically)
+/// print(booking.dateTimeLocal);  // Shows in user's timezone
+/// ```

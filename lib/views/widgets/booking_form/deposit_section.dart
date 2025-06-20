@@ -24,7 +24,9 @@ class DepositSection extends StatelessWidget {
   });
 
   double get maxAmount =>
-      (selectedFormula?.price ?? 0.0) * numberOfPersons * numberOfGames;
+      (selectedFormula?.price ?? 0.0) *
+      numberOfPersons *
+      numberOfGames;
 
   @override
   Widget build(BuildContext context) {

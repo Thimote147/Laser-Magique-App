@@ -76,16 +76,11 @@ class ActivityFormulaViewModel extends ChangeNotifier {
   }
 
   // Activity methods
-  Future<void> addActivity({
-    required String name,
-    String? description,
-    double? pricePerPerson,
-  }) async {
+  Future<void> addActivity({required String name, String? description}) async {
     try {
       final activity = await _activityRepository.createActivity(
         name: name,
         description: description,
-        pricePerPerson: pricePerPerson,
       );
       _activities.add(activity);
       notifyListeners();
@@ -132,9 +127,11 @@ class ActivityFormulaViewModel extends ChangeNotifier {
     String? description,
     required Activity activity,
     required double price,
-    int? minParticipants,
+    required int minParticipants,
     int? maxParticipants,
-    int? defaultGameCount,
+    required int durationMinutes,
+    required int minGames,
+    int? maxGames,
   }) async {
     try {
       final formula = await _formulaRepository.createFormula(
@@ -144,7 +141,9 @@ class ActivityFormulaViewModel extends ChangeNotifier {
         price: price,
         minParticipants: minParticipants,
         maxParticipants: maxParticipants,
-        defaultGameCount: defaultGameCount,
+        durationMinutes: durationMinutes,
+        minGames: minGames,
+        maxGames: maxGames,
       );
       _formulas.add(formula);
       notifyListeners();
@@ -206,46 +205,5 @@ class ActivityFormulaViewModel extends ChangeNotifier {
   // Refresh data
   Future<void> refresh() async {
     await _initializeData();
-  }
-
-  // Load dummy data for testing
-  Future<void> loadDummyData() async {
-    try {
-      // Create activities
-      final activity1 = await _activityRepository.createActivity(
-        name: "Laser Game",
-        description: "Une expérience de jeu laser immersive",
-        pricePerPerson: 8.0,
-      );
-      final activity2 = await _activityRepository.createActivity(
-        name: "Laser Ball",
-        description: "Un mélange de laser game et de paintball",
-        pricePerPerson: 12.0,
-      );
-
-      // Create formulas
-      await _formulaRepository.createFormula(
-        name: "Standard",
-        description: "Une partie classique",
-        price: 10.0,
-        activityId: activity1.id,
-      );
-      await _formulaRepository.createFormula(
-        name: "Premium",
-        description: "Deux parties consécutives",
-        price: 18.0,
-        activityId: activity1.id,
-      );
-      await _formulaRepository.createFormula(
-        name: "Standard Ball",
-        description: "Une partie de Laser Ball",
-        price: 15.0,
-        activityId: activity2.id,
-      );
-    } catch (e) {
-      _error = 'Error loading dummy data: $e';
-      notifyListeners();
-      rethrow;
-    }
   }
 }

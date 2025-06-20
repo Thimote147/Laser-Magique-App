@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import '../models/booking_model.dart';
@@ -18,13 +18,13 @@ class BookingRepository {
 
       return (response as List).map((json) => Booking.fromMap(json)).toList();
     } catch (e) {
-      debugPrint('Error fetching bookings: $e');
       rethrow;
     }
   }
 
   Future<List<Booking>> getBookingsForDay(DateTime date) async {
-    final startOfDay = DateTime(date.year, date.month, date.day);
+    // On s'assure que les dates de début et fin de journée sont en UTC
+    final startOfDay = DateTime(date.year, date.month, date.day).toUtc();
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final response = await _client
@@ -49,6 +49,8 @@ class BookingRepository {
     double deposit = 0.0,
     PaymentMethod paymentMethod = PaymentMethod.card,
   }) async {
+    // On s'assure que la date est en UTC avant de l'envoyer à la base de données
+    final dateTimeUTC = dateTime.toUtc();
     final bookingId = await _client.rpc(
       'create_booking_with_payment',
       params: {
@@ -57,7 +59,7 @@ class BookingRepository {
         'p_last_name': lastName,
         'p_email': email,
         'p_phone': phone,
-        'p_date_time': dateTime.toIso8601String(),
+        'p_date_time': dateTimeUTC.toIso8601String(),
         'p_number_of_persons': numberOfPersons,
         'p_number_of_games': numberOfGames,
         'p_deposit': deposit,
@@ -110,12 +112,15 @@ class BookingRepository {
     required double amount,
     required PaymentMethod method,
     required PaymentType type,
+    DateTime? date,
   }) async {
     await _client.from('payments').insert({
       'booking_id': bookingId,
       'amount': amount,
       'payment_method': method.toString().split('.').last,
       'payment_type': type.toString().split('.').last,
+      'payment_date':
+          date?.toIso8601String() ?? DateTime.now().toIso8601String(),
     });
   }
 
@@ -140,6 +145,60 @@ class BookingRepository {
         throw Exception(e.message);
       }
       rethrow;
+    }
+  }
+
+  // Récupère une réservation spécifique avec toutes ses données à jour
+  Future<Booking> getBooking(String bookingId) async {
+    try {
+      // Ajout d'un petit délai pour laisser le temps à la vue SQL de se mettre à jour
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      final data =
+          await _client
+              .from('booking_summaries')
+              .select()
+              .eq('id', bookingId)
+              .single();
+
+      return Booking.fromMap(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Récupère les détails complets d'une réservation, y compris les montants à jour
+  Future<Booking> getBookingDetails(String bookingId) async {
+    try {
+      // Ajout d'un délai pour laisser le temps à la vue SQL de se mettre à jour
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Récupère les données depuis la vue qui inclut tous les calculs
+      final data =
+          await _client
+              .from('booking_summaries')
+              .select()
+              .eq('id', bookingId)
+              .single();
+
+      return Booking.fromMap(data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Mise à jour des totaux d'une réservation
+  Future<void> updateBookingTotals({
+    required String bookingId,
+    required double consumptionsTotal,
+  }) async {
+    try {
+      await _client
+          .from('bookings')
+          .update({'consumptions_total': consumptionsTotal})
+          .eq('id', bookingId);
+    } catch (e) {
+      throw Exception('Erreur lors de la mise à jour des totaux: $e');
     }
   }
 }

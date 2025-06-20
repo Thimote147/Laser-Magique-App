@@ -56,41 +56,41 @@ class LaserMagiqueApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ActivityFormulaViewModel()),
-        ChangeNotifierProvider(create: (_) => StockViewModel()),
+        // Providers de base
+        ChangeNotifierProvider(
+          create: (_) => ActivityFormulaViewModel(),
+          lazy: false,
+        ),
         ChangeNotifierProvider(create: (_) => EmployeeProfileViewModel()),
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
         ChangeNotifierProvider(create: (_) => CustomerViewModel()),
-        ChangeNotifierProxyProvider2<
-          ActivityFormulaViewModel,
-          StockViewModel,
-          BookingViewModel
-        >(
+
+        // BookingViewModel qui dépend de ActivityFormulaViewModel
+        ChangeNotifierProxyProvider<ActivityFormulaViewModel, BookingViewModel>(
           create:
               (context) => BookingViewModel(
                 Provider.of<ActivityFormulaViewModel>(context, listen: false),
-                Provider.of<StockViewModel>(context, listen: false),
               ),
-          update: (
-            context,
-            activityFormulaViewModel,
-            stockViewModel,
-            previous,
-          ) {
-            // Keep previous instance if available to preserve state
+          update: (context, activityFormulaViewModel, previous) {
             if (previous != null) {
-              // Manually update dependencies
-              previous.updateDependencies(
-                activityFormulaViewModel,
-                stockViewModel,
-              );
+              previous.updateDependencies(activityFormulaViewModel);
               return previous;
             }
-            // Create new instance only if needed
-            return BookingViewModel(activityFormulaViewModel, stockViewModel);
+            return BookingViewModel(activityFormulaViewModel);
           },
-          lazy:
-              false, // Eagerly create the ViewModel to ensure data is loaded immediately
+          lazy: false,
+        ),
+
+        // StockViewModel qui dépend de BookingViewModel
+        ChangeNotifierProxyProvider<BookingViewModel, StockViewModel>(
+          create:
+              (context) => StockViewModel(
+                Provider.of<BookingViewModel>(context, listen: false),
+              )..initialize(),
+          update: (context, bookingViewModel, previous) {
+            return previous ?? StockViewModel(bookingViewModel);
+          },
+          lazy: false,
         ),
       ],
       child: Consumer<SettingsViewModel>(

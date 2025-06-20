@@ -5,6 +5,7 @@ class StockItem {
   final double price;
   final int alertThreshold;
   final String category; // 'DRINK' ou 'FOOD'
+  final bool isActive; // Indique si l'article est actif/visible dans le stock
 
   bool get isLowStock => quantity <= alertThreshold;
 
@@ -15,6 +16,7 @@ class StockItem {
     required this.price,
     required this.alertThreshold,
     required this.category,
+    this.isActive = true,
   });
 
   StockItem copyWith({
@@ -24,6 +26,7 @@ class StockItem {
     double? price,
     int? alertThreshold,
     String? category,
+    bool? isActive,
   }) {
     return StockItem(
       id: id ?? this.id,
@@ -32,6 +35,7 @@ class StockItem {
       price: price ?? this.price,
       alertThreshold: alertThreshold ?? this.alertThreshold,
       category: category ?? this.category,
+      isActive: isActive ?? this.isActive,
     );
   }
 
@@ -41,8 +45,9 @@ class StockItem {
       'name': name,
       'quantity': quantity,
       'price': price,
-      'alertThreshold': alertThreshold,
+      'alert_threshold': alertThreshold,
       'category': category,
+      'is_active': isActive,
     };
   }
 
@@ -54,6 +59,7 @@ class StockItem {
       price: (map['price'] ?? 0.0).toDouble(),
       alertThreshold: (map['alert_threshold'] ?? 0).toInt(),
       category: map['category'],
+      isActive: map['is_active'] ?? true,
     );
   }
 }
