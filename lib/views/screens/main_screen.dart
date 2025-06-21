@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'statistics_screen.dart';
 import 'stock_screen.dart';
 import 'settings_screen.dart';
 
@@ -18,6 +19,7 @@ class _MainScreenState extends State<MainScreen>
 
   final List<Widget> _screens = [
     const HomeScreen(),
+    const StatisticsScreen(),
     const StockScreen(),
     const SettingsScreen(),
   ];
@@ -40,11 +42,13 @@ class _MainScreenState extends State<MainScreen>
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-      _controller.reset();
-      _controller.forward();
-    });
+    if (index >= 0 && index < _screens.length) {
+      setState(() {
+        _selectedIndex = index;
+        _controller.reset();
+        _controller.forward();
+      });
+    }
   }
 
   @override
@@ -94,10 +98,18 @@ class _MainScreenState extends State<MainScreen>
                 isDark: isDark,
               ),
               _buildNavItem(
+                icon: Icons.bar_chart_outlined,
+                selectedIcon: Icons.bar_chart,
+                label: 'Statistiques',
+                index: 1,
+                colorScheme: colorScheme,
+                isDark: isDark,
+              ),
+              _buildNavItem(
                 icon: Icons.inventory_outlined,
                 selectedIcon: Icons.inventory_rounded,
                 label: 'Stock',
-                index: 1,
+                index: 2,
                 colorScheme: colorScheme,
                 isDark: isDark,
               ),
@@ -105,7 +117,7 @@ class _MainScreenState extends State<MainScreen>
                 icon: Icons.settings_outlined,
                 selectedIcon: Icons.settings,
                 label: 'Paramètres',
-                index: 2,
+                index: 3,
                 colorScheme: colorScheme,
                 isDark: isDark,
               ),

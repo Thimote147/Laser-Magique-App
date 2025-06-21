@@ -412,11 +412,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               color: colorScheme.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: colorScheme.primary,
-            ),
+            child: Icon(icon, size: 20, color: colorScheme.primary),
           ),
           Expanded(
             child: Column(
@@ -424,10 +420,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(
-                    right: 12,
-                    top: 8,
-                  ),
+                  padding: const EdgeInsets.only(right: 12, top: 8),
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -487,9 +480,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       String phone = _phoneController.text;
 
       // Le taux horaire et le rôle ne sont jamais modifiables dans ce formulaire
+      UserRole? role = null; // null signifie que la valeur ne sera pas modifiée
       double? hourlyRate =
           null; // null signifie que la valeur ne sera pas modifiée
-      UserRole? role = null; // null signifie que la valeur ne sera pas modifiée
 
       // Mettre à jour le profil
       profileVM.updateProfile(

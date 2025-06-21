@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS bookings CASCADE;
 DROP TABLE IF EXISTS formulas CASCADE;
 DROP TABLE IF EXISTS customers CASCADE;
 DROP TABLE IF EXISTS activities CASCADE;
+DROP TABLE IF EXISTS work_days CASCADE;
 
 -- Create activities table
 CREATE TABLE activities (
@@ -139,10 +140,30 @@ CREATE TABLE consumptions (
 CREATE TABLE user_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 10,
   notifications_enabled BOOLEAN DEFAULT true NOT NULL,
   theme_mode theme_mode DEFAULT 'system' NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+-- Create work_days table
+CREATE TABLE work_days (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  date DATE NOT NULL,
+  start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+  end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+  hours DECIMAL(10,2) NOT NULL,
+  total_amount DECIMAL(10,2),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT valid_time_range CHECK (end_time >= start_time),
+  CONSTRAINT positive_hours CHECK (hours > 0),
+  CONSTRAINT non_negative_amount CHECK (total_amount IS NULL OR total_amount >= 0)
 );
 
 -- Create views
@@ -228,6 +249,10 @@ CREATE TRIGGER update_consumptions_updated_at
 
 CREATE TRIGGER update_user_settings_updated_at
   BEFORE UPDATE ON user_settings
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_work_days_updated_at
+  BEFORE UPDATE ON work_days
   FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 -- Create function to update stock quantities
@@ -738,6 +763,7 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consumptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE work_days ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS Policies
 CREATE POLICY "Allow all operations for everyone"
@@ -781,6 +807,12 @@ CREATE POLICY "Users can manage their own settings"
   TO authenticated
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow all operations on work_days for authenticated users"
+  ON work_days FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
 
 -- Create indexes for better performance
 CREATE INDEX idx_bookings_date_time ON bookings(date_time);

@@ -64,7 +64,29 @@ class SettingsViewModel with ChangeNotifier {
 
   void _updateFromRemote(Map<String, dynamic> settings) {
     _notificationsEnabled = settings['notifications_enabled'] ?? true;
-    _themeMode = AppThemeMode.values[settings['theme_mode'] ?? 2];
+
+    // Gérer la conversion du theme_mode
+    final themeModeSetting = settings['theme_mode'];
+    if (themeModeSetting != null) {
+      if (themeModeSetting is int) {
+        _themeMode = AppThemeMode.values[themeModeSetting];
+      } else if (themeModeSetting is String) {
+        // Si c'est une chaîne, essayons de la convertir en entier
+        try {
+          _themeMode = AppThemeMode.values[int.parse(themeModeSetting)];
+        } catch (e) {
+          // Si la conversion échoue, utiliser la valeur par défaut (system)
+          _themeMode = AppThemeMode.system;
+        }
+      } else {
+        // Si le type n'est ni int ni String, utiliser la valeur par défaut
+        _themeMode = AppThemeMode.system;
+      }
+    } else {
+      // Si pas de valeur, utiliser la valeur par défaut
+      _themeMode = AppThemeMode.system;
+    }
+
     _saveToLocalPreferences();
     notifyListeners();
   }

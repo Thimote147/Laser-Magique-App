@@ -131,16 +131,12 @@ class SettingsScreen extends StatelessWidget {
     IconData icon,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: colorScheme.primary,
-          ),
+          Icon(icon, size: 20, color: colorScheme.primary),
           const SizedBox(width: 12),
           Text(
             title,
@@ -284,9 +280,9 @@ class SettingsScreen extends StatelessWidget {
                         child: Text(
                           profileVM.initials,
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
                             color: colorScheme.primary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -374,19 +370,29 @@ class SettingsScreen extends StatelessWidget {
                 );
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   children: [
                     IntrinsicHeight(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
+                          VerticalDivider(
+                            thickness: 1,
+                            width: 1,
+                            indent: 8,
+                            endIndent: 8,
+                            color: colorScheme.outlineVariant.withOpacity(0.2),
+                          ),
                           _buildProfileStat(
                             context,
                             label: 'Taux horaire',
                             value:
                                 '${profileVM.hourlyRate.toStringAsFixed(2)}€',
-                            icon: Icons.payments_rounded,
+                            icon: Icons.euro_rounded,
                           ),
                           VerticalDivider(
                             thickness: 1,
@@ -415,7 +421,7 @@ class SettingsScreen extends StatelessWidget {
                             label: 'Revenus du mois',
                             value:
                                 '${profileVM.getCurrentMonthEarnings().toStringAsFixed(2)}€',
-                            icon: Icons.euro_rounded,
+                            icon: Icons.payments_rounded,
                           ),
                         ],
                       ),

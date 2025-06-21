@@ -4,7 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/employee_profile_view_model.dart';
 import '../../models/work_day_model.dart';
-import 'employee_work_hours_report_screen.dart';
+import 'employee_work_hours_report.dart';
 
 class WorkHoursScreen extends StatefulWidget {
   const WorkHoursScreen({Key? key}) : super(key: key);
@@ -21,62 +21,90 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     initializeDateFormatting('fr_FR');
   }
 
-  // Convertir les heures décimales en format heures et minutes (Xh30)
+  // Convertir les heures décimales en format heures et minutes (08:01)
   String _formatHoursToHourMinutes(double hours) {
     int fullHours = hours.floor();
     int minutes = ((hours - fullHours) * 60).round();
+    return '${fullHours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+  }
 
-    if (minutes == 0) {
-      return '${fullHours}h00';
-    } else {
-      return minutes < 10 ? '${fullHours}h0$minutes' : '${fullHours}h$minutes';
-    }
+  // Convertir une durée en format heures:minutes
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    return '${hours.toString().padLeft(2, '0')}h${minutes.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<EmployeeProfileViewModel>(
       builder: (context, profileVM, child) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
         return Scaffold(
+          backgroundColor: colorScheme.background,
           appBar: AppBar(
-            title: const Text('Heures de travail'),
+            title: Text(
+              'Heures de travail',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
             actions: [
-              // Bouton Admin visible uniquement pour les administrateurs
               if (profileVM.role == UserRole.admin)
-                IconButton(
-                  icon: const Icon(Icons.admin_panel_settings),
-                  tooltip: 'Relevé des heures par employé',
-                  onPressed: () {
-                    _showEmployeeWorkHoursReport(context);
-                  },
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: IconButton.filledTonal(
+                    icon: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      size: 20,
+                    ),
+                    tooltip: 'Relevé des heures par employé',
+                    onPressed: () => _showEmployeeWorkHoursReport(context),
+                  ),
                 ),
             ],
           ),
           body: RefreshIndicator(
             onRefresh: () async {
-              // Simuler un rafraîchissement (dans une vraie app, vous chargeriez les données)
               await Future.delayed(const Duration(milliseconds: 300));
             },
-            child: SingleChildScrollView(
+            child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSummaryCards(context, profileVM),
-                  const SizedBox(height: 18),
-                  _buildWorkHistory(context, profileVM),
-                ],
-              ),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      _buildSummaryCards(context, profileVM),
+                      const SizedBox(height: 32),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: _buildWorkHistory(context, profileVM),
+                      ),
+                      const SizedBox(height: 80),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: () {
-              _showAddWorkDayDialog(context, profileVM);
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Jour de travail'),
-            tooltip: 'Ajouter un jour de travail',
+            onPressed: () => _showAddWorkDayDialog(context, profileVM),
+            elevation: 0,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text(
+              'Nouveau jour',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         );
       },
@@ -88,128 +116,109 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     BuildContext context,
     EmployeeProfileViewModel profileVM,
   ) {
-    final currentMonthEarnings = profileVM.getCurrentMonthEarnings();
-    final now = DateTime.now();
-    final currentMonth = now.month;
-    final currentYear = now.year;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    // Calculer les heures du mois en cours
-    final currentMonthHours = profileVM.workDays
-        .where(
-          (day) =>
-              day.date.month == currentMonth && day.date.year == currentYear,
-        )
-        .fold(0.0, (sum, day) => sum + day.hours);
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: _buildInfoCard(
-                context,
-                title: 'Taux horaire',
-                value: '${profileVM.hourlyRate.toStringAsFixed(2)}€/h',
-                icon: Icons.euro,
-                color: Colors.indigo,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 1,
-              child: _buildInfoCard(
-                context,
-                title: 'Heures ce mois',
-                value: _formatHoursToHourMinutes(currentMonthHours),
-                icon: Icons.access_time,
-                color: Colors.deepPurple,
-              ),
-            ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(8),
         ),
-        const SizedBox(height: 16),
-        _buildInfoCard(
-          context,
-          title: 'Gagné ce mois',
-          value: '${currentMonthEarnings.toStringAsFixed(2)}€',
-          icon: Icons.account_balance_wallet,
-          color: Colors.green.shade700,
-          fullWidth: true,
-        ),
-      ],
-    );
-  }
-
-  // Carte d'information avec icône
-  Widget _buildInfoCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-    bool fullWidth = false,
-  }) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child:
-            fullWidth
-                ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(icon, color: color, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                  ],
-                )
-                : Column(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      'Heures ce mois',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(icon, color: color, size: 18),
-                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.timer_rounded,
+                            size: 20,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 15,
+                          _formatDuration(
+                            Duration(
+                              minutes:
+                                  (profileVM.totalHoursThisMonth * 60).round(),
+                            ),
+                          ),
+                          style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      value,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
                     ),
                   ],
                 ),
+              ),
+              SizedBox(
+                height: 48,
+                child: VerticalDivider(
+                  width: 32,
+                  color: colorScheme.outline.withOpacity(0.2),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gains du mois',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: colorScheme.tertiary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.payments_rounded,
+                            size: 20,
+                            color: colorScheme.tertiary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${profileVM.totalEarningsThisMonth.toStringAsFixed(2)}€',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -219,312 +228,58 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     BuildContext context,
     EmployeeProfileViewModel profileVM,
   ) {
-    final workDays = profileVM.workDays;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    if (workDays.isEmpty) {
-      return Card(
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        child: const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 42,
-                  color: Colors.grey,
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Aucun jour de travail enregistré',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  'Appuyez sur le bouton + pour ajouter',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Organiser les jours de travail par mois
-    final Map<String, List<WorkDay>> workDaysByMonth = {};
-
-    for (var workDay in workDays) {
-      final dateKey = '${workDay.date.month}-${workDay.date.year}';
-      if (!workDaysByMonth.containsKey(dateKey)) {
-        workDaysByMonth[dateKey] = [];
-      }
-      workDaysByMonth[dateKey]!.add(workDay);
-    }
-
-    // Trier les clés par date (plus récent en premier)
-    final sortedKeys =
-        workDaysByMonth.keys.toList()..sort((a, b) {
-          final aParts = a.split('-');
-          final bParts = b.split('-');
-          final aYear = int.parse(aParts[1]);
-          final bYear = int.parse(bParts[1]);
-          final aMonth = int.parse(aParts[0]);
-          final bMonth = int.parse(bParts[0]);
-
-          if (aYear != bYear) {
-            return bYear.compareTo(aYear); // Plus récent en premier
-          }
-          return bMonth.compareTo(aMonth); // Plus récent en premier
-        });
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4.0, bottom: 10.0),
-          child: Text(
-            'Historique des jours travaillés',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Text(
+          'Historique',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
           ),
         ),
-        ...sortedKeys.map((monthKey) {
-          final monthDays = workDaysByMonth[monthKey]!;
-          final parts = monthKey.split('-');
-          final month = int.parse(parts[0]);
-          final year = int.parse(parts[1]);
-
-          // Calculer les totaux du mois
-          final monthHours = monthDays.fold(0.0, (sum, day) => sum + day.hours);
-          final monthAmount = monthDays.fold(
-            0.0,
-            (sum, day) =>
-                sum +
-                (day.totalAmount ?? day.calculateAmount(profileVM.hourlyRate)),
-          );
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 14.0),
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+        const SizedBox(height: 16),
+        Card(
+          elevation: 0,
+          color: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: colorScheme.outlineVariant.withOpacity(0.5),
+              width: 1,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // Minimiser la hauteur
-              children: [
-                // En-tête du mois
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 6.0,
-                    horizontal: 12.0,
-                  ),
-                  color: colorScheme.primary.withOpacity(0.1),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${_getMonthName(month)} $year',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            '${_formatHoursToHourMinutes(monthHours)} • ',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            '${monthAmount.toStringAsFixed(2)}€',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: profileVM.workDays.length,
+            separatorBuilder:
+                (context, index) => Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: colorScheme.outlineVariant.withOpacity(0.5),
                 ),
-                // Liste des jours du mois
-                Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 0,
-                  ), // Supprimer l'espacement excessif
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero, // Supprimer le padding par défaut
-                    itemCount: monthDays.length,
-                    separatorBuilder:
-                        (context, index) => Divider(
-                          height: 2,
-                          thickness: 0.5,
-                          color: Colors.grey.withOpacity(0.2),
-                        ),
-                    itemBuilder: (context, index) {
-                      final workDay = monthDays[index];
-                      return _buildWorkDayItem(context, workDay, profileVM);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+            itemBuilder: (context, index) {
+              final workDay = profileVM.workDays[index];
+              return _WorkDayListItem(
+                workDay: workDay,
+                onTap:
+                    () => _showEditWorkDayDialog(context, profileVM, workDay),
+              );
+            },
+          ),
+        ),
       ],
     );
   }
 
   // Obtenir le nom du mois en français
-  String _getMonthName(int month) {
-    const monthNames = [
-      'Janvier',
-      'Février',
-      'Mars',
-      'Avril',
-      'Mai',
-      'Juin',
-      'Juillet',
-      'Août',
-      'Septembre',
-      'Octobre',
-      'Novembre',
-      'Décembre',
-    ];
-    return monthNames[month - 1];
-  }
-
-  // Élément de la liste des jours de travail
-  Widget _buildWorkDayItem(
-    BuildContext context,
-    WorkDay workDay,
-    EmployeeProfileViewModel profileVM,
-  ) {
-    final dateFormat = DateFormat('EEEE dd MMMM', 'fr_FR');
-    final timeFormat = DateFormat('HH:mm');
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // Calculer la durée et le montant
-    final hours = workDay.hours;
-    final amount =
-        workDay.totalAmount ?? workDay.calculateAmount(profileVM.hourlyRate);
-
-    // Formater le jour de la semaine (première lettre en majuscule)
-    String formattedDate = dateFormat.format(workDay.date);
-    formattedDate =
-        formattedDate.substring(0, 1).toUpperCase() +
-        formattedDate.substring(1);
-
-    return Dismissible(
-      key: Key(workDay.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16.0),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      confirmDismiss: (direction) async {
-        return await showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Confirmer la suppression'),
-              content: const Text(
-                'Voulez-vous vraiment supprimer ce jour de travail ?',
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Annuler'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Supprimer'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-      onDismissed: (direction) {
-        profileVM.removeWorkDay(workDay.id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Jour de travail supprimé'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      },
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12.0,
-          vertical: 2.0,
-        ),
-        minVerticalPadding: 6.0,
-        visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                formattedDate,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            Text(
-              '${amount.toStringAsFixed(2)}€',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.primary,
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 13, color: Colors.grey.shade600),
-                const SizedBox(width: 3),
-                Text(
-                  '${timeFormat.format(workDay.startTime)} - ${timeFormat.format(workDay.endTime)}',
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-                ),
-              ],
-            ),
-            Text(
-              _formatHoursToHourMinutes(hours),
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
-                color: Colors.grey.shade800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Removed unused _getMonthName method
 
   // Dialogue pour ajouter un jour de travail
   void _showAddWorkDayDialog(
@@ -532,383 +287,87 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     EmployeeProfileViewModel profileVM,
   ) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final colorScheme = Theme.of(context).colorScheme;
+    final workDay = WorkDay(
+      id: '', // L'ID sera généré par Supabase
+      date: now,
+      startTime: DateTime(now.year, now.month, now.day, 9),
+      endTime: DateTime(now.year, now.month, now.day, 17),
+      hoursWorked: 8.0,
+      totalAmount: 8.0 * profileVM.hourlyRate,
+    );
 
-    DateTime selectedDate = today;
-    TimeOfDay startTime = const TimeOfDay(hour: 9, minute: 0);
-    TimeOfDay endTime = const TimeOfDay(hour: 17, minute: 0);
-
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder:
-          (context) => StatefulBuilder(
-            builder: (context, setState) {
-              // Calculer la durée entre l'heure de début et de fin
-              final startDateTime = DateTime(
-                selectedDate.year,
-                selectedDate.month,
-                selectedDate.day,
-                startTime.hour,
-                startTime.minute,
-              );
-
-              final endDateTime = DateTime(
-                selectedDate.year,
-                selectedDate.month,
-                selectedDate.day,
-                endTime.hour,
-                endTime.minute,
-              );
-
-              // Si l'heure de fin est avant l'heure de début, on suppose que c'est le lendemain
-              final adjustedEndDateTime =
-                  endDateTime.isBefore(startDateTime)
-                      ? endDateTime.add(const Duration(days: 1))
-                      : endDateTime;
-
-              final difference = adjustedEndDateTime.difference(startDateTime);
-              final hours = difference.inMinutes / 60.0;
-              final amount = hours * profileVM.hourlyRate;
-
-              final dateFormatter = DateFormat('EEEE dd MMMM yyyy', 'fr_FR');
-              String formattedDate = dateFormatter.format(selectedDate);
-              formattedDate =
-                  formattedDate.substring(0, 1).toUpperCase() +
-                  formattedDate.substring(1);
-
-              return AlertDialog(
-                title: const Text('Ajouter un jour de travail'),
-                contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Date
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () async {
-                            final pickedDate = await showDatePicker(
-                              context: context,
-                              initialDate: selectedDate,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2030),
-                              builder: (context, child) {
-                                return Theme(
-                                  data: Theme.of(context).copyWith(
-                                    colorScheme: ColorScheme.light(
-                                      primary: colorScheme.primary,
-                                      onPrimary: colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                  child: child!,
-                                );
-                              },
-                            );
-                            if (pickedDate != null) {
-                              setState(() {
-                                selectedDate = pickedDate;
-                              });
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  color: colorScheme.primary,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Date',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        formattedDate,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const Divider(height: 1),
-
-                      // Heure de début
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () async {
-                            final pickedTime = await showTimePicker(
-                              context: context,
-                              initialTime: startTime,
-                              builder: (context, child) {
-                                return Theme(
-                                  data: Theme.of(context).copyWith(
-                                    colorScheme: ColorScheme.light(
-                                      primary: colorScheme.primary,
-                                      onPrimary: colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                  child: child!,
-                                );
-                              },
-                            );
-                            if (pickedTime != null) {
-                              setState(() {
-                                startTime = pickedTime;
-                              });
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time,
-                                  color: colorScheme.primary,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Heure de début',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        startTime.format(context),
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const Divider(height: 1),
-
-                      // Heure de fin
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () async {
-                            final pickedTime = await showTimePicker(
-                              context: context,
-                              initialTime: endTime,
-                              builder: (context, child) {
-                                return Theme(
-                                  data: Theme.of(context).copyWith(
-                                    colorScheme: ColorScheme.light(
-                                      primary: colorScheme.primary,
-                                      onPrimary: colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                  child: child!,
-                                );
-                              },
-                            );
-                            if (pickedTime != null) {
-                              setState(() {
-                                endTime = pickedTime;
-                              });
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time,
-                                  color: colorScheme.primary,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Heure de fin',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        endTime.format(context),
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Résumé
-                      Container(
-                        padding: const EdgeInsets.all(12.0),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Durée totale:',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  _formatHoursToHourMinutes(hours),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Montant:',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  '${amount.toStringAsFixed(2)}€',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-                    ],
+          (context) => DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            maxChildSize: 0.9,
+            minChildSize: 0.5,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Annuler'),
+                child: WorkDayEditSheet(
+                  title: 'Nouveau jour',
+                  workDay: workDay,
+                  onSave: (updatedWorkDay) async {
+                    await profileVM.addWorkDay(updatedWorkDay);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+    );
+  }
+
+  // Dialogue pour modifier un jour de travail
+  void _showEditWorkDayDialog(
+    BuildContext context,
+    EmployeeProfileViewModel profileVM,
+    WorkDay workDay,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            maxChildSize: 0.9,
+            minChildSize: 0.5,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
                   ),
-                  FilledButton(
-                    onPressed: () {
-                      final startDateTime = DateTime(
-                        selectedDate.year,
-                        selectedDate.month,
-                        selectedDate.day,
-                        startTime.hour,
-                        startTime.minute,
-                      );
-
-                      final endDateTime = DateTime(
-                        selectedDate.year,
-                        selectedDate.month,
-                        selectedDate.day,
-                        endTime.hour,
-                        endTime.minute,
-                      );
-
-                      // Si l'heure de fin est avant l'heure de début, on suppose que c'est le lendemain
-                      final adjustedEndDateTime =
-                          endDateTime.isBefore(startDateTime)
-                              ? endDateTime.add(const Duration(days: 1))
-                              : endDateTime;
-
-                      // Calculer les heures et le montant
-                      final difference = adjustedEndDateTime.difference(
-                        startDateTime,
-                      );
-                      final hours = difference.inMinutes / 60.0;
-                      final amount = hours * profileVM.hourlyRate;
-
-                      // Créer et ajouter le jour de travail
-                      final newWorkDay = WorkDay(
-                        id: DateTime.now().millisecondsSinceEpoch.toString(),
-                        date: selectedDate,
-                        startTime: startDateTime,
-                        endTime: adjustedEndDateTime,
-                        hoursWorked: hours,
-                        totalAmount: amount,
-                      );
-
-                      profileVM.addWorkDay(newWorkDay);
-                      Navigator.of(context).pop();
-
-                      // Afficher un message de confirmation
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Jour de travail ajouté avec succès'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    child: const Text('Enregistrer'),
-                  ),
-                ],
+                ),
+                child: WorkDayEditSheet(
+                  title: 'Modifier le jour',
+                  workDay: workDay,
+                  onSave: (updatedWorkDay) async {
+                    await profileVM.updateWorkDay(updatedWorkDay);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  onDelete: () async {
+                    await profileVM.deleteWorkDay(workDay.id);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
               );
             },
           ),
@@ -917,10 +376,537 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
 
   // Affiche le rapport des heures de travail pour tous les employés (mode administrateur)
   void _showEmployeeWorkHoursReport(BuildContext context) {
-    // Au lieu d'afficher un dialogue, nous naviguons vers la nouvelle page dédiée
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const EmployeeWorkHoursReportScreen(),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => DraggableScrollableSheet(
+            initialChildSize: 0.8,
+            maxChildSize: 0.9,
+            minChildSize: 0.5,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                ),
+                child: const EmployeeWorkHoursReport(),
+              );
+            },
+          ),
+    );
+  }
+}
+
+class WorkDayEditSheet extends StatefulWidget {
+  final String title;
+  final WorkDay workDay;
+  final Function(WorkDay) onSave;
+  final VoidCallback? onDelete;
+
+  const WorkDayEditSheet({
+    Key? key,
+    required this.title,
+    required this.workDay,
+    required this.onSave,
+    this.onDelete,
+  }) : super(key: key);
+
+  @override
+  State<WorkDayEditSheet> createState() => _WorkDayEditSheetState();
+}
+
+class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
+  late DateTime _date;
+  late TimeOfDay _startTime;
+  late TimeOfDay _endTime;
+
+  // Nouvelles propriétés pour le calcul en temps réel
+  double _hours = 0;
+  double? _amount;
+
+  // Convertir les heures décimales en format heures:minutes
+  String _formatHoursToHourMinutes(double hours) {
+    int fullHours = hours.floor();
+    int minutes = ((hours - fullHours) * 60).round();
+    return '${fullHours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _date = widget.workDay.date;
+    _startTime = TimeOfDay.fromDateTime(widget.workDay.startTime);
+    _endTime = TimeOfDay.fromDateTime(widget.workDay.endTime);
+    _calculateValues();
+  }
+
+  // Calculer les heures et le montant
+  void _calculateValues() {
+    final startTime = DateTime(
+      _date.year,
+      _date.month,
+      _date.day,
+      _startTime.hour,
+      _startTime.minute,
+    );
+    final endTime = DateTime(
+      _date.year,
+      _date.month,
+      _date.day,
+      _endTime.hour,
+      _endTime.minute,
+    );
+
+    // Si l'heure de fin est avant l'heure de début, on suppose que c'est le lendemain
+    DateTime adjustedEndTime = endTime;
+    if (endTime.isBefore(startTime)) {
+      adjustedEndTime = endTime.add(const Duration(days: 1));
+    }
+
+    _hours = adjustedEndTime.difference(startTime).inMinutes / 60.0;
+    final profileVM = Provider.of<EmployeeProfileViewModel>(
+      context,
+      listen: false,
+    );
+    _amount = _hours * profileVM.hourlyRate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Barre de glissement
+        const SizedBox(height: 8),
+        Container(
+          width: 32,
+          height: 4,
+          decoration: BoxDecoration(
+            color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // En-tête avec titre et bouton supprimer
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Text(
+                widget.title,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const Spacer(),
+              if (widget.onDelete != null)
+                IconButton(
+                  onPressed: widget.onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  color: colorScheme.error,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Résumé des heures et du montant
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceVariant.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withOpacity(0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Heures travaillées',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.timer_rounded,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _formatHoursToHourMinutes(_hours),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Montant',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.tertiary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.payments_rounded,
+                              size: 20,
+                              color: colorScheme.tertiary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _amount != null
+                                ? '${_amount!.toStringAsFixed(2)}€'
+                                : '-',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Sélecteurs de date et heure
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              // Sélecteur de date
+              ListTile(
+                title: const Text('Date'),
+                subtitle: Text(
+                  DateFormat.yMMMMEEEEd('fr_FR').format(_date),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                leading: Icon(
+                  Icons.calendar_today_rounded,
+                  color: colorScheme.primary,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: colorScheme.outlineVariant.withOpacity(0.5),
+                  ),
+                ),
+                onTap: () => _selectDate(context),
+              ),
+              const SizedBox(height: 16),
+
+              // Sélecteurs d'heure
+              Row(
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('Début'),
+                      subtitle: Text(
+                        _startTime.format(context),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      leading: Icon(
+                        Icons.access_time_rounded,
+                        color: colorScheme.primary,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                        ),
+                      ),
+                      onTap: () => _selectStartTime(context),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('Fin'),
+                      subtitle: Text(
+                        _endTime.format(context),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      leading: Icon(
+                        Icons.access_time_filled_rounded,
+                        color: colorScheme.primary,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                        ),
+                      ),
+                      onTap: () => _selectEndTime(context),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Bouton Enregistrer
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: FilledButton(
+            onPressed: _save,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'Enregistrer',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      locale: const Locale('fr', 'FR'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _date) {
+      setState(() {
+        _date = picked;
+      });
+      _calculateValues();
+    }
+  }
+
+  Future<void> _selectStartTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _startTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _startTime) {
+      setState(() {
+        _startTime = picked;
+      });
+      _calculateValues();
+    }
+  }
+
+  Future<void> _selectEndTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _endTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _endTime) {
+      setState(() {
+        _endTime = picked;
+      });
+      _calculateValues();
+    }
+  }
+
+  void _save() {
+    // Créer les DateTime pour le début et la fin
+    final startTime = DateTime(
+      _date.year,
+      _date.month,
+      _date.day,
+      _startTime.hour,
+      _startTime.minute,
+    );
+    final endTime = DateTime(
+      _date.year,
+      _date.month,
+      _date.day,
+      _endTime.hour,
+      _endTime.minute,
+    );
+
+    // Valider que l'heure de fin n'est pas avant l'heure de début
+    DateTime adjustedEndTime = endTime;
+    if (endTime.isBefore(startTime)) {
+      adjustedEndTime = endTime.add(const Duration(days: 1));
+    }
+
+    // Créer le nouveau WorkDay
+    final updatedWorkDay = WorkDay(
+      id: widget.workDay.id,
+      date: _date,
+      startTime: startTime,
+      endTime: adjustedEndTime,
+      hoursWorked: _hours,
+      totalAmount: _amount,
+    );
+
+    // Appeler la fonction onSave
+    widget.onSave(updatedWorkDay);
+  }
+}
+
+// Removed unused _WorkDayEditSheet class
+
+class _WorkDayListItem extends StatelessWidget {
+  final WorkDay workDay;
+  final VoidCallback onTap;
+
+  const _WorkDayListItem({Key? key, required this.workDay, required this.onTap})
+    : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final formattedDate = DateFormat.yMMMd('fr_FR').format(workDay.date);
+    final hours = workDay.hours;
+    final formattedHours =
+        '${hours.floor().toString().padLeft(2, '0')}:${((hours - hours.floor()) * 60).round().toString().padLeft(2, '0')}';
+    final formattedAmount =
+        workDay.totalAmount != null
+            ? '${workDay.totalAmount!.toStringAsFixed(2)}€'
+            : '-';
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  workDay.date.day.toString(),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formattedDate,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$formattedHours • $formattedAmount',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
