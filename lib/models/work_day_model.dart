@@ -29,13 +29,21 @@ class WorkDay {
 
   // Créer une instance à partir d'un JSON
   factory WorkDay.fromJson(Map<String, dynamic> json) {
+    double? parseDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) return double.tryParse(value);
+      return null;
+    }
+
     return WorkDay(
       id: json['id'],
       date: DateTime.parse(json['date']),
       startTime: DateTime.parse(json['start_time']),
       endTime: DateTime.parse(json['end_time']),
-      hoursWorked: json['hours']?.toDouble(),
-      totalAmount: json['total_amount']?.toDouble(),
+      hoursWorked: parseDouble(json['hours']),
+      totalAmount: parseDouble(json['total_amount']),
     );
   }
 

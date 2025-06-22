@@ -510,7 +510,37 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
               const Spacer(),
               if (widget.onDelete != null)
                 IconButton(
-                  onPressed: widget.onDelete,
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder:
+                          (context) => AlertDialog(
+                            title: const Text('Supprimer ce jour ?'),
+                            content: const Text(
+                              'Cette action est irréversible. Voulez-vous vraiment supprimer cette entrée ?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed:
+                                    () => Navigator.of(context).pop(false),
+                                child: const Text('Annuler'),
+                              ),
+                              TextButton(
+                                onPressed:
+                                    () => Navigator.of(context).pop(true),
+                                style: TextButton.styleFrom(
+                                  foregroundColor:
+                                      Theme.of(context).colorScheme.error,
+                                ),
+                                child: const Text('Supprimer'),
+                              ),
+                            ],
+                          ),
+                    );
+                    if (confirmed == true) {
+                      widget.onDelete!();
+                    }
+                  },
                   icon: const Icon(Icons.delete_outline_rounded),
                   color: colorScheme.error,
                 ),

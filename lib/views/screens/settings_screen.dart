@@ -6,6 +6,8 @@ import 'profile_screen.dart';
 import 'work_hours_screen.dart';
 import 'appearance_screen.dart';
 import 'activity_formula_screen.dart';
+import '../../services/auth_service.dart';
+import '../auth/auth_view.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -16,7 +18,22 @@ class SettingsScreen extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Paramètres')),
+      appBar: AppBar(
+        title: const Text('Paramètres'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Se déconnecter',
+            onPressed: () async {
+              await Provider.of<AuthService>(context, listen: false).signOut();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const AuthView()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
@@ -380,13 +397,6 @@ class SettingsScreen extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          VerticalDivider(
-                            thickness: 1,
-                            width: 1,
-                            indent: 8,
-                            endIndent: 8,
-                            color: colorScheme.outlineVariant.withOpacity(0.2),
-                          ),
                           _buildProfileStat(
                             context,
                             label: 'Taux horaire',

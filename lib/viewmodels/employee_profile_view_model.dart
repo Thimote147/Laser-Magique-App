@@ -40,6 +40,7 @@ class EmployeeProfileViewModel extends ChangeNotifier {
           ? '${_firstName[0]}${_lastName[0]}'.toUpperCase()
           : '';
   List<WorkDay> get workDays => List.unmodifiable(_workDays);
+  String? get userId => _repository.supabase.auth.currentUser?.id;
 
   // Constructeur qui charge les données du profil
   EmployeeProfileViewModel() {

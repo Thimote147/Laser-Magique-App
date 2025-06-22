@@ -97,7 +97,19 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [],
+                          children: [
+                            Icon(
+                              Icons.euro_rounded,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              profileVM.hourlyRate.toStringAsFixed(2) + ' €/h',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w500),
+                            ),
+                          ],
                         ),
                       ],
                     ),

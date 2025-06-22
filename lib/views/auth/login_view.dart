@@ -17,6 +17,7 @@ class _LoginViewState extends State<LoginView> {
   final _authService = AuthService();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -228,6 +229,35 @@ class _LoginViewState extends State<LoginView> {
                             }
                             return null;
                           },
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Se souvenir de moi
+                        Row(
+                          children: [
+                            StatefulBuilder(
+                              builder: (context, setState) {
+                                return Checkbox(
+                                  value: _rememberMe,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _rememberMe = value ?? false;
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _rememberMe = !_rememberMe;
+                                });
+                              },
+                              child: const Text('Se souvenir de moi'),
+                            ),
+                          ],
                         ),
 
                         if (_errorMessage != null) ...[

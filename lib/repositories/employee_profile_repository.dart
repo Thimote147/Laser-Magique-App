@@ -62,7 +62,7 @@ class EmployeeProfileRepository {
       final response = await supabase
           .from('work_days')
           .select()
-          .eq('employee_id', user.id);
+          .eq('user_id', user.id);
 
       return (response as List).map((data) => WorkDay.fromJson(data)).toList();
     } catch (e) {
@@ -83,7 +83,7 @@ class EmployeeProfileRepository {
       }
 
       // Supprimer les anciens jours
-      await supabase.from('work_days').delete().eq('employee_id', user.id);
+      await supabase.from('work_days').delete().eq('user_id', user.id);
 
       // Insérer les nouveaux jours
       if (workDays.isNotEmpty) {
