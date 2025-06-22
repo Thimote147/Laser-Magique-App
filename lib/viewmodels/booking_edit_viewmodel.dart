@@ -3,6 +3,7 @@ import '../models/booking_model.dart';
 import '../models/formula_model.dart';
 import '../models/payment_model.dart';
 import '../models/customer_model.dart';
+import '../utils/price_utils.dart';
 
 /// Manages the state and logic for editing or creating a booking.
 ///
@@ -54,6 +55,14 @@ class BookingEditViewModel extends ChangeNotifier {
   Formula? get selectedFormula => _selectedFormula;
   double get depositAmount => _depositAmount;
   PaymentMethod get paymentMethod => _paymentMethod;
+  double get totalPrice =>
+      _selectedFormula != null
+          ? calculateTotalPrice(
+            _selectedFormula!.price,
+            _numberOfGames,
+            _numberOfPersons,
+          )
+          : 0.0;
 
   BookingEditViewModel({required this.booking, required this.onSave}) {
     _initializeState();
@@ -61,11 +70,18 @@ class BookingEditViewModel extends ChangeNotifier {
 
   void _initializeState() {
     if (booking != null) {
+      // Vérifier que les champs requis sont présents
+      if (booking!.lastName == null ||
+          booking!.email == null ||
+          booking!.phone == null) {
+        throw StateError('Les informations du client sont incomplètes');
+      }
+
       _selectedCustomer = Customer(
         firstName: booking!.firstName,
-        lastName: booking!.lastName,
-        email: booking!.email,
-        phone: booking!.phone,
+        lastName: booking!.lastName!,
+        email: booking!.email!,
+        phone: booking!.phone!,
       );
       // Convert UTC to local time
       final localDateTime = booking!.dateTimeLocal;
@@ -115,7 +131,7 @@ class BookingEditViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setFormula(Formula? formula) {
+  void setFormula(Formula formula) {
     _selectedFormula = formula;
     if (formula != null) {
       _numberOfGames = formula.minGames;
@@ -131,6 +147,15 @@ class BookingEditViewModel extends ChangeNotifier {
   void setNumberOfGames(int value) {
     _numberOfGames = value;
     notifyListeners();
+  }
+
+  double _calculateTotal() {
+    if (_selectedFormula == null) return 0;
+    return calculateTotalPrice(
+      _selectedFormula!.price,
+      _numberOfGames,
+      _numberOfPersons,
+    );
   }
 
   void setDepositAmount(double value) {
@@ -152,14 +177,16 @@ class BookingEditViewModel extends ChangeNotifier {
       return 'Veuillez sélectionner une formule';
     }
 
-    if (_selectedFormula!.minParticipants != null &&
-        _numberOfPersons < _selectedFormula!.minParticipants!) {
+    if (_numberOfPersons < _selectedFormula!.minParticipants) {
       return 'Le nombre de participants doit être d\'au moins ${_selectedFormula!.minParticipants} pour cette formule';
     }
 
     if (_depositAmount > 0) {
-      final totalPrice =
-          _selectedFormula!.price * _numberOfPersons * _numberOfGames;
+      final total = calculateTotalPrice(
+        _selectedFormula!.price,
+        _numberOfGames,
+        _numberOfPersons,
+      );
       if (_depositAmount > totalPrice) {
         return 'L\'acompte ne peut pas dépasser le montant total';
       }
@@ -175,6 +202,13 @@ class BookingEditViewModel extends ChangeNotifier {
 
     // Convert to UTC for storage
     final dateTime = selectedDateTimeUTC;
+
+    // Calculer le montant total selon la nouvelle formule
+    final totalPrice = calculateTotalPrice(
+      _selectedFormula!.price,
+      _numberOfGames,
+      _numberOfPersons,
+    );
 
     final updatedBooking = (booking ??
             Booking(
@@ -195,6 +229,7 @@ class BookingEditViewModel extends ChangeNotifier {
           phone: _selectedCustomer!.phone,
           formula: _selectedFormula!,
           deposit: _depositAmount,
+          totalPrice: totalPrice,
           paymentMethod: _paymentMethod,
         );
 

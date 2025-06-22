@@ -25,7 +25,9 @@ class AppearanceScreen extends StatelessWidget {
                 description: 'Interface claire',
                 icon: Icons.light_mode,
                 isSelected: settingsVM.themeMode == AppThemeMode.light,
-                onTap: () => settingsVM.setThemeMode(AppThemeMode.light),
+                onTap: () {
+                  settingsVM.setThemeMode(AppThemeMode.light);
+                },
               ),
 
               // Mode Sombre
@@ -35,7 +37,9 @@ class AppearanceScreen extends StatelessWidget {
                 description: 'Interface sombre',
                 icon: Icons.dark_mode,
                 isSelected: settingsVM.themeMode == AppThemeMode.dark,
-                onTap: () => settingsVM.setThemeMode(AppThemeMode.dark),
+                onTap: () {
+                  settingsVM.setThemeMode(AppThemeMode.dark);
+                },
               ),
 
               // Mode Système
@@ -45,7 +49,9 @@ class AppearanceScreen extends StatelessWidget {
                 description: 'Adapté aux paramètres de votre appareil',
                 icon: Icons.smartphone,
                 isSelected: settingsVM.themeMode == AppThemeMode.system,
-                onTap: () => settingsVM.setThemeMode(AppThemeMode.system),
+                onTap: () {
+                  settingsVM.setThemeMode(AppThemeMode.system);
+                },
               ),
 
               const SizedBox(height: 24),
@@ -126,31 +132,14 @@ class AppearanceScreen extends StatelessWidget {
           width: isSelected ? 2 : 1,
         ),
       ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color:
-                      isSelected
-                          ? colorScheme.primary.withOpacity(0.2)
-                          : colorScheme.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  color:
-                      isSelected
-                          ? colorScheme.primary
-                          : colorScheme.primary.withOpacity(0.7),
-                  size: 24,
-                ),
-              ),
+              Icon(icon, color: isSelected ? colorScheme.primary : null),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -159,24 +148,21 @@ class AppearanceScreen extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                        color: isSelected ? colorScheme.primary : null,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
               if (isSelected)
-                Icon(Icons.check_circle, color: colorScheme.primary, size: 24),
+                Icon(Icons.check_circle, color: colorScheme.primary),
             ],
           ),
         ),

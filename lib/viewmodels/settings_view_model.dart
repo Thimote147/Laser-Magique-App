@@ -22,9 +22,8 @@ class SettingsViewModel with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  void _initializeSettings() {
-    // First load from local storage for immediate UI response
-    _loadLocalPreferences();
+  void _initializeSettings() async {
+    await _loadLocalPreferences();
 
     // Then subscribe to remote changes
     _repository.getSettingsStream().listen(
@@ -41,10 +40,13 @@ class SettingsViewModel with ChangeNotifier {
   Future<void> _loadLocalPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Charge les paramètres locaux
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-      final themeModeIndex =
-          prefs.getInt('theme_mode') ?? 2; // Default to system
-      _themeMode = AppThemeMode.values[themeModeIndex];
+      _themeMode =
+          AppThemeMode.values[prefs.getInt('theme_mode') ??
+              AppThemeMode.system.index];
+
       notifyListeners();
 
       // Load remote settings
@@ -53,7 +55,6 @@ class SettingsViewModel with ChangeNotifier {
 
       final remoteSettings = await _repository.getSettings();
       _updateFromRemote(remoteSettings);
-      _saveToLocalPreferences();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -63,31 +64,8 @@ class SettingsViewModel with ChangeNotifier {
   }
 
   void _updateFromRemote(Map<String, dynamic> settings) {
+    // Met à jour les notifications depuis Supabase
     _notificationsEnabled = settings['notifications_enabled'] ?? true;
-
-    // Gérer la conversion du theme_mode
-    final themeModeSetting = settings['theme_mode'];
-    if (themeModeSetting != null) {
-      if (themeModeSetting is int) {
-        _themeMode = AppThemeMode.values[themeModeSetting];
-      } else if (themeModeSetting is String) {
-        // Si c'est une chaîne, essayons de la convertir en entier
-        try {
-          _themeMode = AppThemeMode.values[int.parse(themeModeSetting)];
-        } catch (e) {
-          // Si la conversion échoue, utiliser la valeur par défaut (system)
-          _themeMode = AppThemeMode.system;
-        }
-      } else {
-        // Si le type n'est ni int ni String, utiliser la valeur par défaut
-        _themeMode = AppThemeMode.system;
-      }
-    } else {
-      // Si pas de valeur, utiliser la valeur par défaut
-      _themeMode = AppThemeMode.system;
-    }
-
-    _saveToLocalPreferences();
     notifyListeners();
   }
 
@@ -103,10 +81,7 @@ class SettingsViewModel with ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      await _repository.updateSettings({
-        'notifications_enabled': value,
-        'theme_mode': _themeMode.index,
-      });
+      await _repository.updateSettings({'notifications_enabled': value});
 
       _notificationsEnabled = value;
       await _saveToLocalPreferences();
@@ -119,22 +94,16 @@ class SettingsViewModel with ChangeNotifier {
   }
 
   Future<void> setThemeMode(AppThemeMode mode) async {
+    if (_themeMode == mode) return;
+
     try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      await _repository.updateSettings({
-        'notifications_enabled': _notificationsEnabled,
-        'theme_mode': mode.index,
-      });
-
       _themeMode = mode;
+      notifyListeners(); // Notify immediately for responsive UI
+
+      // Save to local preferences
       await _saveToLocalPreferences();
     } catch (e) {
       _error = e.toString();
-    } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }

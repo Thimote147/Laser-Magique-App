@@ -25,6 +25,10 @@ class CustomerSelectionWidget extends StatefulWidget {
 
 class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   bool _isCreatingNew = false;
 
   @override
@@ -32,14 +36,27 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
     super.initState();
     if (widget.initialCustomer != null) {
       _searchController.text =
-          '${widget.initialCustomer!.firstName} ${widget.initialCustomer!.lastName ?? ''}';
+          '${widget.initialCustomer!.firstName} ${widget.initialCustomer!.lastName}';
     }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
+  }
+
+  void _handleError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
+    );
   }
 
   @override
@@ -148,7 +165,8 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
       const maxVisibleItems = 3.0;
       const verticalPadding = 2.0; // Padding vertical réduit
 
-      final totalHeight = (itemBaseHeight + (verticalPadding * 2)) * 
+      final totalHeight =
+          (itemBaseHeight + (verticalPadding * 2)) *
           min(maxVisibleItems, viewModel.searchResults.length.toDouble());
 
       return Container(
@@ -173,7 +191,9 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                   leading: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(
@@ -183,29 +203,24 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                     ),
                   ),
                   title: Text(
-                    '${customer.firstName} ${customer.lastName ?? ''}'.trim(),
+                    '${customer.firstName} ${customer.lastName}'.trim(),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  subtitle: customer.email != null || customer.phone != null
-                      ? Text(
-                          [
-                            if (customer.email != null) customer.email,
-                            if (customer.phone != null) customer.phone,
-                          ].join(' • '),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        )
-                      : null,
+                  subtitle: Text(
+                    [customer.email, customer.phone].join(' • '),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   onTap: () {
                     widget.onCustomerSelected(customer);
                     _searchController.text =
-                        '${customer.firstName} ${customer.lastName ?? ''}'.trim();
+                        '${customer.firstName} ${customer.lastName}'.trim();
                     FocusScope.of(context).unfocus();
                   },
                 ),
@@ -221,10 +236,6 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
 
   Widget _buildNewCustomerForm(CustomerViewModel viewModel) {
     final formKey = GlobalKey<FormState>();
-    String firstName = '';
-    String lastName = '';
-    String? email;
-    String? phone;
 
     return Form(
       key: formKey,
@@ -237,6 +248,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
             children: [
               Expanded(
                 child: TextFormField(
+                  controller: _firstNameController,
                   decoration: InputDecoration(
                     isDense: true,
                     labelText: 'Prénom *',
@@ -276,12 +288,13 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                     }
                     return null;
                   },
-                  onSaved: (value) => firstName = value!,
+                  onSaved: (value) => _firstNameController.text = value!,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: TextFormField(
+                  controller: _lastNameController,
                   decoration: InputDecoration(
                     isDense: true,
                     labelText: 'Nom',
@@ -302,13 +315,14 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                       ),
                     ),
                   ),
-                  onSaved: (value) => lastName = value ?? '',
+                  onSaved: (value) => _lastNameController.text = value ?? '',
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           TextFormField(
+            controller: _emailController,
             decoration: InputDecoration(
               isDense: true,
               labelText: 'Email',
@@ -335,10 +349,11 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
               ),
             ),
             keyboardType: TextInputType.emailAddress,
-            onSaved: (value) => email = value,
+            onSaved: (value) => _emailController.text = value!,
           ),
           const SizedBox(height: 12),
           TextFormField(
+            controller: _phoneController,
             decoration: InputDecoration(
               isDense: true,
               labelText: 'Téléphone',
@@ -365,52 +380,55 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
               ),
             ),
             keyboardType: TextInputType.phone,
-            onSaved: (value) => phone = value,
+            onSaved: (value) => _phoneController.text = value!,
           ),
           const SizedBox(height: 16),
           Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton.icon(
+              TextButton(
                 onPressed: () {
-                  setState(() {
-                    _isCreatingNew = false;
-                    widget.onCreatingChange?.call(false);
-                  });
+                  setState(() => _isCreatingNew = false);
+                  if (widget.onCreatingChange != null) {
+                    widget.onCreatingChange!(false);
+                  }
                 },
-                icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                label: const Text('Retour'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
+                child: const Text('Annuler'),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () {
-                    if (formKey.currentState!.validate()) {
-                      formKey.currentState!.save();
-                      final customer = Customer(
-                        firstName: firstName,
-                        lastName: lastName.isEmpty ? null : lastName,
-                        email: email?.isEmpty ?? true ? null : email,
-                        phone: phone?.isEmpty ?? true ? null : phone,
-                      );
-                      viewModel.createCustomer(customer).then((newCustomer) {
-                        widget.onCustomerSelected(newCustomer);
-                      });
-                      setState(() => _isCreatingNew = false);
-                    }
-                  },
-                  icon: const Icon(Icons.check_rounded, size: 20),
-                  label: const Text('Créer le client'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: () async {
+                  if (_firstNameController.text.isEmpty ||
+                      _lastNameController.text.isEmpty ||
+                      _emailController.text.isEmpty ||
+                      _phoneController.text.isEmpty) {
+                    _handleError('Tous les champs sont obligatoires');
+                    return;
+                  }
+
+                  final customer = Customer(
+                    firstName: _firstNameController.text,
+                    lastName: _lastNameController.text,
+                    email: _emailController.text,
+                    phone: _phoneController.text,
+                  );
+
+                  try {
+                    final newCustomer = await viewModel.createCustomer(
+                      customer,
+                    );
+                    widget.onCustomerSelected(newCustomer);
+                    setState(() => _isCreatingNew = false);
+                  } catch (e) {
+                    _handleError(e.toString());
+                  }
+                },
+                icon: const Icon(Icons.check_rounded, size: 20),
+                label: const Text('Créer le client'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
                   ),
                 ),
               ),

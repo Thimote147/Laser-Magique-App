@@ -1,12 +1,15 @@
+import 'dart:io' show Platform;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'dart:io' show Platform;
 import '../../models/booking_model.dart';
 import '../../models/formula_model.dart';
 import '../../models/customer_model.dart';
 import '../../models/payment_model.dart';
+import '../../utils/price_utils.dart';
 
 import '../../viewmodels/activity_formula_view_model.dart';
 import '../../viewmodels/booking_edit_viewmodel.dart';
@@ -40,11 +43,18 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
   void initState() {
     super.initState();
     if (widget.booking != null) {
+      // Vérifier que tous les champs requis sont présents
+      if (widget.booking!.lastName == null ||
+          widget.booking!.email == null ||
+          widget.booking!.phone == null) {
+        throw StateError('Les informations du client sont incomplètes');
+      }
+
       selectedCustomer = Customer(
         firstName: widget.booking!.firstName,
-        lastName: widget.booking!.lastName,
-        email: widget.booking!.email,
-        phone: widget.booking!.phone,
+        lastName: widget.booking!.lastName!,
+        email: widget.booking!.email!,
+        phone: widget.booking!.phone!,
       );
       selectedDate = widget.booking!.dateTime;
       selectedTime = TimeOfDay(
@@ -999,7 +1009,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                               ),
                             ),
                             Text(
-                              '${(bookingEditViewModel.selectedFormula!.price * numberOfPersons * numberOfGames).toStringAsFixed(2)}€',
+                              '${calculateTotalPrice(bookingEditViewModel.selectedFormula?.price ?? 0, numberOfGames, numberOfPersons).toStringAsFixed(2)}€',
                               style: Theme.of(
                                 context,
                               ).textTheme.titleMedium?.copyWith(

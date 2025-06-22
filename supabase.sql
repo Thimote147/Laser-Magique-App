@@ -65,11 +65,13 @@ CREATE TABLE formulas (
 CREATE TABLE customers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   first_name TEXT NOT NULL,
-  last_name TEXT,
-  phone TEXT,
-  email TEXT,
+  last_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT customers_unique_email UNIQUE (first_name, last_name, email),
+  CONSTRAINT customers_unique_phone UNIQUE (first_name, last_name, phone)
 );
 
 -- Create bookings table
@@ -501,26 +503,62 @@ BEGIN
     RAISE EXCEPTION 'Nombre de parties trop élevé';
   END IF;
 
-  -- Rechercher le client existant ou en créer un nouveau
+  -- Vérifier que tous les champs requis sont présents
+  IF p_first_name IS NULL OR p_first_name = '' THEN
+    RAISE EXCEPTION 'Le prénom est obligatoire';
+  END IF;
+  IF p_last_name IS NULL OR p_last_name = '' THEN
+    RAISE EXCEPTION 'Le nom est obligatoire';
+  END IF;
+  IF p_phone IS NULL OR p_phone = '' THEN
+    RAISE EXCEPTION 'Le numéro de téléphone est obligatoire';
+  END IF;
+  IF p_email IS NULL OR p_email = '' THEN
+    RAISE EXCEPTION 'L''adresse email est obligatoire';
+  END IF;
+
+  -- Rechercher le client existant avec exactement les mêmes informations
   SELECT id INTO v_customer_id
   FROM customers
-  WHERE (phone IS NOT NULL AND phone = p_phone)
-     OR (email IS NOT NULL AND email = p_email)
-  LIMIT 1;
+  WHERE first_name = p_first_name 
+    AND last_name = p_last_name
+    AND (phone = p_phone OR email = p_email);
 
   IF v_customer_id IS NULL THEN
+    -- Vérifier s'il existe un client avec le même nom et email
+    IF EXISTS (
+      SELECT 1 FROM customers 
+      WHERE first_name = p_first_name 
+        AND last_name = p_last_name 
+        AND email = p_email
+    ) THEN
+      RAISE EXCEPTION 'Un client avec le même nom et email existe déjà'
+        USING ERRCODE = 'unique_violation',
+              CONSTRAINT = 'customers_unique_email';
+    END IF;
+
+    -- Vérifier s'il existe un client avec le même nom et téléphone
+    IF EXISTS (
+      SELECT 1 FROM customers 
+      WHERE first_name = p_first_name 
+        AND last_name = p_last_name 
+        AND phone = p_phone
+    ) THEN
+      RAISE EXCEPTION 'Un client avec le même nom et téléphone existe déjà'
+        USING ERRCODE = 'unique_violation',
+              CONSTRAINT = 'customers_unique_phone';
+    END IF;
+
     -- Créer un nouveau client
     INSERT INTO customers (first_name, last_name, phone, email)
     VALUES (p_first_name, p_last_name, p_phone, p_email)
     RETURNING id INTO v_customer_id;
   ELSE
-    -- Mettre à jour les informations du client existant si nécessaire
+    -- Mettre à jour uniquement si c'est exactement le même client
     UPDATE customers
     SET 
-      first_name = COALESCE(NULLIF(p_first_name, ''), first_name),
-      last_name = COALESCE(NULLIF(p_last_name, ''), last_name),
-      phone = COALESCE(NULLIF(p_phone, ''), phone),
-      email = COALESCE(NULLIF(p_email, ''), email)
+      phone = p_phone,
+      email = p_email
     WHERE id = v_customer_id;
   END IF;
 
@@ -621,13 +659,53 @@ BEGIN
     RAISE EXCEPTION 'Nombre de parties trop élevé';
   END IF;
 
+  -- Vérifier que tous les champs requis sont présents
+  IF p_first_name IS NULL OR p_first_name = '' THEN
+    RAISE EXCEPTION 'Le prénom est obligatoire';
+  END IF;
+  IF p_last_name IS NULL OR p_last_name = '' THEN
+    RAISE EXCEPTION 'Le nom est obligatoire';
+  END IF;
+  IF p_phone IS NULL OR p_phone = '' THEN
+    RAISE EXCEPTION 'Le numéro de téléphone est obligatoire';
+  END IF;
+  IF p_email IS NULL OR p_email = '' THEN
+    RAISE EXCEPTION 'L''adresse email est obligatoire';
+  END IF;
+
+  -- Vérifier s'il existe un autre client avec le même nom et email
+  IF EXISTS (
+    SELECT 1 FROM customers 
+    WHERE id != v_customer_id
+      AND first_name = p_first_name 
+      AND last_name = p_last_name 
+      AND email = p_email
+  ) THEN
+    RAISE EXCEPTION 'Un client avec le même nom et email existe déjà'
+      USING ERRCODE = 'unique_violation',
+            CONSTRAINT = 'customers_unique_email';
+  END IF;
+
+  -- Vérifier s'il existe un autre client avec le même nom et téléphone
+  IF EXISTS (
+    SELECT 1 FROM customers 
+    WHERE id != v_customer_id
+      AND first_name = p_first_name 
+      AND last_name = p_last_name 
+      AND phone = p_phone
+  ) THEN
+    RAISE EXCEPTION 'Un client avec le même nom et téléphone existe déjà'
+      USING ERRCODE = 'unique_violation',
+            CONSTRAINT = 'customers_unique_phone';
+  END IF;
+
   -- Update customer information
   UPDATE customers
   SET 
-    first_name = COALESCE(NULLIF(p_first_name, ''), first_name),
-    last_name = COALESCE(NULLIF(p_last_name, ''), last_name),
-    phone = COALESCE(NULLIF(p_phone, ''), phone),
-    email = COALESCE(NULLIF(p_email, ''), email)
+    first_name = p_first_name,
+    last_name = p_last_name,
+    phone = p_phone,
+    email = p_email
   WHERE id = v_customer_id;
 
   -- Update booking
@@ -828,6 +906,7 @@ CREATE INDEX idx_customers_phone ON customers(phone);
 CREATE INDEX idx_customers_name ON customers(first_name, last_name);
 
 -- Insert initial data
+-- Insert initial customer data with all fields for the first customer
 INSERT INTO customers(first_name, last_name, email, phone) 
 VALUES ('Thimoté', 'Fétu', 'thimotefetu@gmail.com', '0492504409');
 

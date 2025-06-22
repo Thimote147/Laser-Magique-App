@@ -1,5 +1,6 @@
 import 'formula_model.dart';
 import 'payment_model.dart' as payment_model;
+import '../utils/price_utils.dart';
 
 class Booking {
   final String id;
@@ -18,7 +19,8 @@ class Booking {
   final List<payment_model.Payment> payments;
   final double consumptionsTotal;
 
-  double get formulaPrice => numberOfPersons * numberOfGames * formula.price;
+  double get formulaPrice =>
+      calculateTotalPrice(formula.price, numberOfGames, numberOfPersons);
   double get totalPaid =>
       payments.fold(0, (sum, payment) => sum + payment.amount);
   final double? _totalPrice;

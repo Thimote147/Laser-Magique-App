@@ -28,7 +28,7 @@ class CustomerViewModel extends ChangeNotifier {
 
       _customers = await _repository.getAllCustomers();
     } catch (e) {
-      _error = 'Error loading customers: $e';
+      _error = 'Erreur lors du chargement des clients: $e';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -48,7 +48,7 @@ class CustomerViewModel extends ChangeNotifier {
         _searchResults = await _repository.searchCustomers(query);
       }
     } catch (e) {
-      _error = 'Error searching customers: $e';
+      _error = 'Erreur lors de la recherche: $e';
       _searchResults = [];
     } finally {
       _isLoading = false;
@@ -65,8 +65,13 @@ class CustomerViewModel extends ChangeNotifier {
       final newCustomer = await _repository.createCustomer(customer);
       _customers.add(newCustomer);
       return newCustomer;
+    } on CustomerException catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
     } catch (e) {
-      _error = 'Error creating customer: $e';
+      _error = 'Erreur lors de la création du client: $e';
+      notifyListeners();
       rethrow;
     } finally {
       _isLoading = false;
@@ -85,8 +90,13 @@ class CustomerViewModel extends ChangeNotifier {
       if (index != -1) {
         _customers[index] = updatedCustomer;
       }
+    } on CustomerException catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
     } catch (e) {
-      _error = 'Error updating customer: $e';
+      _error = 'Erreur lors de la mise à jour du client: $e';
+      notifyListeners();
       rethrow;
     } finally {
       _isLoading = false;
@@ -98,7 +108,7 @@ class CustomerViewModel extends ChangeNotifier {
     try {
       return await _repository.getCustomerById(id);
     } catch (e) {
-      _error = 'Error getting customer: $e';
+      _error = 'Erreur lors de la récupération du client: $e';
       return null;
     }
   }
@@ -108,7 +118,6 @@ class CustomerViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Vider la liste des résultats de recherche
   void clearSearchResults() {
     _searchResults = [];
     _searchQuery = '';

@@ -66,31 +66,73 @@ class LaserMagiqueApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
         ChangeNotifierProvider(create: (_) => CustomerViewModel()),
       ],
-      child: MaterialApp(
-        title: 'Laser Magique',
-        theme: ThemeData(primarySwatch: Colors.purple, useMaterial3: true),
-        debugShowCheckedModeBanner: false,
-        darkTheme: ThemeData.dark(
-          useMaterial3: true,
-        ).copyWith(primaryColor: Colors.purple),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('fr', '')],
-        home: StreamBuilder<AuthState>(
-          stream: Supabase.instance.client.auth.onAuthStateChange,
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              final authState = snapshot.data!;
-              if (authState.event == AuthChangeEvent.signedIn) {
-                return const MainScreen();
-              }
-            }
-            return const AuthView();
-          },
-        ),
+      child: Consumer<SettingsViewModel>(
+        builder: (context, settingsVM, child) {
+          ThemeMode themeMode;
+          switch (settingsVM.themeMode) {
+            case AppThemeMode.light:
+              themeMode = ThemeMode.light;
+              break;
+            case AppThemeMode.dark:
+              themeMode = ThemeMode.dark;
+              break;
+            case AppThemeMode.system:
+              themeMode = ThemeMode.system;
+              break;
+          }
+
+          return MaterialApp(
+            title: 'Laser Magique',
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF1E88E5), // Bleu Material 600
+                brightness: Brightness.light,
+              ),
+              appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+              cardTheme: CardTheme(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF1E88E5), // Bleu Material 600
+                brightness: Brightness.dark,
+              ),
+              appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+              cardTheme: CardTheme(
+                elevation: 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            themeMode: themeMode,
+            debugShowCheckedModeBanner: false,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [Locale('fr', 'FR')],
+            locale: const Locale('fr', 'FR'),
+            home: StreamBuilder<AuthState>(
+              stream: Supabase.instance.client.auth.onAuthStateChange,
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return snapshot.data?.event == AuthChangeEvent.signedIn
+                      ? const MainScreen()
+                      : const AuthView();
+                }
+
+                return const Center(child: CircularProgressIndicator());
+              },
+            ),
+          );
+        },
       ),
     );
   }
