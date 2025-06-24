@@ -125,6 +125,7 @@ class StockList extends StatelessWidget {
       },
       child: GridView.builder(
         padding: const EdgeInsets.all(12),
+        physics: const AlwaysScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 2.4,

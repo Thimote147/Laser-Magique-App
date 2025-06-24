@@ -32,12 +32,14 @@ DROP TYPE IF EXISTS payment_method CASCADE;
 DROP TYPE IF EXISTS payment_type CASCADE;
 DROP TYPE IF EXISTS item_category CASCADE;
 DROP TYPE IF EXISTS theme_mode CASCADE;
+DROP TYPE IF EXISTS user_role CASCADE;
 
 -- Create ENUM types
 CREATE TYPE payment_method AS ENUM ('card', 'cash', 'transfer');
 CREATE TYPE payment_type AS ENUM ('deposit', 'balance');
 CREATE TYPE item_category AS ENUM ('DRINK', 'FOOD', 'OTHER');
 CREATE TYPE theme_mode AS ENUM ('system', 'light', 'dark');
+CREATE TYPE user_role AS ENUM ('admin', 'member');
 
 -- Create formulas table
 CREATE TABLE formulas (
@@ -148,6 +150,7 @@ CREATE TABLE user_settings (
   hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 10,
   notifications_enabled BOOLEAN DEFAULT true NOT NULL,
   theme_mode theme_mode DEFAULT 'system' NOT NULL,
+  role user_role NOT NULL DEFAULT 'member',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );

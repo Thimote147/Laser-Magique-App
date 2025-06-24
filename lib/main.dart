@@ -57,8 +57,11 @@ class LaserMagiqueApp extends StatelessWidget {
               (_, activityFormulaVM, previousBookingVM) =>
                   previousBookingVM ?? BookingViewModel(activityFormulaVM),
         ),
-        ChangeNotifierProvider(
-          create: (_) => StockViewModel(context.read<BookingViewModel>()),
+        ChangeNotifierProxyProvider<BookingViewModel, StockViewModel>(
+          create: (context) => StockViewModel(context.read<BookingViewModel>()),
+          update:
+              (_, bookingVM, previousStockVM) =>
+                  previousStockVM ?? StockViewModel(bookingVM),
         ),
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
         ChangeNotifierProvider(create: (_) => CustomerViewModel()),

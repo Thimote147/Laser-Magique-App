@@ -8,6 +8,7 @@ import 'appearance_screen.dart';
 import 'activity_formula_screen.dart';
 import '../../services/auth_service.dart';
 import '../auth/auth_view.dart';
+import 'equipment_management_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -25,8 +26,9 @@ class SettingsScreen extends StatelessWidget {
             icon: const Icon(Icons.logout),
             tooltip: 'Se déconnecter',
             onPressed: () async {
+              final navigator = Navigator.of(context);
               await Provider.of<AuthService>(context, listen: false).signOut();
-              Navigator.of(context).pushAndRemoveUntil(
+              navigator.pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const AuthView()),
                 (route) => false,
               );
@@ -88,16 +90,32 @@ class SettingsScreen extends StatelessWidget {
                 ),
           ),
 
-          // Formules et activités
+          // Formules et activités (visible uniquement pour admin)
+          if (profileVM.role == UserRole.admin)
+            _buildSettingsItem(
+              context,
+              icon: Icons.sports_esports,
+              title: 'Formules et activités',
+              subtitle: 'Gérer les activités et leurs formules',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ActivityFormulaScreen(),
+                  ),
+                );
+              },
+            ),
+
+          // Gestion du matériel
           _buildSettingsItem(
             context,
-            icon: Icons.sports_esports,
-            title: 'Formules et activités',
-            subtitle: 'Gérer les activités et leurs formules',
+            icon: Icons.build,
+            title: 'Gestion du matériel',
+            subtitle: 'Voir et gérer l\'état du matériel',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const ActivityFormulaScreen(),
+                  builder: (context) => const EquipmentManagementScreen(),
                 ),
               );
             },

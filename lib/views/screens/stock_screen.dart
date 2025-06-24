@@ -6,8 +6,19 @@ import '../widgets/stock_list_widget.dart';
 import '../widgets/stock_item_dialog_widget.dart';
 import '../widgets/stock_search_delegate.dart';
 
-class StockScreen extends StatelessWidget {
-  const StockScreen({Key? key}) : super(key: key);
+class StockScreen extends StatefulWidget {
+  const StockScreen({super.key});
+
+  @override
+  State<StockScreen> createState() => _StockScreenState();
+}
+
+class _StockScreenState extends State<StockScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => context.read<StockViewModel>().initialize());
+  }
 
   Widget _buildTab(
     BuildContext context,

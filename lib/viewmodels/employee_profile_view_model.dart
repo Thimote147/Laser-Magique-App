@@ -133,8 +133,13 @@ class EmployeeProfileViewModel extends ChangeNotifier {
     _phone = json['phone'] ?? '';
     _email = json['email'] ?? ''; // Email venant de l'authentification
 
-    // Ces champs ne sont pas tous dans user_settings, donc on met des valeurs par défaut
-    _role = json['user_id'] != null ? UserRole.member : UserRole.admin;
+    // Correction : lecture réelle du rôle depuis la base
+    final roleStr = json['role'] as String?;
+    if (roleStr == 'admin') {
+      _role = UserRole.admin;
+    } else {
+      _role = UserRole.member;
+    }
     _hourlyRate = (json['hourly_rate'] ?? 0.0).toDouble();
 
     print(

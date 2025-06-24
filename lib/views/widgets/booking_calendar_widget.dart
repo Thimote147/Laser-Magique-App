@@ -66,6 +66,14 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                     _selectedDay = selectedD;
                     _focusedDay = focusedD;
                   });
+                  // Scroll automatique si on est en Day View
+                  if (_calendarFormat == CalendarFormat.week) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      _scrollToFirstBooking(
+                        bookingViewModel.getBookingsForDay(selectedD),
+                      );
+                    });
+                  }
                 },
                 onFormatChanged: (format) {
                   setState(() {
@@ -169,6 +177,24 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
           ),
         );
       },
+    );
+  }
+
+  void _scrollToFirstBooking(List<Booking> bookings) {
+    if (bookings.isEmpty) return;
+    // On prend la première réservation (déjà triée par heure dans la Day View)
+    final first = bookings.reduce(
+      (a, b) => a.dateTimeLocal.isBefore(b.dateTimeLocal) ? a : b,
+    );
+    final double hourHeight = 60.0;
+    final double offset =
+        first.dateTimeLocal.hour * hourHeight +
+        (first.dateTimeLocal.minute / 60.0) * hourHeight;
+    // On scroll avec une petite marge en haut
+    _scrollController.animateTo(
+      offset - 16,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
     );
   }
 
@@ -331,6 +357,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
 
     return Expanded(
       child: SingleChildScrollView(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Container(
           height: 24 * hourHeight,
@@ -473,14 +500,17 @@ class DayViewBooking extends StatelessWidget {
   Widget build(BuildContext context) {
     final startTime = booking.dateTimeLocal;
     final duration = const Duration(hours: 1);
-    final top = startTime.hour * hourHeight + (startTime.minute / 60.0) * hourHeight;
+    final top =
+        startTime.hour * hourHeight + (startTime.minute / 60.0) * hourHeight;
 
-    final backgroundColor = booking.isCancelled
-        ? Theme.of(context).colorScheme.errorContainer.withOpacity(0.3)
-        : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3);
-    final borderColor = booking.isCancelled
-        ? Theme.of(context).colorScheme.error.withOpacity(0.5)
-        : Theme.of(context).colorScheme.primary.withOpacity(0.5);
+    final backgroundColor =
+        booking.isCancelled
+            ? Theme.of(context).colorScheme.errorContainer.withOpacity(0.3)
+            : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3);
+    final borderColor =
+        booking.isCancelled
+            ? Theme.of(context).colorScheme.error.withOpacity(0.5)
+            : Theme.of(context).colorScheme.primary.withOpacity(0.5);
 
     return Positioned(
       top: top,
@@ -507,7 +537,7 @@ class DayViewBooking extends StatelessWidget {
                 final double nameSize = isVeryTight ? 10 : 11;
                 final double iconSize = isVeryTight ? 10 : 12;
                 final double textSize = isVeryTight ? 9 : 10;
-                
+
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.start,
@@ -526,7 +556,9 @@ class DayViewBooking extends StatelessWidget {
                         Expanded(
                           child: Text(
                             '${booking.firstName} ${booking.lastName ?? ""}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               fontSize: nameSize,
                             ),
@@ -534,19 +566,20 @@ class DayViewBooking extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (!isVeryTight) SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: IconButton(
-                            icon: Icon(Icons.more_vert, size: iconSize),
-                            onPressed: onMoreTap,
-                            padding: EdgeInsets.zero,
-                            visualDensity: VisualDensity.compact,
-                            style: IconButton.styleFrom(
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        if (!isVeryTight)
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: IconButton(
+                              icon: Icon(Icons.more_vert, size: iconSize),
+                              onPressed: onMoreTap,
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              style: IconButton.styleFrom(
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                     if (!isVeryTight) ...[
@@ -559,7 +592,9 @@ class DayViewBooking extends StatelessWidget {
                           ),
                           Text(
                             ' ${booking.numberOfPersons}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
                               fontSize: textSize,
                               color: Theme.of(context).colorScheme.primary,
                             ),
@@ -572,7 +607,9 @@ class DayViewBooking extends StatelessWidget {
                           ),
                           Text(
                             ' ${booking.numberOfGames}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
                               fontSize: textSize,
                               color: Theme.of(context).colorScheme.secondary,
                             ),
@@ -582,7 +619,9 @@ class DayViewBooking extends StatelessWidget {
                       if (!isTight) ...[
                         Text(
                           booking.formula.name,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
                             fontSize: textSize,
                             fontWeight: FontWeight.w500,
                             color: Theme.of(context).colorScheme.tertiary,
@@ -597,20 +636,30 @@ class DayViewBooking extends StatelessWidget {
                               vertical: 0,
                             ),
                             decoration: BoxDecoration(
-                              color: booking.remainingBalance > 0
-                                  ? Theme.of(context).colorScheme.secondary.withOpacity(0.1)
-                                  : Theme.of(context).colorScheme.primaryContainer,
+                              color:
+                                  booking.remainingBalance > 0
+                                      ? Theme.of(
+                                        context,
+                                      ).colorScheme.secondary.withOpacity(0.1)
+                                      : Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
                               borderRadius: BorderRadius.circular(2),
                             ),
                             child: Text(
                               booking.remainingBalance > 0
                                   ? 'Reste ${booking.remainingBalance.toStringAsFixed(2)}€'
                                   : 'Payée',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(
                                 fontSize: textSize - 1,
-                                color: booking.remainingBalance > 0
-                                    ? Theme.of(context).colorScheme.secondary
-                                    : Theme.of(context).colorScheme.primary,
+                                color:
+                                    booking.remainingBalance > 0
+                                        ? Theme.of(
+                                          context,
+                                        ).colorScheme.secondary
+                                        : Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           ),
