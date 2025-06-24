@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 
 class LoginView extends StatefulWidget {
@@ -10,20 +11,50 @@ class LoginView extends StatefulWidget {
   State<LoginView> createState() => _LoginViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
+class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
   String? _errorMessage;
-  bool _rememberMe = false;
+  bool _rememberMe = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadRememberMe();
+  }
+
+  Future<void> _loadRememberMe() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _rememberMe = prefs.getBool('remember_me') ?? true;
+    });
+  }
+
+  Future<void> _saveRememberMe(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('remember_me', value);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.detached ||
+        state == AppLifecycleState.inactive) {
+      if (!_rememberMe) {
+        await _authService.signOut();
+      }
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -39,6 +70,7 @@ class _LoginViewState extends State<LoginView> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      await _saveRememberMe(_rememberMe);
     } catch (e) {
       setState(() {
         _errorMessage = 'Erreur de connexion. Vérifiez vos identifiants.';
@@ -236,16 +268,13 @@ class _LoginViewState extends State<LoginView> {
                         // Se souvenir de moi
                         Row(
                           children: [
-                            StatefulBuilder(
-                              builder: (context, setState) {
-                                return Checkbox(
-                                  value: _rememberMe,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _rememberMe = value ?? false;
-                                    });
-                                  },
-                                );
+                            Checkbox(
+                              value: _rememberMe,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? true;
+                                });
+                                _saveRememberMe(_rememberMe);
                               },
                             ),
                             const SizedBox(width: 8),
@@ -254,6 +283,7 @@ class _LoginViewState extends State<LoginView> {
                                 setState(() {
                                   _rememberMe = !_rememberMe;
                                 });
+                                _saveRememberMe(_rememberMe);
                               },
                               child: const Text('Se souvenir de moi'),
                             ),

@@ -57,11 +57,8 @@ class LaserMagiqueApp extends StatelessWidget {
               (_, activityFormulaVM, previousBookingVM) =>
                   previousBookingVM ?? BookingViewModel(activityFormulaVM),
         ),
-        ChangeNotifierProxyProvider<BookingViewModel, StockViewModel>(
-          create: (context) => StockViewModel(context.read<BookingViewModel>()),
-          update:
-              (_, bookingVM, previousStockVM) =>
-                  previousStockVM ?? StockViewModel(bookingVM),
+        ChangeNotifierProvider(
+          create: (_) => StockViewModel(context.read<BookingViewModel>()),
         ),
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
         ChangeNotifierProvider(create: (_) => CustomerViewModel()),
@@ -119,21 +116,39 @@ class LaserMagiqueApp extends StatelessWidget {
             ],
             supportedLocales: const [Locale('fr', 'FR')],
             locale: const Locale('fr', 'FR'),
-            home: StreamBuilder<AuthState>(
-              stream: Supabase.instance.client.auth.onAuthStateChange,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return snapshot.data?.event == AuthChangeEvent.signedIn
-                      ? const MainScreen()
-                      : const AuthView();
-                }
-
-                return const Center(child: CircularProgressIndicator());
-              },
-            ),
+            home: const _SessionGate(),
           );
         },
       ),
+    );
+  }
+}
+
+class _SessionGate extends StatefulWidget {
+  const _SessionGate();
+
+  @override
+  State<_SessionGate> createState() => _SessionGateState();
+}
+
+class _SessionGateState extends State<_SessionGate> {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: Supabase.instance.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (session != null) {
+          return const MainScreen();
+        } else {
+          return const AuthView();
+        }
+      },
     );
   }
 }
