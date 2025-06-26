@@ -3,16 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'config/app_config.dart';
-import 'views/screens/main_screen.dart';
-import 'views/auth/auth_view.dart';
-import 'viewmodels/activity_formula_view_model.dart';
-import 'viewmodels/booking_view_model.dart';
-import 'viewmodels/settings_view_model.dart';
-import 'viewmodels/customer_view_model.dart';
-import 'viewmodels/stock_view_model.dart';
-import 'viewmodels/employee_profile_view_model.dart';
-import 'services/auth_service.dart';
+import 'core/core.dart';
+import 'app/app.dart';
+import 'features/auth/auth.dart';
+import 'features/booking/booking.dart';
+import 'features/equipment/equipment.dart';
+import 'features/settings/settings.dart';
+import 'features/inventory/inventory.dart';
+import 'features/profile/profile.dart';
+import 'shared/shared.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +31,10 @@ void main() async {
     url: config.supabaseUrl,
     anonKey: config.supabaseAnonKey,
   );
+  
+  // Test Supabase connection
+  print('Supabase URL: ${config.supabaseUrl}');
+  print('Supabase client initialized: ${Supabase.instance.client.auth.currentUser?.email ?? 'No user'}');
 
   // Initialize French date formats
   await initializeDateFormatting('fr_FR', null);
@@ -65,6 +68,7 @@ class LaserMagiqueApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
         ChangeNotifierProvider(create: (_) => CustomerViewModel()),
+        ChangeNotifierProvider(create: (_) => EquipmentViewModel()),
       ],
       child: Consumer<SettingsViewModel>(
         builder: (context, settingsVM, child) {
@@ -141,14 +145,34 @@ class _SessionGateState extends State<_SessionGate> {
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final session = Supabase.instance.client.auth.currentSession;
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        
+        // Debug logs
+        print('SessionGate - ConnectionState: ${snapshot.connectionState}');
+        print('SessionGate - Session: ${session != null ? 'Exists (${session.user.email})' : 'Null'}');
+        print('SessionGate - AuthState: ${snapshot.data?.event}');
+        print('SessionGate - Snapshot hasData: ${snapshot.hasData}');
+        
+        // Always show loading on first connection
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Vérification de la session...'),
+                ],
+              ),
+            ),
           );
         }
+        
         if (session != null) {
+          print('SessionGate - Navigating to MainScreen');
           return const MainScreen();
         } else {
+          print('SessionGate - Showing AuthView');
           return const AuthView();
         }
       },
