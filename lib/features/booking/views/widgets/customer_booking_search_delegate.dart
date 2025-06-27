@@ -69,7 +69,7 @@ class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant.withOpacity(0.3),
+                    color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(

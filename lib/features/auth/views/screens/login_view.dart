@@ -5,7 +5,7 @@ import '../../services/auth_service.dart';
 class LoginView extends StatefulWidget {
   final VoidCallback onRegisterTap;
 
-  const LoginView({Key? key, required this.onRegisterTap}) : super(key: key);
+  const LoginView({super.key, required this.onRegisterTap});
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -66,21 +66,8 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
     });
 
     try {
-      print('LoginView - Starting login process');
-      final result = await _authService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-      print('LoginView - Login result: ${result != null ? 'Success' : 'Failed'}');
       await _saveRememberMe(_rememberMe);
-      
-      if (result != null) {
-        print('LoginView - Login successful, user: ${result.id}');
-        // The navigation should happen automatically via StreamBuilder in main.dart
-        // If it doesn't work, there's an issue with the auth state stream
-      }
     } catch (e) {
-      print('LoginView - Login error: $e');
       setState(() {
         _errorMessage = 'Erreur de connexion. Vérifiez vos identifiants.';
       });
@@ -119,7 +106,9 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withOpacity(0.1),
+                              color: colorScheme.primary.withAlpha(
+                                (255 * 0.1).round(),
+                              ),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -174,7 +163,7 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: colorScheme.outline.withOpacity(0.2),
+                                color: colorScheme.outline.withAlpha((255 * 0.2).round()),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
@@ -196,8 +185,8 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                               ),
                             ),
                             filled: true,
-                            fillColor: colorScheme.surfaceVariant.withOpacity(
-                              0.3,
+                            fillColor: colorScheme.surfaceContainerHighest.withAlpha(
+                              (255 * 0.3).round(),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -234,7 +223,7 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: colorScheme.outline.withOpacity(0.2),
+                                color: colorScheme.outline.withAlpha((255 * 0.2).round()),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
@@ -256,8 +245,8 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                               ),
                             ),
                             filled: true,
-                            fillColor: colorScheme.surfaceVariant.withOpacity(
-                              0.3,
+                            fillColor: colorScheme.surfaceContainerHighest.withAlpha(
+                              (255 * 0.3).round(),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -307,12 +296,14 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: colorScheme.errorContainer.withOpacity(
-                                0.3,
+                              color: colorScheme.errorContainer.withAlpha(
+                                (255 * 0.3).round(),
                               ),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: colorScheme.error.withOpacity(0.3),
+                                color: colorScheme.error.withAlpha(
+                                  (255 * 0.3).round(),
+                                ),
                               ),
                             ),
                             child: Row(

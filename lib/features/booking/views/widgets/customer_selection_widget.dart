@@ -86,7 +86,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                         filled: true,
                         fillColor: Theme.of(
                           context,
-                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                        ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -172,7 +172,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
       return Container(
         height: totalHeight,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
           borderRadius: BorderRadius.circular(12),
         ),
         child: ClipRRect(
@@ -193,7 +193,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.primary.withOpacity(0.1),
+                      ).colorScheme.primary.withAlpha((255 * 0.1).round()),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(
@@ -256,7 +256,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                     filled: true,
                     fillColor: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
@@ -302,7 +302,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                     filled: true,
                     fillColor: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
@@ -330,7 +330,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
               filled: true,
               fillColor: Theme.of(
                 context,
-              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,
@@ -361,7 +361,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
               filled: true,
               fillColor: Theme.of(
                 context,
-              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,

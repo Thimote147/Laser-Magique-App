@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+import 'package:laser_magique_app/shared/utils/time_utils.dart';
 import '../../../profile/viewmodels/employee_profile_view_model.dart';
 import '../../models/work_day_model.dart';
 import 'employee_work_hours_report_screen.dart';
 
 class WorkHoursScreen extends StatefulWidget {
-  const WorkHoursScreen({Key? key}) : super(key: key);
+  const WorkHoursScreen({super.key});
 
   @override
   State<WorkHoursScreen> createState() => _WorkHoursScreenState();
@@ -21,20 +22,6 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     initializeDateFormatting('fr_FR');
   }
 
-  // Convertir les heures décimales en format heures et minutes (08:01)
-  String _formatHoursToHourMinutes(double hours) {
-    int fullHours = hours.floor();
-    int minutes = ((hours - fullHours) * 60).round();
-    return '${fullHours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
-  }
-
-  // Convertir une durée en format heures:minutes
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    return '${hours.toString().padLeft(2, '0')}h${minutes.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<EmployeeProfileViewModel>(
@@ -42,7 +29,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
         final theme = Theme.of(context);
         final colorScheme = theme.colorScheme;
         return Scaffold(
-          backgroundColor: colorScheme.background,
+          backgroundColor: colorScheme.surface,
           appBar: AppBar(
             title: Text(
               'Heures de travail',
@@ -123,7 +110,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.surfaceVariant.withOpacity(0.3),
+          color: colorScheme.surfaceContainerHighest.withAlpha(
+            (255 * 0.3).round(),
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -146,7 +135,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withOpacity(0.1),
+                            color: colorScheme.primary.withAlpha(
+                              (255 * 0.1).round(),
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -157,7 +148,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          _formatDuration(
+                          formatDuration(
                             Duration(
                               minutes:
                                   (profileVM.totalHoursThisMonth * 60).round(),
@@ -176,7 +167,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                 height: 48,
                 child: VerticalDivider(
                   width: 32,
-                  color: colorScheme.outline.withOpacity(0.2),
+                  color: colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               Expanded(
@@ -195,7 +186,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: colorScheme.tertiary.withOpacity(0.1),
+                            color: colorScheme.tertiary.withAlpha(
+                              (255 * 0.1).round(),
+                            ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -248,7 +241,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
             side: BorderSide(
-              color: colorScheme.outlineVariant.withOpacity(0.5),
+              color: colorScheme.outlineVariant.withAlpha((255 * 0.5).round()),
               width: 1,
             ),
           ),
@@ -262,7 +255,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                   height: 1,
                   indent: 16,
                   endIndent: 16,
-                  color: colorScheme.outlineVariant.withOpacity(0.5),
+                  color: colorScheme.outlineVariant.withAlpha((255 * 0.5).round()),
                 ),
             itemBuilder: (context, index) {
               final workDay = profileVM.workDays[index];
@@ -408,12 +401,12 @@ class WorkDayEditSheet extends StatefulWidget {
   final VoidCallback? onDelete;
 
   const WorkDayEditSheet({
-    Key? key,
+    super.key,
     required this.title,
     required this.workDay,
     required this.onSave,
     this.onDelete,
-  }) : super(key: key);
+  });
 
   @override
   State<WorkDayEditSheet> createState() => _WorkDayEditSheetState();
@@ -489,7 +482,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
           width: 32,
           height: 4,
           decoration: BoxDecoration(
-            color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+            color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.4).round()),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -555,10 +548,10 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: colorScheme.surfaceVariant.withOpacity(0.3),
+              color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: colorScheme.outlineVariant.withOpacity(0.5),
+                color: colorScheme.outlineVariant.withAlpha((255 * 0.5).round()),
               ),
             ),
             child: Row(
@@ -579,7 +572,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withOpacity(0.1),
+                              color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -617,7 +610,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: colorScheme.tertiary.withOpacity(0.1),
+                              color: colorScheme.tertiary.withAlpha((255 * 0.1).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -667,7 +660,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: colorScheme.outlineVariant.withOpacity(0.5),
+                    color: colorScheme.outlineVariant.withAlpha((255 * 0.5).round()),
                   ),
                 ),
                 onTap: () => _selectDate(context),
@@ -693,7 +686,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
-                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                          color: colorScheme.outlineVariant.withAlpha((255 * 0.5).round()),
                         ),
                       ),
                       onTap: () => _selectStartTime(context),
@@ -716,7 +709,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
-                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                          color: colorScheme.outlineVariant.withAlpha((255 * 0.5).round()),
                         ),
                       ),
                       onTap: () => _selectEndTime(context),
@@ -867,8 +860,7 @@ class _WorkDayListItem extends StatelessWidget {
   final WorkDay workDay;
   final VoidCallback onTap;
 
-  const _WorkDayListItem({Key? key, required this.workDay, required this.onTap})
-    : super(key: key);
+  const _WorkDayListItem({required this.workDay, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -895,7 +887,7 @@ class _WorkDayListItem extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.15),
+                color: colorScheme.primaryContainer.withAlpha((255 * 0.15).round()),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(

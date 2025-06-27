@@ -47,7 +47,7 @@ class BookingCalendarMarker extends StatelessWidget {
             booking.isCancelled
                 ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withAlpha((255 * 0.2).round()),
                     blurRadius: 1,
                     spreadRadius: 0,
                     offset: const Offset(0, 1),

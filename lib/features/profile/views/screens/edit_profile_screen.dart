@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../viewmodels/employee_profile_view_model.dart';
 
 class EditProfileScreen extends StatefulWidget {
-  const EditProfileScreen({Key? key}) : super(key: key);
+  const EditProfileScreen({super.key});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -113,7 +113,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
-                      color: colorScheme.outline.withOpacity(0.2),
+                      color: colorScheme.outline.withAlpha((255 * 0.2).round()),
                     ),
                   ),
                   child: Padding(
@@ -220,7 +220,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
-                      color: colorScheme.outline.withOpacity(0.2),
+                      color: colorScheme.outline.withAlpha((255 * 0.2).round()),
                     ),
                   ),
                   child: Padding(
@@ -235,7 +235,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceVariant.withOpacity(0.3),
+                            color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -243,7 +243,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withOpacity(0.1),
+                                  color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -283,7 +283,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withOpacity(0.1),
+                                  color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -308,7 +308,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceVariant.withOpacity(0.3),
+                            color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -316,7 +316,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withOpacity(0.1),
+                                  color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -358,7 +358,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withOpacity(0.1),
+                                  color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -399,7 +399,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.3),
+        color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -409,7 +409,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             margin: const EdgeInsets.all(12),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.1),
+              color: colorScheme.primary.withAlpha((255 * 0.1).round()),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 20, color: colorScheme.primary),
@@ -480,9 +480,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       String phone = _phoneController.text;
 
       // Le taux horaire et le rôle ne sont jamais modifiables dans ce formulaire
-      UserRole? role = null; // null signifie que la valeur ne sera pas modifiée
-      double? hourlyRate =
-          null; // null signifie que la valeur ne sera pas modifiée
+      UserRole? role; // null signifie que la valeur ne sera pas modifiée
+      double? hourlyRate; // null signifie que la valeur ne sera pas modifiée
 
       // Mettre à jour le profil
       profileVM.updateProfile(

@@ -5,7 +5,7 @@ import '../../services/auth_service.dart';
 class RegisterView extends StatefulWidget {
   final VoidCallback onLoginTap;
 
-  const RegisterView({Key? key, required this.onLoginTap}) : super(key: key);
+  const RegisterView({super.key, required this.onLoginTap});
 
   @override
   State<RegisterView> createState() => _RegisterViewState();
@@ -258,7 +258,7 @@ class _RegisterViewState extends State<RegisterView> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.1),
+                color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -298,7 +298,7 @@ class _RegisterViewState extends State<RegisterView> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
-          color: colorScheme.errorContainer.withOpacity(0.1),
+          color: colorScheme.errorContainer.withAlpha((255 * 0.1).round()),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -333,7 +333,7 @@ class _RegisterViewState extends State<RegisterView> {
         prefixIcon: Icon(icon, color: colorScheme.primary, size: 22),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+          borderSide: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.2).round())),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -348,7 +348,7 @@ class _RegisterViewState extends State<RegisterView> {
           borderSide: BorderSide(color: colorScheme.error, width: 2),
         ),
         filled: true,
-        fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
+        fillColor: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 16,

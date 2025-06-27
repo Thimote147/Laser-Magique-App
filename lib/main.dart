@@ -31,10 +31,9 @@ void main() async {
     url: config.supabaseUrl,
     anonKey: config.supabaseAnonKey,
   );
-  
+
   // Test Supabase connection
-  print('Supabase URL: ${config.supabaseUrl}');
-  print('Supabase client initialized: ${Supabase.instance.client.auth.currentUser?.email ?? 'No user'}');
+  // Removed debug print statements
 
   // Initialize French date formats
   await initializeDateFormatting('fr_FR', null);
@@ -145,15 +144,12 @@ class _SessionGateState extends State<_SessionGate> {
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final session = Supabase.instance.client.auth.currentSession;
-        
-        // Debug logs
-        print('SessionGate - ConnectionState: ${snapshot.connectionState}');
-        print('SessionGate - Session: ${session != null ? 'Exists (${session.user.email})' : 'Null'}');
-        print('SessionGate - AuthState: ${snapshot.data?.event}');
-        print('SessionGate - Snapshot hasData: ${snapshot.hasData}');
-        
+
+        // Removed debug print statements
+
         // Always show loading on first connection
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return const Scaffold(
             body: Center(
               child: Column(
@@ -167,12 +163,10 @@ class _SessionGateState extends State<_SessionGate> {
             ),
           );
         }
-        
+
         if (session != null) {
-          print('SessionGate - Navigating to MainScreen');
           return const MainScreen();
         } else {
-          print('SessionGate - Showing AuthView');
           return const AuthView();
         }
       },

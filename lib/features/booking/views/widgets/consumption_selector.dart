@@ -170,7 +170,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
         decoration: BoxDecoration(
           color: Theme.of(
             context,
-          ).colorScheme.outlineVariant.withOpacity(1.0 - progress * 0.3),
+          ).colorScheme.outlineVariant.withAlpha((255 * (1.0 - progress * 0.3)).round()),
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -206,7 +206,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
           filled: true,
           fillColor: Theme.of(
             context,
-          ).colorScheme.surfaceVariant.withOpacity(0.3),
+          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -260,7 +260,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                 Text(
                   _searchQuery.isEmpty
                       ? 'Aucun article disponible dans cette catégorie'
-                      : 'Aucun résultat trouvé pour "${_searchQuery}"',
+                      : 'Aucun résultat trouvé pour "$_searchQuery"',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
@@ -324,7 +324,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                       !hasStock
                           ? Theme.of(
                             context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3)
+                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round())
                           : isSelected
                           ? Theme.of(context).colorScheme.primaryContainer
                           : Theme.of(context).colorScheme.surface,
@@ -334,12 +334,12 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                         !hasStock
                             ? Theme.of(
                               context,
-                            ).colorScheme.outlineVariant.withOpacity(0.3)
+                            ).colorScheme.outlineVariant.withAlpha((255 * 0.3).round())
                             : isSelected
                             ? Theme.of(context).colorScheme.primary
                             : Theme.of(
                               context,
-                            ).colorScheme.outlineVariant.withOpacity(0.3),
+                            ).colorScheme.outlineVariant.withAlpha((255 * 0.3).round()),
                     width: isSelected ? 2 : 1,
                   ),
                   boxShadow:
@@ -348,7 +348,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                             BoxShadow(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.primary.withOpacity(0.1),
+                              ).colorScheme.primary.withAlpha((255 * 0.1).round()),
                               blurRadius: 8,
                               spreadRadius: 0,
                             ),
@@ -368,10 +368,10 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                                 hasStock
                                     ? Theme.of(
                                       context,
-                                    ).colorScheme.primary.withOpacity(0.1)
+                                    ).colorScheme.primary.withAlpha((255 * 0.1).round())
                                     : Theme.of(
                                       context,
-                                    ).colorScheme.surfaceVariant,
+                                    ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
@@ -501,7 +501,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
-                        ).colorScheme.secondaryContainer.withOpacity(0.5),
+                        ).colorScheme.secondaryContainer.withAlpha((255 * 0.5).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -552,15 +552,15 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                       isSelected
                           ? Theme.of(
                             context,
-                          ).colorScheme.primary.withOpacity(0.15)
-                          : Theme.of(context).colorScheme.surfaceVariant,
+                          ).colorScheme.primary.withAlpha((255 * 0.15).round())
+                          : Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(10),
                   border:
                       isSelected
                           ? Border.all(
                             color: Theme.of(
                               context,
-                            ).colorScheme.primary.withOpacity(0.3),
+                            ).colorScheme.primary.withAlpha((255 * 0.3).round()),
                             width: 1,
                           )
                           : null,
@@ -722,7 +722,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withAlpha((255 * 0.1).round()),
                               blurRadius: 10,
                               spreadRadius: 0,
                               offset: const Offset(0, -2),
@@ -762,7 +762,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                                       backgroundColor:
                                           Theme.of(
                                             context,
-                                          ).colorScheme.surfaceVariant,
+                                          ).colorScheme.surfaceContainerHighest,
                                       foregroundColor:
                                           Theme.of(
                                             context,
@@ -792,7 +792,7 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                               decoration: BoxDecoration(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.surfaceVariant.withOpacity(0.3),
+                                ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Semantics(

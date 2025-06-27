@@ -61,7 +61,7 @@ class AppearanceScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Card(
                   elevation: 0,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withAlpha((255 * 0.1).round()),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -128,7 +128,7 @@ class AppearanceScreen extends StatelessWidget {
           color:
               isSelected
                   ? colorScheme.primary
-                  : colorScheme.outlineVariant.withOpacity(0.3),
+                  : colorScheme.outlineVariant.withAlpha((255 * 0.3).round()),
           width: isSelected ? 2 : 1,
         ),
       ),

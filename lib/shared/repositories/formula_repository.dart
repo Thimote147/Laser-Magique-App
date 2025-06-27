@@ -111,7 +111,7 @@ class FormulaRepository {
   }
 
   Stream<List<Formula>> streamFormulas() {
-    return _client.from('formulas').stream(primaryKey: ['id']).execute().asyncMap(
+    return _client.from('formulas').stream(primaryKey: ['id']).asyncMap(
       (response) async {
         // Pour chaque mise à jour du stream, on récupère les formules complètes
         return await getAllFormulas();

@@ -3,7 +3,7 @@ import './login_view.dart';
 import './register_view.dart';
 
 class AuthView extends StatefulWidget {
-  const AuthView({Key? key}) : super(key: key);
+  const AuthView({super.key});
 
   @override
   State<AuthView> createState() => _AuthViewState();

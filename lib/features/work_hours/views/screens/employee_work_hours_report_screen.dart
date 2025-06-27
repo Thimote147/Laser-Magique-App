@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'employee_detailed_hours_screen.dart';
 
 class EmployeeWorkHoursReportScreen extends StatefulWidget {
-  const EmployeeWorkHoursReportScreen({Key? key}) : super(key: key);
+  const EmployeeWorkHoursReportScreen({super.key});
 
   @override
   State<EmployeeWorkHoursReportScreen> createState() =>
@@ -116,7 +116,7 @@ class _EmployeeWorkHoursReportScreenState
             decoration: BoxDecoration(
               color: Theme.of(
                 context,
-              ).colorScheme.primaryContainer.withOpacity(0.3),
+              ).colorScheme.primaryContainer.withAlpha((255 * 0.3).round()),
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),
@@ -209,7 +209,7 @@ class _EmployeeWorkHoursReportScreenState
                                 decoration: BoxDecoration(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.tertiary.withOpacity(0.2),
+                                  ).colorScheme.tertiary.withAlpha((255 * 0.2).round()),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -271,7 +271,7 @@ class _EmployeeWorkHoursReportScreenState
           color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha((255 * 0.05).round()),
               spreadRadius: 1,
               blurRadius: 5,
               offset: const Offset(0, -1),
@@ -300,7 +300,7 @@ class _EmployeeWorkHoursReportScreenState
                   style: TextButton.styleFrom(
                     backgroundColor: Theme.of(
                       context,
-                    ).colorScheme.tertiary.withOpacity(0.15),
+                    ).colorScheme.tertiary.withAlpha((255 * 0.15).round()),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 10,

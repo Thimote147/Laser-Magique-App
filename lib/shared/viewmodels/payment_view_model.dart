@@ -7,7 +7,7 @@ class PaymentViewModel extends ChangeNotifier {
   final PaymentRepository _repository = PaymentRepository();
   bool _isLoading = false;
   String? _error;
-  Map<String, List<Payment>> _bookingPayments = {};
+  final Map<String, List<Payment>> _bookingPayments = {};
 
   bool get isLoading => _isLoading;
   String? get error => _error;

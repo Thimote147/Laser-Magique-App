@@ -56,7 +56,7 @@ class ActivityFormulaScreen extends StatelessWidget {
                 child: Container(
                   height: 44,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                    color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(
@@ -84,7 +84,7 @@ class ActivityFormulaScreen extends StatelessWidget {
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
-                    overlayColor: MaterialStateProperty.all(Colors.transparent),
+                    overlayColor: WidgetStateProperty.all(Colors.transparent),
                     tabs: [
                       _buildTab('Activités', Icons.category_outlined),
                       _buildTab(
@@ -171,7 +171,7 @@ class ActivityFormulaScreen extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: InkWell(
@@ -226,7 +226,7 @@ class ActivityFormulaScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.surfaceVariant.withOpacity(0.3),
+                      ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -297,7 +297,7 @@ class ActivityFormulaScreen extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: InkWell(
@@ -348,7 +348,7 @@ class ActivityFormulaScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.primary.withOpacity(0.1),
+                          ).colorScheme.primary.withAlpha((255 * 0.1).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -432,7 +432,7 @@ class ActivityFormulaScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

@@ -6,7 +6,7 @@ import '../../viewmodels/stock_view_model.dart';
 class StockItemDialog extends StatefulWidget {
   final StockItem? item;
 
-  const StockItemDialog({Key? key, this.item}) : super(key: key);
+  const StockItemDialog({super.key, this.item});
 
   @override
   State<StockItemDialog> createState() => _StockItemDialogState();

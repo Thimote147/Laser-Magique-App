@@ -72,7 +72,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: Padding(
@@ -87,8 +87,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
                         child,
                         if (child != children.last) const SizedBox(height: 12),
                       ],
-                    )
-                    .toList(),
+                    ),
               ],
             ),
           ),
@@ -106,7 +105,7 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: TextFormField(

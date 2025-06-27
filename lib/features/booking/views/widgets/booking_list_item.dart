@@ -28,12 +28,12 @@ class BookingListItem extends StatelessWidget {
         side: BorderSide(
           color:
               booking.isCancelled
-                  ? Theme.of(context).colorScheme.error.withOpacity(0.3)
+                  ? Theme.of(context).colorScheme.error.withAlpha((255 * 0.3).round())
                   : booking.remainingBalance <= 0
-                  ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
+                  ? Theme.of(context).colorScheme.primary.withAlpha((255 * 0.3).round())
                   : Theme.of(
                     context,
-                  ).colorScheme.outlineVariant.withOpacity(0.3),
+                  ).colorScheme.outlineVariant.withAlpha((255 * 0.3).round()),
         ),
       ),
       child: Dismissible(
@@ -63,6 +63,8 @@ class BookingListItem extends StatelessWidget {
           ),
         ),
         confirmDismiss: (direction) async {
+          final scaffoldMessenger = ScaffoldMessenger.of(context);
+          final navigator = Navigator.of(context);
           if (direction == DismissDirection.endToStart) {
             // Confirmer l'annulation ou la restauration
             final viewModel = Provider.of<BookingViewModel>(
@@ -91,11 +93,11 @@ class BookingListItem extends StatelessWidget {
                   content: Text(content),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: () => navigator.pop(false),
                       child: const Text('RETOUR'),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
+                      onPressed: () => navigator.pop(true),
                       style: TextButton.styleFrom(
                         foregroundColor: confirmColor,
                       ),
@@ -108,7 +110,7 @@ class BookingListItem extends StatelessWidget {
 
             if (result == true) {
               viewModel.toggleCancellationStatus(booking.id);
-              ScaffoldMessenger.of(context).showSnackBar(
+              scaffoldMessenger.showSnackBar(
                 SnackBar(
                   content: Text(
                     booking.isCancelled
@@ -136,11 +138,11 @@ class BookingListItem extends StatelessWidget {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: () => navigator.pop(false),
                       child: const Text('ANNULER'),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
+                      onPressed: () => navigator.pop(true),
                       style: TextButton.styleFrom(foregroundColor: Colors.red),
                       child: const Text('SUPPRIMER'),
                     ),
@@ -151,7 +153,7 @@ class BookingListItem extends StatelessWidget {
 
             if (result == true) {
               viewModel.removeBooking(booking.id);
-              ScaffoldMessenger.of(context).showSnackBar(
+              scaffoldMessenger.showSnackBar(
                 const SnackBar(
                   content: Text('Réservation supprimée définitivement'),
                   duration: Duration(seconds: 2),
@@ -169,11 +171,11 @@ class BookingListItem extends StatelessWidget {
               booking.isCancelled
                   ? Theme.of(
                     context,
-                  ).colorScheme.errorContainer.withOpacity(isDark ? 0.2 : 0.1)
+                  ).colorScheme.errorContainer.withAlpha((255 * (isDark ? 0.2 : 0.1)).round())
                   : booking.remainingBalance <= 0
                   ? Theme.of(
                     context,
-                  ).colorScheme.primaryContainer.withOpacity(isDark ? 0.2 : 0.1)
+                  ).colorScheme.primaryContainer.withAlpha((255 * (isDark ? 0.2 : 0.1)).round())
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
@@ -219,7 +221,7 @@ class BookingListItem extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -247,7 +249,7 @@ class BookingListItem extends StatelessWidget {
                                 context,
                               ).textTheme.bodyMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.primary
-                                    .withOpacity(booking.isCancelled ? 0.6 : 1),
+                                    .withAlpha((255 * (booking.isCancelled ? 0.6 : 1)).round()),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),

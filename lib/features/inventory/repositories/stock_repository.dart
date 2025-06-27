@@ -126,10 +126,6 @@ class StockRepository {
               .eq('is_active', true)
               .single();
 
-      if (stockItem == null) {
-        throw Exception('Article non trouvé ou inactif');
-      }
-
       final currentStock = stockItem['quantity'] as int;
 
       // Vérifier si nous avons assez de stock

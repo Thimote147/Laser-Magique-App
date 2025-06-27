@@ -23,7 +23,7 @@ class SettingsItem extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.2)),
+        side: BorderSide(color: colorScheme.outlineVariant.withAlpha((255 * 0.2).round())),
       ),
       child: InkWell(
         onTap: onTap,
@@ -35,7 +35,7 @@ class SettingsItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: colorScheme.primary, size: 22),
@@ -67,7 +67,7 @@ class SettingsItem extends StatelessWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 size: 24,
-                color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.8).round()),
               ),
             ],
           ),

@@ -68,18 +68,20 @@ class Customer {
   bool isIdenticalTo(Customer other) {
     return firstName.trim().toLowerCase() ==
             other.firstName.trim().toLowerCase() &&
-        (lastName?.trim().toLowerCase() ?? '') ==
-            (other.lastName?.trim().toLowerCase() ?? '') &&
-        ((email?.trim().toLowerCase() ?? '') ==
-                (other.email?.trim().toLowerCase() ?? '') ||
-            (phone?.trim() ?? '') == (other.phone?.trim() ?? ''));
+        (lastName.trim().toLowerCase()) ==
+            (other.lastName.trim().toLowerCase()) &&
+        ((email.trim().toLowerCase()) ==
+                (other.email.trim().toLowerCase()) ||
+            (phone.trim()) == (other.phone.trim()));
   }
 
   /// Retourne une clé unique pour ce client basée sur ses informations d'identité
   String get identityKey {
     final normalizedFirstName = firstName.trim().toLowerCase();
-    final normalizedLastName = (lastName?.trim() ?? '').toLowerCase();
-    final contactInfo = email?.trim().toLowerCase() ?? phone?.trim() ?? '';
+    final normalizedLastName = (lastName.trim()).toLowerCase();
+    final contactInfo = email.trim().toLowerCase().isNotEmpty
+        ? email.trim().toLowerCase()
+        : phone.trim();
 
     return '$normalizedFirstName|$normalizedLastName|$contactInfo';
   }

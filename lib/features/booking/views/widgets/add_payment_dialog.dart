@@ -26,7 +26,7 @@ class _PaymentMethodButton extends StatelessWidget {
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? theme.primaryColor.withOpacity(0.1)
+                  ? theme.primaryColor.withAlpha((255 * 0.1).round())
                   : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
@@ -97,7 +97,7 @@ class _PaymentTypeButton extends StatelessWidget {
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? theme.primaryColor.withOpacity(0.1)
+                  ? theme.primaryColor.withAlpha((255 * 0.1).round())
                   : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(

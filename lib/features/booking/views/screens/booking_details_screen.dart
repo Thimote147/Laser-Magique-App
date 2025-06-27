@@ -87,9 +87,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       ),
                       onTap: () {
                         // Implémenter l'envoi d'email ici
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Email à ${_currentBooking.email}'),
+                            content: Text('Email à \\${_currentBooking.email}'),
                           ),
                         );
                       },
@@ -103,9 +104,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       ),
                       onTap: () {
                         // Implémenter l'appel téléphonique ici
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Appel à ${_currentBooking.phone}'),
+                            content: Text('Appel à \\${_currentBooking.phone}'),
                           ),
                         );
                       },
@@ -143,7 +145,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       // Rafraîchir les données après le changement
                       await _refreshBooking();
 
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -164,42 +166,43 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       contentPadding: EdgeInsets.zero,
                     ),
                     onTap: () async {
+                      final navigator = Navigator.of(context);
+                      final bookingViewModel = Provider.of<BookingViewModel>(
+                        context,
+                        listen: false,
+                      );
+                      
                       // Délai pour permettre au menu de se fermer
                       await Future.delayed(const Duration(milliseconds: 100));
                       if (!context.mounted) return;
 
                       final confirmed = await showDialog<bool>(
                         context: context,
-                        builder:
-                            (context) => AlertDialog(
-                              title: const Text('Confirmer la suppression'),
-                              content: Text(
-                                'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} ?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed:
-                                      () => Navigator.of(context).pop(false),
-                                  child: const Text('Annuler'),
-                                ),
-                                TextButton(
-                                  onPressed:
-                                      () => Navigator.of(context).pop(true),
-                                  child: const Text(
-                                    'Supprimer',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('Confirmer la suppression'),
+                          content: Text(
+                            'Êtes-vous sûr de vouloir supprimer définitivement la réservation de \\${_currentBooking.firstName} \\${_currentBooking.lastName ?? ""} ?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(false),
+                              child: const Text('Annuler'),
                             ),
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(true),
+                              child: const Text(
+                                'Supprimer',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
                       );
 
-                      if (confirmed == true && context.mounted) {
-                        Provider.of<BookingViewModel>(
-                          context,
-                          listen: false,
-                        ).removeBooking(_currentBooking.id);
-                        Navigator.of(context).pop();
+                      if (!mounted) return;
+                      if (confirmed == true) {
+                        bookingViewModel.removeBooking(_currentBooking.id);
+                        navigator.pop();
                       }
                     },
                   ),
@@ -270,7 +273,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: Padding(
@@ -284,7 +287,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           decoration: BoxDecoration(
                             color: Theme.of(
                               context,
-                            ).colorScheme.surfaceVariant.withOpacity(0.3),
+                            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           padding: const EdgeInsets.symmetric(
@@ -336,7 +339,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           decoration: BoxDecoration(
                             color: Theme.of(
                               context,
-                            ).colorScheme.surfaceVariant.withOpacity(0.3),
+                            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           padding: const EdgeInsets.symmetric(
@@ -416,7 +419,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: Container(
@@ -430,7 +433,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
-                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -481,7 +484,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                               width: 32,
                               color: Theme.of(
                                 context,
-                              ).colorScheme.outline.withOpacity(0.2),
+                              ).colorScheme.outline.withValues(alpha: 0.2),
                             ),
                           ),
                           Expanded(
@@ -515,7 +518,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                               width: 32,
                               color: Theme.of(
                                 context,
-                              ).colorScheme.outline.withOpacity(0.2),
+                              ).colorScheme.outline.withValues(alpha: 0.2),
                             ),
                           ),
                           Expanded(
@@ -579,7 +582,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: Container(
@@ -590,7 +593,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
@@ -645,7 +648,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           width: 32,
                           color: Theme.of(
                             context,
-                          ).colorScheme.outline.withOpacity(0.2),
+                          ).colorScheme.outline.withValues(alpha: 0.2),
                         ),
                       ),
                       Expanded(
@@ -722,7 +725,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: Padding(
@@ -759,7 +762,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: Padding(

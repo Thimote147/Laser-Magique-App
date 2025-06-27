@@ -6,6 +6,9 @@ class CalendarViewModel extends ChangeNotifier {
   DateTime _selectedDay = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.month;
 
+  // Map pour stocker les événements par jour
+  final Map<DateTime, List<dynamic>> _events = {};
+
   // Getters
   DateTime get focusedDay => _focusedDay;
   DateTime get selectedDay => _selectedDay;
@@ -13,8 +16,11 @@ class CalendarViewModel extends ChangeNotifier {
 
   // Événements par jour
   List<dynamic> getEventsForDay(DateTime day) {
-    // TODO: Implémenter la récupération des événements
-    return [];
+    return _events.entries
+        .where((entry) => isSameDay(entry.key, day))
+        .map((entry) => entry.value)
+        .expand((e) => e)
+        .toList();
   }
 
   // Setters avec notification des changements

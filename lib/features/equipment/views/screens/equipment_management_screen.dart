@@ -151,7 +151,7 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+            side: BorderSide(color: theme.colorScheme.outline.withAlpha((255 * 0.2).round())),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -171,7 +171,7 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
                 Container(
                   width: 1,
                   height: 40,
-                  color: theme.colorScheme.outline.withOpacity(0.2),
+                  color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
                 Expanded(
                   child: _buildStatItem(
@@ -187,7 +187,7 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
                 Container(
                   width: 1,
                   height: 40,
-                  color: theme.colorScheme.outline.withOpacity(0.2),
+                  color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
                 Expanded(
                   child: _buildStatItem(
@@ -227,14 +227,14 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? color.withAlpha((255 * 0.1).round()) : Colors.transparent,
           border: isSelected ? Border.all(color: color, width: 1.5) : null,
         ),
         child: Column(
           children: [
             Icon(
               icon,
-              color: isSelected ? color : color.withOpacity(0.7),
+              color: isSelected ? color : color.withAlpha((255 * 0.7).round()),
               size: isSelected ? 26 : 24,
             ),
             const SizedBox(height: 8),
@@ -242,7 +242,7 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
               value,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                color: isSelected ? color : color.withOpacity(0.8),
+                color: isSelected ? color : color.withAlpha((255 * 0.8).round()),
               ),
             ),
             const SizedBox(height: 4),
@@ -350,7 +350,7 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+            side: BorderSide(color: theme.colorScheme.outline.withAlpha((255 * 0.2).round())),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -405,7 +405,7 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+        side: BorderSide(color: theme.colorScheme.outline.withAlpha((255 * 0.2).round())),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -423,7 +423,7 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
                       color: _getEquipmentColor(
                         equipment.name,
                         theme,
-                      ).withOpacity(0.1),
+                      ).withAlpha((255 * 0.1).round()),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -468,10 +468,10 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.errorContainer.withOpacity(0.3),
+                    color: theme.colorScheme.errorContainer.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: theme.colorScheme.error.withOpacity(0.3),
+                      color: theme.colorScheme.error.withAlpha((255 * 0.3).round()),
                       width: 1,
                     ),
                   ),
@@ -510,8 +510,8 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
       decoration: BoxDecoration(
         color:
             equipment.isFunctional
-                ? theme.colorScheme.primary.withOpacity(0.1)
-                : theme.colorScheme.error.withOpacity(0.1),
+                ? theme.colorScheme.primary.withAlpha((255 * 0.1).round())
+                : theme.colorScheme.error.withAlpha((255 * 0.1).round()),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(

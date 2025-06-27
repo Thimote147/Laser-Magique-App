@@ -16,10 +16,10 @@ class SettingsProfilePreview extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: isDark ? 1 : 2,
-      shadowColor: colorScheme.shadow.withOpacity(0.2),
+      shadowColor: colorScheme.shadow.withAlpha((255 * 0.2).round()),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: colorScheme.outline.withOpacity(0.1)),
+        side: BorderSide(color: colorScheme.outline.withAlpha((255 * 0.1).round())),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -43,9 +43,9 @@ class SettingsProfilePreview extends StatelessWidget {
                       height: 48,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: colorScheme.primary.withOpacity(0.1),
+                        color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                         border: Border.all(
-                          color: colorScheme.primary.withOpacity(0.2),
+                          color: colorScheme.primary.withAlpha((255 * 0.2).round()),
                           width: 1.5,
                         ),
                       ),
@@ -83,13 +83,13 @@ class SettingsProfilePreview extends StatelessWidget {
                               color: (profileVM.role == UserRole.admin
                                       ? colorScheme.error
                                       : colorScheme.primary)
-                                  .withOpacity(0.1),
+                                  .withAlpha((255 * 0.1).round()),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: (profileVM.role == UserRole.admin
                                         ? colorScheme.error
                                         : colorScheme.primary)
-                                    .withOpacity(0.2),
+                                    .withAlpha((255 * 0.2).round()),
                                 width: 1,
                               ),
                             ),
@@ -112,7 +112,7 @@ class SettingsProfilePreview extends StatelessWidget {
                       height: 32,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: colorScheme.primary.withOpacity(0.1),
+                        color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                       ),
                       child: Icon(
                         Icons.chevron_right,
@@ -128,7 +128,7 @@ class SettingsProfilePreview extends StatelessWidget {
           Divider(
             height: 1,
             thickness: 1,
-            color: colorScheme.outlineVariant.withOpacity(0.2),
+            color: colorScheme.outlineVariant.withAlpha((255 * 0.2).round()),
           ),
           Material(
             color: Colors.transparent,
@@ -161,7 +161,7 @@ class SettingsProfilePreview extends StatelessWidget {
                             width: 1,
                             indent: 8,
                             endIndent: 8,
-                            color: colorScheme.outlineVariant.withOpacity(0.2),
+                            color: colorScheme.outlineVariant.withAlpha((255 * 0.2).round()),
                           ),
                           SettingsProfileStat(
                             label: 'Heures travaillées',
@@ -175,7 +175,7 @@ class SettingsProfilePreview extends StatelessWidget {
                             width: 1,
                             indent: 8,
                             endIndent: 8,
-                            color: colorScheme.outlineVariant.withOpacity(0.2),
+                            color: colorScheme.outlineVariant.withAlpha((255 * 0.2).round()),
                           ),
                           SettingsProfileStat(
                             label: 'Revenus du mois',

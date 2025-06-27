@@ -20,7 +20,7 @@ class CancelledTextStyle {
     if (!isCancelled) return baseStyle ?? const TextStyle();
 
     return (baseStyle ?? const TextStyle()).copyWith(
-      color: (baseStyle?.color ?? Colors.black).withOpacity(0.5),
+      color: (baseStyle?.color ?? Colors.black).withAlpha((255 * 0.5).round()),
       fontStyle: FontStyle.italic,
     );
   }

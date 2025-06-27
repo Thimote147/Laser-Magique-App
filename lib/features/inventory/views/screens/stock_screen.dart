@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../../viewmodels/stock_view_model.dart';
 import '../../models/stock_item_model.dart';
 import '../widgets/stock_list_widget.dart';
-import '../widgets/stock_item_dialog_widget.dart';
 import '../widgets/stock_search_delegate.dart';
+import '../widgets/stock_item_modal_widget.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -17,7 +17,11 @@ class _StockScreenState extends State<StockScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<StockViewModel>().initialize());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<StockViewModel>().initialize();
+      }
+    });
   }
 
   Widget _buildTab(
@@ -51,9 +55,23 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   void _showAddEditDialog(BuildContext context, [StockItem? item]) {
-    showDialog(
-      context: context,
-      builder: (context) => StockItemDialog(item: item),
+    StockItemModal.show(
+      context,
+      item: item,
+      onSave: (stockItem) {
+        final stockVM = context.read<StockViewModel>();
+        if (item == null) {
+          stockVM.addItem(
+            name: stockItem.name,
+            quantity: stockItem.quantity,
+            price: stockItem.price,
+            alertThreshold: stockItem.alertThreshold,
+            category: stockItem.category,
+          );
+        } else {
+          stockVM.updateItem(stockItem);
+        }
+      },
     );
   }
 
@@ -96,7 +114,7 @@ class _StockScreenState extends State<StockScreen> {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(
@@ -125,7 +143,7 @@ class _StockScreenState extends State<StockScreen> {
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
-                    overlayColor: MaterialStateProperty.all(Colors.transparent),
+                    overlayColor: WidgetStateProperty.all(Colors.transparent),
                     tabs: [
                       _buildTab(context, 'Boissons', Icons.local_bar_rounded),
                       _buildTab(
@@ -160,7 +178,7 @@ class _StockScreenState extends State<StockScreen> {
                     Container(
                       color:
                           Theme.of(context).brightness == Brightness.dark
-                              ? Colors.red.shade900.withOpacity(0.3)
+                              ? Colors.red.shade900.withAlpha((255 * 0.3).round())
                               : Colors.red.shade100,
                       padding: const EdgeInsets.all(8.0),
                       child: Row(

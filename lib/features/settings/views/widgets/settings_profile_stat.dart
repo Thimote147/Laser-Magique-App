@@ -23,7 +23,7 @@ class SettingsProfileStat extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.1),
+              color: colorScheme.primary.withAlpha((255 * 0.1).round()),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: colorScheme.primary, size: 16),

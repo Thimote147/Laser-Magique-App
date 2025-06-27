@@ -21,7 +21,7 @@ class EmployeeProfileRepository {
 
       // Ajouter l'email depuis l'authentification aux données du profil
       final dataWithEmail = {
-        ...response as Map<String, dynamic>,
+        ...response,
         'email': user.email,
       };
 

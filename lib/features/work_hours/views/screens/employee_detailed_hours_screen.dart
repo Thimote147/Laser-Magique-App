@@ -521,7 +521,7 @@ class _EmployeeDetailedHoursScreenState
               horizontal: 16.0,
             ),
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withOpacity(0.3),
+              color: colorScheme.primaryContainer.withAlpha((255 * 0.3).round()),
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),

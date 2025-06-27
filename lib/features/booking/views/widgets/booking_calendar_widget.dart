@@ -98,7 +98,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                   todayDecoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.primary.withOpacity(0.5),
+                    ).colorScheme.primary.withAlpha((255 * 0.5).round()),
                     shape: BoxShape.circle,
                   ),
                   selectedDecoration: BoxDecoration(
@@ -211,10 +211,12 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
     BookingViewModel viewModel,
   ) {
     if (bookings.isEmpty) {
-      return const Center(
-        child: Text(
-          'Aucune réservation pour cette date',
-          style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+      return Expanded(
+        child: Center(
+          child: Text(
+            'Aucune réservation pour cette date',
+            style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+          ),
         ),
       );
     }
@@ -372,7 +374,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                   right: 0,
                   child: Container(
                     height: 1,
-                    color: Theme.of(context).dividerColor.withOpacity(0.3),
+                    color: Theme.of(context).dividerColor.withAlpha((255 * 0.3).round()),
                   ),
                 ),
               ),
@@ -401,7 +403,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                   .expand(
                     (group) => _buildOverlappingBookings(group, viewModel),
                   )
-                  .toList(),
+                  ,
             ],
           ),
         ),
@@ -487,14 +489,14 @@ class DayViewBooking extends StatelessWidget {
   final double width;
 
   const DayViewBooking({
-    Key? key,
+    super.key,
     required this.booking,
     required this.onTap,
     required this.onMoreTap,
     required this.left,
     required this.width,
     this.hourHeight = 60.0,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -505,12 +507,12 @@ class DayViewBooking extends StatelessWidget {
 
     final backgroundColor =
         booking.isCancelled
-            ? Theme.of(context).colorScheme.errorContainer.withOpacity(0.3)
-            : Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3);
+            ? Theme.of(context).colorScheme.errorContainer.withAlpha((255 * 0.3).round())
+            : Theme.of(context).colorScheme.primaryContainer.withAlpha((255 * 0.3).round());
     final borderColor =
         booking.isCancelled
-            ? Theme.of(context).colorScheme.error.withOpacity(0.5)
-            : Theme.of(context).colorScheme.primary.withOpacity(0.5);
+            ? Theme.of(context).colorScheme.error.withAlpha((255 * 0.5).round())
+            : Theme.of(context).colorScheme.primary.withAlpha((255 * 0.5).round());
 
     return Positioned(
       top: top,
@@ -640,7 +642,7 @@ class DayViewBooking extends StatelessWidget {
                                   booking.remainingBalance > 0
                                       ? Theme.of(
                                         context,
-                                      ).colorScheme.secondary.withOpacity(0.1)
+                                      ).colorScheme.secondary.withAlpha((255 * 0.1).round())
                                       : Theme.of(
                                         context,
                                       ).colorScheme.primaryContainer,

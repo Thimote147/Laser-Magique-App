@@ -66,16 +66,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
 
     // D'abord vérifier le cache
     final cached = stockVM.getCachedConsumptions(_currentBooking.id);
-    if (cached != null) {
-      return cached;
-    }
-
-    // Si pas en cache, attendre que StockViewModel soit initialisé
-    while (!stockVM.isInitialized && mounted) {
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-
-    return stockVM.getConsumptionsWithStockItems(_currentBooking.id);
+    return cached;
   }
 
   IconData _getItemIcon(String category) {
@@ -112,10 +103,10 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                     quantity: 1,
                   );
 
+                  if (!context.mounted) return;
                   Navigator.pop(context);
 
                   if (!success) {
-                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
@@ -125,7 +116,8 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                       ),
                     );
                     return;
-                  } // Force le refresh de la réservation après l'ajout d'une consommation
+                  }
+                  // Force le refresh de la réservation après l'ajout d'une consommation
                   if (mounted) {
                     // Attendre 500ms pour laisser le temps à la base de données de se mettre à jour
                     await Future.delayed(const Duration(milliseconds: 500));
@@ -133,11 +125,11 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                     widget.onBookingUpdated?.call(); // Notifier le parent
                   }
                 } catch (e) {
-                  Navigator.pop(context);
                   if (!context.mounted) return;
+                  Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Erreur: ${e.toString()}'),
+                      content: Text('Erreur:  ${e.toString()}'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -152,7 +144,9 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -228,7 +222,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
             decoration: BoxDecoration(
               color: Theme.of(
                 context,
-              ).colorScheme.surfaceVariant.withOpacity(0.3),
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
@@ -240,7 +234,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.primary.withOpacity(0.1),
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -371,7 +365,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -390,7 +384,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                 decoration: BoxDecoration(
                   color: Theme.of(
                     context,
-                  ).colorScheme.surfaceVariant.withOpacity(0.3),
+                  ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Center(

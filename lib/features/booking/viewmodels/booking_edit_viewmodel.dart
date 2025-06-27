@@ -133,10 +133,8 @@ class BookingEditViewModel extends ChangeNotifier {
 
   void setFormula(Formula formula) {
     _selectedFormula = formula;
-    if (formula != null) {
-      _numberOfGames = formula.minGames;
-    }
-    notifyListeners();
+    _numberOfGames = formula.minGames;
+      notifyListeners();
   }
 
   void setNumberOfPersons(int value) {
@@ -147,15 +145,6 @@ class BookingEditViewModel extends ChangeNotifier {
   void setNumberOfGames(int value) {
     _numberOfGames = value;
     notifyListeners();
-  }
-
-  double _calculateTotal() {
-    if (_selectedFormula == null) return 0;
-    return calculateTotalPrice(
-      _selectedFormula!.price,
-      _numberOfGames,
-      _numberOfPersons,
-    );
   }
 
   void setDepositAmount(double value) {
@@ -182,7 +171,7 @@ class BookingEditViewModel extends ChangeNotifier {
     }
 
     if (_depositAmount > 0) {
-      final total = calculateTotalPrice(
+      final totalPrice = calculateTotalPrice(
         _selectedFormula!.price,
         _numberOfGames,
         _numberOfPersons,

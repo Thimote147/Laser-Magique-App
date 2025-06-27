@@ -202,7 +202,7 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: theme.colorScheme.outline.withOpacity(0.2),
+              color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: Padding(
@@ -217,8 +217,7 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
                         child,
                         if (child != children.last) const SizedBox(height: 12),
                       ],
-                    )
-                    .toList(),
+                    ),
               ],
             ),
           ),
@@ -238,7 +237,7 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
     
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -292,7 +291,7 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
     
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -315,7 +314,7 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withAlpha((255 * 0.1).round()),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
@@ -344,7 +343,7 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
   Widget _buildStatusToggle(ThemeData theme) {
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -405,10 +404,10 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? color.withAlpha((255 * 0.1).round()) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? color : theme.colorScheme.outline.withOpacity(0.3),
+            color: isSelected ? color : theme.colorScheme.outline.withAlpha((255 * 0.3).round()),
             width: isSelected ? 2 : 1,
           ),
         ),

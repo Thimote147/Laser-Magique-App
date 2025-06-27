@@ -4,7 +4,7 @@ import '../../viewmodels/employee_profile_view_model.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +64,7 @@ class ProfileScreen extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: Padding(
@@ -80,7 +80,7 @@ class ProfileScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.surfaceVariant.withOpacity(0.3),
+                      ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -105,7 +105,7 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              profileVM.hourlyRate.toStringAsFixed(2) + ' €/h',
+                              '${profileVM.hourlyRate.toStringAsFixed(2)} €/h',
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w500),
                             ),
@@ -125,7 +125,7 @@ class ProfileScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.surfaceVariant.withOpacity(0.3),
+                      ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -170,7 +170,7 @@ class ProfileScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.surfaceVariant.withOpacity(0.3),
+                      ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -246,7 +246,7 @@ class ProfileScreen extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: Padding(
@@ -261,7 +261,7 @@ class ProfileScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: _buildProfileItem(
@@ -280,7 +280,7 @@ class ProfileScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: _buildProfileItem(
@@ -299,7 +299,7 @@ class ProfileScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: _buildProfileItem(
@@ -318,7 +318,7 @@ class ProfileScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: _buildProfileItem(
@@ -337,7 +337,7 @@ class ProfileScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Theme.of(
                       context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
+                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: _buildProfileItem(
@@ -353,7 +353,7 @@ class ProfileScreen extends StatelessWidget {
                     border: Border.all(
                       color: Theme.of(
                         context,
-                      ).colorScheme.primary.withOpacity(0.5),
+                      ).colorScheme.primary.withAlpha((255 * 0.5).round()),
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -435,7 +435,7 @@ class ProfileScreen extends StatelessWidget {
     if (minutes == 0) {
       return '${fullHours}h';
     } else {
-      return '${fullHours}h${minutes}';
+      return '${fullHours}h$minutes';
     }
   }
 }

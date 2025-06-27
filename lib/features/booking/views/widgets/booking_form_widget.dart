@@ -1,5 +1,4 @@
 import 'dart:io' show Platform;
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -13,7 +12,6 @@ import '../../../../shared/utils/price_utils.dart';
 
 import '../../../../shared/viewmodels/activity_formula_view_model.dart';
 import '../../viewmodels/booking_edit_viewmodel.dart';
-import '../../viewmodels/customer_view_model.dart';
 import 'customer_selection_widget.dart';
 
 class BookingFormWidget extends StatefulWidget {
@@ -33,7 +31,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
   late int numberOfPersons;
   late int numberOfGames;
   Customer? selectedCustomer;
-  bool _isCreatingCustomer = false;
+  final bool _isCreatingCustomer = false;
   double _deposit = 0.0;
   PaymentMethod _depositPaymentMethod = PaymentMethod.transfer;
 
@@ -195,61 +193,8 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
     }
   }
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      final bookingEditViewModel = context.read<BookingEditViewModel>();
 
-      // Validate formula
-      if (bookingEditViewModel.selectedFormula == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez sélectionner une formule'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Validate participants
-      final minPersons =
-          bookingEditViewModel.selectedFormula!.minParticipants ?? 1;
-      final maxPersons = bookingEditViewModel.selectedFormula!.maxParticipants;
-
-      if (numberOfPersons < minPersons) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Minimum $minPersons personne(s) requis'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      if (maxPersons != null && numberOfPersons > maxPersons) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Maximum $maxPersons personne(s) autorisé'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Update state in view model
-      bookingEditViewModel
-        ..setNumberOfPersons(numberOfPersons)
-        ..setNumberOfGames(numberOfGames)
-        ..setDepositAmount(_deposit)
-        ..setPaymentMethod(_depositPaymentMethod)
-        ..save();
-
-      if (widget.onSubmit != null) {
-        widget.onSubmit!();
-      }
-    }
-  }
-
-  void _adjustValuesToFormula(Formula formula, {bool silentMode = false}) {
+  void _adjustValuesToFormula(Formula formula) {
     // Ajuster le nombre de personnes si nécessaire
     if (numberOfPersons < formula.minParticipants) {
       setState(() => numberOfPersons = formula.minParticipants);
@@ -404,7 +349,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: Column(
@@ -419,7 +364,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
-                        ).colorScheme.surfaceVariant.withOpacity(0.5),
+                        ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.5).round()),
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(12),
                           topRight: Radius.circular(12),
@@ -432,7 +377,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${selectedCustomer!.firstName} ${selectedCustomer!.lastName ?? ''}'
+                                  '${selectedCustomer!.firstName} ${selectedCustomer!.lastName}'
                                       .trim(),
                                   style: Theme.of(
                                     context,
@@ -444,69 +389,65 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                if (selectedCustomer!.email != null ||
-                                    selectedCustomer!.phone != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Wrap(
-                                      spacing: 12,
-                                      runSpacing: 4,
-                                      children: [
-                                        if (selectedCustomer!.email != null)
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.email_rounded,
-                                                size: 14,
-                                                color:
-                                                    Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                selectedCustomer!.email!,
-                                                style: Theme.of(
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Wrap(
+                                    spacing: 12,
+                                    runSpacing: 4,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.email_rounded,
+                                            size: 14,
+                                            color:
+                                                Theme.of(
                                                   context,
-                                                ).textTheme.bodySmall?.copyWith(
-                                                  color:
-                                                      Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                                ),
-                                              ),
-                                            ],
+                                                ).colorScheme.primary,
                                           ),
-                                        if (selectedCustomer!.phone != null)
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.phone_rounded,
-                                                size: 14,
-                                                color:
-                                                    Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                selectedCustomer!.phone!,
-                                                style: Theme.of(
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            selectedCustomer!.email,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.phone_rounded,
+                                            size: 14,
+                                            color:
+                                                Theme.of(
                                                   context,
-                                                ).textTheme.bodySmall?.copyWith(
-                                                  color:
-                                                      Theme.of(context)
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                                ),
-                                              ),
-                                            ],
+                                                ).colorScheme.primary,
                                           ),
-                                      ],
-                                    ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            selectedCustomer!.phone,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall?.copyWith(
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
+                                ),
                               ],
                             ),
                           ),
@@ -577,7 +518,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: InkWell(
@@ -591,7 +532,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -638,7 +579,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -715,7 +656,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: Padding(
@@ -728,7 +669,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
-                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                        ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -765,7 +706,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.surfaceVariant.withOpacity(0.3),
+                              ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -877,7 +818,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.surfaceVariant.withOpacity(0.3),
+                              ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -987,7 +928,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -1051,7 +992,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: Padding(
@@ -1065,7 +1006,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                       decoration: BoxDecoration(
                         color: Theme.of(
                           context,
-                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                        ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -1242,7 +1183,7 @@ class _PaymentMethodButton extends StatelessWidget {
       decoration: BoxDecoration(
         color:
             isSelected
-                ? Theme.of(context).primaryColor.withOpacity(0.1)
+                ? Theme.of(context).primaryColor.withAlpha((255 * 0.1).round())
                 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(

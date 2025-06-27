@@ -21,7 +21,7 @@ class EmployeeProfileViewModel extends ChangeNotifier {
   double _hourlyRate = 0.0;
 
   // Liste des jours de travail
-  List<WorkDay> _workDays = [];
+  final List<WorkDay> _workDays = [];
 
   // Getters
   bool get isLoading => _isLoading;
@@ -49,7 +49,7 @@ class EmployeeProfileViewModel extends ChangeNotifier {
 
   // Charger les données du profil depuis la base de données
   Future<void> _loadProfile() async {
-    print('Loading profile...'); // Debug log
+    // Debug log
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -57,7 +57,7 @@ class EmployeeProfileViewModel extends ChangeNotifier {
     try {
       // Charger le profil
       final profileData = await _repository.getCurrentProfile();
-      print('Received profile data: $profileData'); // Debug log
+      // Debug log
       _updateFromJson(profileData);
 
       // Charger les jours de travail
@@ -127,7 +127,6 @@ class EmployeeProfileViewModel extends ChangeNotifier {
 
   // Mettre à jour le modèle à partir des données JSON
   void _updateFromJson(Map<String, dynamic> json) {
-    print('Updating from JSON: $json');
     _firstName = json['first_name'] ?? '';
     _lastName = json['last_name'] ?? '';
     _phone = json['phone'] ?? '';
@@ -141,10 +140,6 @@ class EmployeeProfileViewModel extends ChangeNotifier {
       _role = UserRole.member;
     }
     _hourlyRate = (json['hourly_rate'] ?? 0.0).toDouble();
-
-    print(
-      'Updated values: firstName=$_firstName, lastName=$_lastName, email=$_email, phone=$_phone, hourlyRate=$_hourlyRate, role=$_role',
-    ); // Debug log
   }
 
   // Calculer les totaux pour le mois en cours

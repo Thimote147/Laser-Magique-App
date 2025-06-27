@@ -30,7 +30,7 @@ class BookingViewModel extends ChangeNotifier {
   DateTime? _lastManualRefresh;
 
   List<Booking> _bookings = [];
-  Map<String, Booking> _bookingCache = {};
+  final Map<String, Booking> _bookingCache = {};
   bool _isLoading = true;
   String? _error;
 

@@ -8,12 +8,14 @@ class StockList extends StatelessWidget {
   final bool showActivateButton;
 
   const StockList({
-    Key? key,
+    super.key,
     required this.items,
     this.showActivateButton = false,
-  }) : super(key: key);
+  });
 
   Future<void> _confirmDelete(BuildContext context, StockItem item) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final stockVM = context.read<StockViewModel>();
     return showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -47,35 +49,29 @@ class StockList extends StatelessWidget {
               child: const Text('Masquer', style: TextStyle(color: Colors.red)),
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                context
-                    .read<StockViewModel>()
-                    .deactivateItem(item.id)
-                    .catchError((error) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Erreur: $error'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    });
+                stockVM.deactivateItem(item.id).catchError((error) {
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur: $error'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                });
 
-                ScaffoldMessenger.of(context).showSnackBar(
+                scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: Text('${item.name} a été masqué'),
                     action: SnackBarAction(
                       label: 'Annuler',
                       onPressed: () {
-                        context
-                            .read<StockViewModel>()
-                            .activateItem(item.id)
-                            .catchError((error) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Erreur: $error'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            });
+                        stockVM.activateItem(item.id).catchError((error) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Erreur: $error'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        });
                       },
                     ),
                   ),
@@ -113,7 +109,9 @@ class StockList extends StatelessWidget {
                 : 'Aucun article dans cette catégorie',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withAlpha((255 * 0.7).round()),
             ),
           ),
         ),
@@ -121,7 +119,8 @@ class StockList extends StatelessWidget {
     }
     return RefreshIndicator(
       onRefresh: () async {
-        await context.read<StockViewModel>().refreshStock();
+        final stockVM = context.read<StockViewModel>();
+        await stockVM.refreshStock();
       },
       child: GridView.builder(
         padding: const EdgeInsets.all(12),
@@ -147,10 +146,12 @@ class StockList extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(
-                    Theme.of(context).brightness == Brightness.dark
-                        ? 0.3
-                        : 0.04,
+                  color: Colors.black.withAlpha(
+                    (255 *
+                            (Theme.of(context).brightness == Brightness.dark
+                                ? 0.3
+                                : 0.04))
+                        .round(),
                   ),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
@@ -170,15 +171,23 @@ class StockList extends StatelessWidget {
                     color:
                         !item.isActive
                             ? (Theme.of(context).brightness == Brightness.dark
-                                ? Colors.grey.shade800.withOpacity(0.5)
+                                ? Colors.grey.shade800.withAlpha(
+                                  (255 * 0.5).round(),
+                                )
                                 : Colors.grey.shade200)
                             : isLowStock
                             ? (Theme.of(context).brightness == Brightness.dark
-                                ? Colors.red.shade900.withOpacity(0.3)
+                                ? Colors.red.shade900.withAlpha(
+                                  (255 * 0.3).round(),
+                                )
                                 : Colors.red.shade50)
                             : (Theme.of(context).brightness == Brightness.dark
-                                ? theme.primaryColor.withOpacity(0.15)
-                                : theme.primaryColor.withOpacity(0.08)),
+                                ? theme.primaryColor.withAlpha(
+                                  (255 * 0.15).round(),
+                                )
+                                : theme.primaryColor.withAlpha(
+                                  (255 * 0.08).round(),
+                                )),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(12),
                     ),
@@ -285,13 +294,14 @@ class StockList extends StatelessWidget {
                                       ),
                                       onPressed: () {
                                         Navigator.of(dialogContext).pop();
-                                        context
-                                            .read<StockViewModel>()
+                                        final stockVM =
+                                            context.read<StockViewModel>();
+                                        final scaffoldMessenger =
+                                            ScaffoldMessenger.of(context);
+                                        stockVM
                                             .activateItem(item.id)
                                             .catchError((error) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
+                                              scaffoldMessenger.showSnackBar(
                                                 SnackBar(
                                                   content: Text(
                                                     'Erreur: $error',
@@ -321,17 +331,16 @@ class StockList extends StatelessWidget {
                             if (item.quantity == 0) {
                               _confirmDelete(context, item);
                             } else {
-                              context
-                                  .read<StockViewModel>()
-                                  .adjustQuantity(item.id, -1)
-                                  .catchError((error) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Erreur: $error'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                  });
+                              final stockVM = context.read<StockViewModel>();
+                              final scaffoldMessenger = ScaffoldMessenger.of(context);
+                              stockVM.adjustQuantity(item.id, -1).catchError((error) {
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text('Erreur: $error'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              });
                             }
                           },
                           color:
@@ -351,12 +360,20 @@ class StockList extends StatelessWidget {
                                 isLowStock
                                     ? (Theme.of(context).brightness ==
                                             Brightness.dark
-                                        ? Colors.red.shade900.withOpacity(0.3)
-                                        : Colors.red.shade50.withOpacity(0.6))
+                                        ? Colors.red.shade900.withAlpha(
+                                          (255 * 0.3).round(),
+                                        )
+                                        : Colors.red.shade50.withAlpha(
+                                          (255 * 0.6).round(),
+                                        ))
                                     : Theme.of(context).brightness ==
                                         Brightness.dark
-                                    ? theme.primaryColor.withOpacity(0.15)
-                                    : theme.primaryColor.withOpacity(0.08),
+                                    ? theme.primaryColor.withAlpha(
+                                      (255 * 0.15).round(),
+                                    )
+                                    : theme.primaryColor.withAlpha(
+                                      (255 * 0.08).round(),
+                                    ),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -379,19 +396,20 @@ class StockList extends StatelessWidget {
                             _StockButton(
                               icon: Icons.add_rounded,
                               onTap: () {
-                                context
-                                    .read<StockViewModel>()
-                                    .adjustQuantity(item.id, 1)
-                                    .catchError((error) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Erreur: $error'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    });
+                                final stockVM = context.read<StockViewModel>();
+                                final scaffoldMessenger = ScaffoldMessenger.of(
+                                  context,
+                                );
+                                stockVM.adjustQuantity(item.id, 1).catchError((
+                                  error,
+                                ) {
+                                  scaffoldMessenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erreur: $error'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                });
                               },
                               color: Colors.green.shade400,
                             ),
@@ -400,19 +418,20 @@ class StockList extends StatelessWidget {
                               icon: Icons.add_rounded,
                               label: "24",
                               onTap: () {
-                                context
-                                    .read<StockViewModel>()
-                                    .adjustQuantity(item.id, 24)
-                                    .catchError((error) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Erreur: $error'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    });
+                                final stockVM = context.read<StockViewModel>();
+                                final scaffoldMessenger = ScaffoldMessenger.of(
+                                  context,
+                                );
+                                stockVM.adjustQuantity(item.id, 24).catchError((
+                                  error,
+                                ) {
+                                  scaffoldMessenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erreur: $error'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                });
                               },
                               color: Colors.green.shade600,
                             ),
@@ -455,7 +474,7 @@ class _StockButton extends StatelessWidget {
           width: label != null ? 52 : 40,
           height: 40,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withAlpha((255 * 0.1).round()),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Stack(

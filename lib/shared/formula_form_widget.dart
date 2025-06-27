@@ -158,7 +158,7 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -263,10 +263,12 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
                           ),
                         ],
                         validator: (value) {
-                          if (value?.isEmpty == true)
+                          if (value?.isEmpty == true) {
                             return 'Le prix est requis';
-                          if (double.tryParse(value!) == null)
+                          }
+                          if (double.tryParse(value!) == null) {
                             return 'Prix invalide';
+                          }
                           return null;
                         },
                       ),
@@ -290,8 +292,9 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
                               validator: (value) {
                                 if (value?.isEmpty == true) return 'Requis';
                                 final number = int.tryParse(value!);
-                                if (number == null || number < 1)
+                                if (number == null || number < 1) {
                                   return 'Min. 1';
+                                }
                                 return null;
                               },
                             ),
@@ -332,8 +335,9 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
                         validator: (value) {
                           if (value?.isEmpty == true) return 'Requis';
                           final number = int.tryParse(value!);
-                          if (number == null || number < 1)
+                          if (number == null || number < 1) {
                             return 'Min. 1 minute';
+                          }
                           return null;
                         },
                       ),
@@ -351,8 +355,9 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
                               validator: (value) {
                                 if (value?.isEmpty == true) return 'Requis';
                                 final number = int.tryParse(value!);
-                                if (number == null || number < 1)
+                                if (number == null || number < 1) {
                                   return 'Min. 1';
+                                }
                                 return null;
                               },
                             ),
@@ -428,7 +433,7 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: Padding(
@@ -443,8 +448,7 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
                         child,
                         if (child != children.last) const SizedBox(height: 12),
                       ],
-                    )
-                    .toList(),
+                    ),
               ],
             ),
           ),
@@ -465,7 +469,7 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
