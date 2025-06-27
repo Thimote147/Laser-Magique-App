@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
+import 'package:laser_magique_app/app/navigation/main_screen.dart';
 
 class LoginView extends StatefulWidget {
   final VoidCallback onRegisterTap;
@@ -67,9 +68,25 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
 
     try {
       await _saveRememberMe(_rememberMe);
+      final user = await _authService.signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (user == null) {
+        setState(() {
+          _errorMessage = 'Email ou mot de passe incorrect.';
+        });
+      } else {
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+            (route) => false,
+          );
+        }
+      }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Erreur de connexion. Vérifiez vos identifiants.';
+        _errorMessage = 'Erreur de connexion, veuillez réessayer.';
       });
     } finally {
       if (mounted) {
@@ -163,7 +180,9 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: colorScheme.outline.withAlpha((255 * 0.2).round()),
+                                color: colorScheme.outline.withAlpha(
+                                  (255 * 0.2).round(),
+                                ),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
@@ -185,9 +204,8 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                               ),
                             ),
                             filled: true,
-                            fillColor: colorScheme.surfaceContainerHighest.withAlpha(
-                              (255 * 0.3).round(),
-                            ),
+                            fillColor: colorScheme.surfaceContainerHighest
+                                .withAlpha((255 * 0.3).round()),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 16,
@@ -223,7 +241,9 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide(
-                                color: colorScheme.outline.withAlpha((255 * 0.2).round()),
+                                color: colorScheme.outline.withAlpha(
+                                  (255 * 0.2).round(),
+                                ),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
@@ -245,9 +265,8 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                               ),
                             ),
                             filled: true,
-                            fillColor: colorScheme.surfaceContainerHighest.withAlpha(
-                              (255 * 0.3).round(),
-                            ),
+                            fillColor: colorScheme.surfaceContainerHighest
+                                .withAlpha((255 * 0.3).round()),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 16,
@@ -268,20 +287,20 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                           children: [
                             Checkbox(
                               value: _rememberMe,
-                              onChanged: (value) {
+                              onChanged: (value) async {
                                 setState(() {
                                   _rememberMe = value ?? true;
                                 });
-                                _saveRememberMe(_rememberMe);
+                                await _saveRememberMe(_rememberMe);
                               },
                             ),
                             const SizedBox(width: 8),
                             GestureDetector(
-                              onTap: () {
+                              onTap: () async {
                                 setState(() {
                                   _rememberMe = !_rememberMe;
                                 });
-                                _saveRememberMe(_rememberMe);
+                                await _saveRememberMe(_rememberMe);
                               },
                               child: const Text('Se souvenir de moi'),
                             ),

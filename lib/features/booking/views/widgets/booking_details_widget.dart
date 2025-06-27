@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import 'package:provider/provider.dart';
+import '../../../profile/viewmodels/employee_profile_view_model.dart';
 
 class BookingDetailsWidget extends StatelessWidget {
   final Booking booking;
@@ -73,35 +75,33 @@ class BookingDetailsWidget extends StatelessWidget {
             ),
           ),
 
-          if (booking.email != null || booking.phone != null)
-            Card(
-              child: Column(
-                children: [
-                  if (booking.email != null)
-                    ListTile(
-                      leading: const Icon(Icons.email),
-                      title: Text(booking.email!),
-                      onTap: () {
-                        // TODO: Implémenter l'envoi d'email
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Email à ${booking.email}')),
-                        );
-                      },
-                    ),
-                  if (booking.phone != null)
-                    ListTile(
-                      leading: const Icon(Icons.phone),
-                      title: Text(booking.phone!),
-                      onTap: () {
-                        // TODO: Implémenter l'appel téléphonique
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Appel à ${booking.phone}')),
-                        );
-                      },
-                    ),
-                ],
-              ),
-            ),
+          // Affichage des infos client réservé aux admins
+          Consumer<EmployeeProfileViewModel>(
+            builder: (context, profileVM, _) {
+              if (profileVM.role != UserRole.admin) return SizedBox.shrink();
+              if (booking.email == null && booking.phone == null) {
+                return SizedBox.shrink();
+              }
+              return Card(
+                child: Column(
+                  children: [
+                    if (booking.email != null)
+                      ListTile(
+                        leading: const Icon(Icons.email),
+                        title: Text(booking.email!),
+                        onTap: () => _sendEmail(context, booking.email!),
+                      ),
+                    if (booking.phone != null)
+                      ListTile(
+                        leading: const Icon(Icons.phone),
+                        title: Text(booking.phone!),
+                        onTap: () => _makePhoneCall(context, booking.phone!),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
 
           const SizedBox(height: 16),
 
@@ -153,6 +153,67 @@ class BookingDetailsWidget extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _makePhoneCall(BuildContext context, String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Impossible d\'ouvrir l\'application téléphone'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'appel: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendEmail(BuildContext context, String email) async {
+    final Uri launchUri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: Uri.encodeQueryComponent(
+        'subject=Concernant votre réservation Laser Magique&body=Bonjour ${booking.firstName},\n\n'
+      ),
+    );
+    
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Impossible d\'ouvrir l\'application email'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'envoi d\'email: $e'),
+          ),
+        );
+      }
+    }
   }
 
   void _confirmDelete(BuildContext context) {

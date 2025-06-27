@@ -130,10 +130,10 @@ class EmployeeProfileViewModel extends ChangeNotifier {
     _firstName = json['first_name'] ?? '';
     _lastName = json['last_name'] ?? '';
     _phone = json['phone'] ?? '';
-    _email = json['email'] ?? ''; // Email venant de l'authentification
+    _email = json['email'] ?? '';
 
-    // Correction : lecture réelle du rôle depuis la base
-    final roleStr = json['role'] as String?;
+    // Seul 'admin' donne le rôle admin, tout le reste est member
+    final roleStr = (json['role'] as String?)?.toLowerCase();
     if (roleStr == 'admin') {
       _role = UserRole.admin;
     } else {

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../auth/services/auth_service.dart';
+import '../../../profile/models/user_model.dart';
 import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../widgets/booking_consumption_widget.dart';
@@ -56,95 +59,233 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     }
   }
 
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Impossible d\'ouvrir l\'application téléphone'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'appel: $e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendEmail(String email) async {
+    final Uri launchUri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: Uri.encodeQueryComponent(
+        'subject=Concernant votre réservation Laser Magique&body=Bonjour ${_currentBooking.firstName},\n\n'
+      ),
+    );
+    
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Impossible d\'ouvrir l\'application email'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'envoi d\'email: $e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          '${_currentBooking.firstName} ${_currentBooking.lastName ?? ""}',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder:
-                      (context) => BookingEditScreen(booking: _currentBooking),
+    return FutureBuilder<UserModel?>(
+      future: AuthService().currentUserWithSettings,
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              '${_currentBooking.firstName} ${_currentBooking.lastName ?? ""}',
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              BookingEditScreen(booking: _currentBooking),
+                    ),
+                  );
+                },
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_vert,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
-              );
-            },
-          ),
-          PopupMenuButton(
-            itemBuilder:
-                (context) => [
-                  if (_currentBooking.email != null)
-                    PopupMenuItem(
-                      child: ListTile(
-                        leading: const Icon(Icons.email, color: Colors.green),
-                        title: const Text('Envoyer un email'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onTap: () {
-                        // Implémenter l'envoi d'email ici
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Email à \\${_currentBooking.email}'),
-                          ),
-                        );
-                      },
-                    ),
-                  if (_currentBooking.phone != null)
-                    PopupMenuItem(
-                      child: ListTile(
-                        leading: const Icon(Icons.phone, color: Colors.green),
-                        title: const Text('Appeler'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onTap: () {
-                        // Implémenter l'appel téléphonique ici
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Appel à \\${_currentBooking.phone}'),
-                          ),
-                        );
-                      },
-                    ),
-                  PopupMenuItem(
-                    child: ListTile(
-                      leading: Icon(
-                        _currentBooking.isCancelled
-                            ? Icons.restore
-                            : Icons.cancel,
-                        color:
-                            _currentBooking.isCancelled
-                                ? Colors.green
-                                : Colors.orange,
-                      ),
-                      title: Text(
-                        _currentBooking.isCancelled
-                            ? 'Restaurer la réservation'
-                            : 'Marquer comme annulée',
-                        style: TextStyle(
-                          color:
-                              _currentBooking.isCancelled
-                                  ? Colors.green
-                                  : Colors.orange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 4,
+                itemBuilder: (context) => [
+                  // Options admin uniquement
+                  if (user != null && user.settings?.role == 'admin') ...[
+                    if (_currentBooking.email != null)
+                      PopupMenuItem<String>(
+                        value: 'email',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.email,
+                              size: 20,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Envoyer un email',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
                         ),
                       ),
-                      contentPadding: EdgeInsets.zero,
+                    if (_currentBooking.phone != null)
+                      PopupMenuItem<String>(
+                        value: 'call',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.phone,
+                              size: 20,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Appeler',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    if ((_currentBooking.email != null || _currentBooking.phone != null))
+                      const PopupMenuDivider(),
+                  ],
+                  
+                  // Option d'annulation/restauration (tous les utilisateurs)
+                  PopupMenuItem<String>(
+                    value: 'toggle_cancel',
+                    child: Row(
+                      children: [
+                        Icon(
+                          _currentBooking.isCancelled
+                              ? Icons.restore
+                              : Icons.cancel,
+                          size: 20,
+                          color: _currentBooking.isCancelled
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _currentBooking.isCancelled
+                                ? 'Restaurer la réservation'
+                                : 'Marquer comme annulée',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: _currentBooking.isCancelled
+                                  ? Colors.green
+                                  : Colors.orange,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    onTap: () async {
+                  ),
+                  
+                  // Option de suppression (admin uniquement)
+                  if (user != null && user.settings?.role == 'admin') ...[
+                    const PopupMenuDivider(),
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Supprimer la réservation',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+                onSelected: (String value) async {
+                  switch (value) {
+                    case 'email':
+                      if (_currentBooking.email != null) {
+                        await _sendEmail(_currentBooking.email!);
+                      }
+                      break;
+                    case 'call':
+                      if (_currentBooking.phone != null) {
+                        await _makePhoneCall(_currentBooking.phone!);
+                      }
+                      break;
+                    case 'toggle_cancel':
                       await Provider.of<BookingViewModel>(
                         context,
                         listen: false,
                       ).toggleCancellationStatus(_currentBooking.id);
-
-                      // Rafraîchir les données après le changement
                       await _refreshBooking();
-
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -154,46 +295,70 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                                   : 'La réservation a été marquée comme annulée',
                             ),
                             duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         );
                       }
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: const ListTile(
-                      leading: Icon(Icons.delete, color: Colors.red),
-                      title: Text('Supprimer la réservation'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onTap: () async {
+                      break;
+                    case 'delete':
                       final navigator = Navigator.of(context);
                       final bookingViewModel = Provider.of<BookingViewModel>(
                         context,
                         listen: false,
                       );
                       
-                      // Délai pour permettre au menu de se fermer
                       await Future.delayed(const Duration(milliseconds: 100));
                       if (!context.mounted) return;
 
                       final confirmed = await showDialog<bool>(
                         context: context,
                         builder: (dialogContext) => AlertDialog(
-                          title: const Text('Confirmer la suppression'),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          title: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_rounded,
+                                color: Theme.of(context).colorScheme.error,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              const Text('Confirmer la suppression'),
+                            ],
+                          ),
                           content: Text(
-                            'Êtes-vous sûr de vouloir supprimer définitivement la réservation de \\${_currentBooking.firstName} \\${_currentBooking.lastName ?? ""} ?',
+                            'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} ?',
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(dialogContext).pop(false),
-                              child: const Text('Annuler'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(true),
-                              child: const Text(
-                                'Supprimer',
-                                style: TextStyle(color: Colors.red),
+                              style: TextButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
+                              child: Text(
+                                'Annuler',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(true),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.error,
+                                foregroundColor: Theme.of(context).colorScheme.onError,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text('Supprimer'),
                             ),
                           ],
                         ),
@@ -204,90 +369,252 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         bookingViewModel.removeBooking(_currentBooking.id);
                         navigator.pop();
                       }
-                    },
-                  ),
-                ],
+                      break;
+                  }
+                },
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_currentBooking.isCancelled)
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.cancel,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.error,
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_currentBooking.isCancelled)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Réservation annulée',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.cancel,
+                          size: 18,
                           color: Theme.of(context).colorScheme.error,
                         ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Réservation annulée',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Section Client (affiché seulement si admin)
+                if (user != null && user.settings?.role == 'admin') ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_rounded,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Informations client',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withValues(alpha: 0.2),
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-            // Section Client
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.person_rounded,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Informations client',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          if (_currentBooking.email != null)
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.email_rounded,
+                                    size: 20,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Email',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall?.copyWith(
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _currentBooking.email ?? '',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (_currentBooking.email != null &&
+                              _currentBooking.phone != null)
+                            const SizedBox(height: 8),
+                          if (_currentBooking.phone != null)
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.phone_rounded,
+                                    size: 20,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Téléphone',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall?.copyWith(
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _currentBooking.phone ?? '',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 16),
                 ],
-              ),
-            ),
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+
+                // Section Activité
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.sports_esports_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Détails de l\'activité',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    if (_currentBooking.email != null ||
-                        _currentBooking.phone != null) ...[
-                      if (_currentBooking.email != null)
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Container(
+                          width: double.infinity,
                           decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           padding: const EdgeInsets.symmetric(
@@ -296,18 +623,13 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.email_rounded,
-                                size: 20,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(width: 12),
                               Expanded(
+                                flex: 2,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Email',
+                                      'Formule',
                                       style: Theme.of(
                                         context,
                                       ).textTheme.bodySmall?.copyWith(
@@ -319,7 +641,55 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      _currentBooking.email!,
+                                      _currentBooking.formula.name,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      _currentBooking.formula.activity.name,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium?.copyWith(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(
+                                height: 48,
+                                child: VerticalDivider(
+                                  width: 32,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.outline.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Personnes',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.copyWith(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${_currentBooking.numberOfPersons}',
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleMedium?.copyWith(
@@ -329,37 +699,22 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      if (_currentBooking.phone != null) ...[
-                        if (_currentBooking.email != null)
-                          const SizedBox(height: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.phone_rounded,
-                                size: 20,
-                                color: Theme.of(context).colorScheme.primary,
+                              SizedBox(
+                                height: 48,
+                                child: VerticalDivider(
+                                  width: 32,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.outline.withValues(alpha: 0.2),
+                                ),
                               ),
-                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      'Téléphone',
+                                      'Parties',
                                       style: Theme.of(
                                         context,
                                       ).textTheme.bodySmall?.copyWith(
@@ -371,7 +726,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      _currentBooking.phone!,
+                                      '${_currentBooking.numberOfGames}',
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleMedium?.copyWith(
@@ -385,55 +740,55 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           ),
                         ),
                       ],
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Section Activité
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.sports_esports_rounded,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Détails de l\'activité',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
-              ),
-            ),
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
                 ),
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
+
+                const SizedBox(height: 16),
+
+                // Section Date et Heure
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Date et heure',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -443,36 +798,42 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       child: Row(
                         children: [
                           Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  'Formule',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodySmall?.copyWith(
-                                    color:
-                                        Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                  ),
+                                Icon(
+                                  Icons.calendar_month_rounded,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _currentBooking.formula.name,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w500),
-                                ),
-                                Text(
-                                  _currentBooking.formula.activity.name,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodyMedium?.copyWith(
-                                    color:
-                                        Theme.of(
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Date',
+                                        style: Theme.of(
                                           context,
-                                        ).colorScheme.onSurfaceVariant,
+                                        ).textTheme.bodySmall?.copyWith(
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        DateFormat.yMMMMd(
+                                          'fr_FR',
+                                        ).format(_currentBooking.dateTimeLocal),
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -488,60 +849,43 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                             ),
                           ),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
+                            child: Row(
                               children: [
-                                Text(
-                                  'Personnes',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodySmall?.copyWith(
-                                    color:
-                                        Theme.of(
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Heure',
+                                        style: Theme.of(
                                           context,
-                                        ).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${_currentBooking.numberOfPersons}',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(
-                            height: 48,
-                            child: VerticalDivider(
-                              width: 32,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.outline.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Parties',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodySmall?.copyWith(
-                                    color:
-                                        Theme.of(
+                                        ).textTheme.bodySmall?.copyWith(
+                                          color:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        DateFormat.Hm(
+                                          'fr_FR',
+                                        ).format(_currentBooking.dateTimeLocal),
+                                        style: Theme.of(
                                           context,
-                                        ).colorScheme.onSurfaceVariant,
+                                        ).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${_currentBooking.numberOfGames}',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w500),
                                 ),
                               ],
                             ),
@@ -549,233 +893,98 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-            // Section Date et Heure
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today_rounded,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Date et heure',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                // Section Paiements
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_month_rounded,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Date',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall?.copyWith(
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    DateFormat.yMMMMd(
-                                      'fr_FR',
-                                    ).format(_currentBooking.dateTimeLocal),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                      Icon(
+                        Icons.payments_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-                      SizedBox(
-                        height: 48,
-                        child: VerticalDivider(
-                          width: 32,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.outline.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Heure',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall?.copyWith(
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    DateFormat.Hm(
-                                      'fr_FR',
-                                    ).format(_currentBooking.dateTimeLocal),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                      const SizedBox(width: 8),
+                      Text(
+                        'Paiements',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Section Paiements
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.payments_rounded,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Paiements',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.2),
                     ),
                   ),
-                ],
-              ),
-            ),
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: BookingPaymentWidget(booking: _currentBooking),
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Section Consommations
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.local_bar_rounded,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: BookingPaymentWidget(booking: _currentBooking),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Consommations',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
+                ),
+
+                const SizedBox(height: 16),
+
+                // Section Consommations
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.local_bar_rounded,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Consommations',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withValues(alpha: 0.2),
                     ),
                   ),
-                ],
-              ),
-            ),
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: BookingConsumptionWidget(
+                      booking: _currentBooking,
+                      onBookingUpdated: _refreshBooking,
+                    ),
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: BookingConsumptionWidget(
-                  booking: _currentBooking,
-                  onBookingUpdated: _refreshBooking,
-                ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
