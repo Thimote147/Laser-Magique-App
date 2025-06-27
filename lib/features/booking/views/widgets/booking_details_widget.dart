@@ -156,14 +156,11 @@ class BookingDetailsWidget extends StatelessWidget {
   }
 
   Future<void> _makePhoneCall(BuildContext context, String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
+    final Uri launchUri = Uri.parse('tel:$phoneNumber');
     
     try {
       if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri);
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -185,17 +182,13 @@ class BookingDetailsWidget extends StatelessWidget {
   }
 
   Future<void> _sendEmail(BuildContext context, String email) async {
-    final Uri launchUri = Uri(
-      scheme: 'mailto',
-      path: email,
-      query: Uri.encodeQueryComponent(
-        'subject=Concernant votre réservation Laser Magique&body=Bonjour ${booking.firstName},\n\n'
-      ),
-    );
+    final String subject = Uri.encodeComponent('Concernant votre réservation Laser Magique');
+    final String body = Uri.encodeComponent('Bonjour ${booking.firstName},\n\n');
+    final Uri launchUri = Uri.parse('mailto:$email?subject=$subject&body=$body');
     
     try {
       if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri);
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

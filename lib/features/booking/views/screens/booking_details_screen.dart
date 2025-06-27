@@ -60,14 +60,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
+    final Uri launchUri = Uri.parse('tel:$phoneNumber');
     
     try {
       if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri);
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -97,17 +94,13 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   }
 
   Future<void> _sendEmail(String email) async {
-    final Uri launchUri = Uri(
-      scheme: 'mailto',
-      path: email,
-      query: Uri.encodeQueryComponent(
-        'subject=Concernant votre réservation Laser Magique&body=Bonjour ${_currentBooking.firstName},\n\n'
-      ),
-    );
+    final String subject = Uri.encodeComponent('Concernant votre réservation Laser Magique');
+    final String body = Uri.encodeComponent('Bonjour ${_currentBooking.firstName},\n\n');
+    final Uri launchUri = Uri.parse('mailto:$email?subject=$subject&body=$body');
     
     try {
       if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri);
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
