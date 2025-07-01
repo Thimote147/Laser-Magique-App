@@ -4,10 +4,14 @@ import '../../viewmodels/customer_view_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../models/customer_model.dart';
 import '../../models/booking_model.dart';
+import '../screens/booking_details_screen.dart';
+import '../screens/customer_details_screen.dart';
 
 class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
   int _selectedCategory; // 0 = Clients, 1 = Réservations
   final List<String> _categories = ['Clients', 'Réservations'];
+  String _lastQuery = '';
+  Future<void>? _searchFuture;
 
   CustomerBookingSearchDelegate({int selectedCategory = 0})
     : _selectedCategory = selectedCategory;
@@ -49,52 +53,76 @@ class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
       child: Center(
         child: SizedBox(
           height: 48,
-          child: DefaultTabController(
-            length: _categories.length,
-            initialIndex: _selectedCategory,
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                final TabController tabController = DefaultTabController.of(
-                  context,
-                );
-                tabController.addListener(() {
-                  if (_selectedCategory != tabController.index) {
-                    setState(() {
-                      _selectedCategory = tabController.index;
-                      // Instead of showSuggestions(context), just update the query to trigger a rebuild
-                      query = query;
-                    });
-                  }
-                });
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TabBar(
-                    controller: tabController,
-                    labelColor: colorScheme.primary,
-                    unselectedLabelColor: colorScheme.onSurfaceVariant,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-                    unselectedLabelStyle: const TextStyle(
-                      fontWeight: FontWeight.w500,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest.withAlpha(
+                (255 * 0.3).round(),
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < _categories.length; i++)
+                  Flexible(
+                    child: GestureDetector(
+                      onTap: () {
+                        if (_selectedCategory != i) {
+                          _selectedCategory = i;
+                          // Force un rebuild sans utiliser setState
+                          this.showSuggestions(context);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              _selectedCategory == i
+                                  ? colorScheme.primaryContainer
+                                  : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              _selectedCategory == i
+                                  ? Border.all(
+                                    color: colorScheme.primary,
+                                    width: 1,
+                                  )
+                                  : null,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              i == 0 ? Icons.person : Icons.event,
+                              color:
+                                  _selectedCategory == i
+                                      ? colorScheme.primary
+                                      : colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _categories[i],
+                              style: TextStyle(
+                                color:
+                                    _selectedCategory == i
+                                        ? colorScheme.primary
+                                        : colorScheme.onSurfaceVariant,
+                                fontWeight:
+                                    _selectedCategory == i
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    indicator: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colorScheme.primary, width: 1),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                    tabs: [
-                      Tab(icon: const Icon(Icons.person), text: _categories[0]),
-                      Tab(icon: const Icon(Icons.event), text: _categories[1]),
-                    ],
                   ),
-                );
-              },
+              ],
             ),
           ),
         ),
@@ -106,6 +134,14 @@ class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
   Widget buildResults(BuildContext context) {
     final customerVM = Provider.of<CustomerViewModel>(context, listen: false);
     final bookingVM = Provider.of<BookingViewModel>(context, listen: false);
+
+    if (_lastQuery != query) {
+      _lastQuery = query;
+      if (_selectedCategory == 0) {
+        _searchFuture = customerVM.searchCustomers(query);
+      }
+    }
+
     return Column(
       children: [
         _buildCategorySelector(context),
@@ -113,54 +149,56 @@ class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
           child:
               _selectedCategory == 0
                   ? FutureBuilder(
-                    future: customerVM.searchCustomers(query),
+                    future: _searchFuture,
                     builder: (context, snapshot) {
-                      final customerResults = customerVM.searchResults;
-                      if (customerVM.isLoading) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
+
+                      final customerResults = customerVM.searchResults;
                       if (customerResults.isEmpty) {
                         return const Center(child: Text('Aucun client trouvé'));
                       }
-                      return ListView(
-                        children:
-                            customerResults
-                                .map(
-                                  (customer) => ListTile(
-                                    leading: const Icon(Icons.person),
-                                    title: Text(
-                                      '${customer.firstName} ${customer.lastName}',
-                                    ),
-                                    subtitle: Text(customer.email),
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder:
-                                            (context) => CustomerBookingsDialog(
-                                              customer: customer,
-                                              bookings:
-                                                  bookingVM.bookings
-                                                      .where(
-                                                        (b) =>
-                                                            (b.firstName
-                                                                        .toLowerCase() ==
-                                                                    customer
-                                                                        .firstName
-                                                                        .toLowerCase() &&
-                                                                (b.lastName
-                                                                            ?.toLowerCase() ??
-                                                                        '') ==
-                                                                    customer
-                                                                        .lastName
-                                                                        .toLowerCase()),
-                                                      )
-                                                      .toList(),
-                                            ),
-                                      );
-                                    },
-                                  ),
-                                )
-                                .toList(),
+
+                      return ListView.builder(
+                        itemCount: customerResults.length,
+                        itemBuilder: (context, index) {
+                          final customer = customerResults[index];
+                          return ListTile(
+                            leading: const Icon(Icons.person),
+                            title: Text(
+                              '${customer.firstName} ${customer.lastName}',
+                            ),
+                            subtitle: Text(customer.email),
+                            onTap: () {
+                              final customerBookings =
+                                  bookingVM.bookings
+                                      .where(
+                                        (b) =>
+                                            (b.firstName.toLowerCase() ==
+                                                    customer.firstName
+                                                        .toLowerCase() &&
+                                                (b.lastName?.toLowerCase() ??
+                                                        '') ==
+                                                    customer.lastName
+                                                        .toLowerCase()),
+                                      )
+                                      .toList();
+
+                              Navigator.pop(context); // Fermer la recherche
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => CustomerDetailsScreen(
+                                        customer: customer,
+                                        bookings: customerBookings,
+                                      ),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       );
                     },
                   )
@@ -192,49 +230,27 @@ class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
     if (bookingResults.isEmpty) {
       return const Center(child: Text('Aucune réservation trouvée'));
     }
-    return ListView(
-      children:
-          bookingResults
-              .map(
-                (b) => ListTile(
-                  leading: const Icon(Icons.event),
-                  title: Text('${b.firstName} ${b.lastName ?? ''}'),
-                  subtitle: Text(
-                    '${b.dateTimeLocal.day}/${b.dateTimeLocal.month}/${b.dateTimeLocal.year} - ${b.formula.name}',
-                  ),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder:
-                          (context) => AlertDialog(
-                            title: Text('Détail réservation'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Client : ${b.firstName} ${b.lastName ?? ''}',
-                                ),
-                                Text('Email : ${b.email ?? '-'}'),
-                                Text('Date : ${b.dateTimeLocal}'),
-                                Text('Activité : ${b.formula.activity.name}'),
-                                Text('Formule : ${b.formula.name}'),
-                                Text('Personnes : ${b.numberOfPersons}'),
-                                Text('Parties : ${b.numberOfGames}'),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text('Fermer'),
-                              ),
-                            ],
-                          ),
-                    );
-                  },
-                ),
-              )
-              .toList(),
+    return ListView.builder(
+      itemCount: bookingResults.length,
+      itemBuilder: (context, index) {
+        final booking = bookingResults[index];
+        return ListTile(
+          leading: const Icon(Icons.event),
+          title: Text('${booking.firstName} ${booking.lastName ?? ''}'),
+          subtitle: Text(
+            '${booking.dateTimeLocal.day}/${booking.dateTimeLocal.month}/${booking.dateTimeLocal.year} - ${booking.formula.name}',
+          ),
+          onTap: () {
+            Navigator.pop(context); // Fermer la recherche
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BookingDetailsScreen(booking: booking),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -306,49 +322,27 @@ class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
     if (bookingResults.isEmpty) {
       return const Center(child: Text('Aucune réservation trouvée'));
     }
-    return ListView(
-      children:
-          bookingResults
-              .map(
-                (b) => ListTile(
-                  leading: const Icon(Icons.event),
-                  title: Text('${b.firstName} ${b.lastName ?? ''}'),
-                  subtitle: Text(
-                    '${b.dateTimeLocal.day}/${b.dateTimeLocal.month}/${b.dateTimeLocal.year} - ${b.formula.name}',
-                  ),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder:
-                          (context) => AlertDialog(
-                            title: Text('Détail réservation'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Client : ${b.firstName} ${b.lastName ?? ''}',
-                                ),
-                                Text('Email : ${b.email ?? '-'}'),
-                                Text('Date : ${b.dateTimeLocal}'),
-                                Text('Activité : ${b.formula.activity.name}'),
-                                Text('Formule : ${b.formula.name}'),
-                                Text('Personnes : ${b.numberOfPersons}'),
-                                Text('Parties : ${b.numberOfGames}'),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text('Fermer'),
-                              ),
-                            ],
-                          ),
-                    );
-                  },
-                ),
-              )
-              .toList(),
+    return ListView.builder(
+      itemCount: bookingResults.length,
+      itemBuilder: (context, index) {
+        final booking = bookingResults[index];
+        return ListTile(
+          leading: const Icon(Icons.event),
+          title: Text('${booking.firstName} ${booking.lastName ?? ''}'),
+          subtitle: Text(
+            '${booking.dateTimeLocal.day}/${booking.dateTimeLocal.month}/${booking.dateTimeLocal.year} - ${booking.formula.name}',
+          ),
+          onTap: () {
+            Navigator.pop(context); // Fermer la recherche
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BookingDetailsScreen(booking: booking),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

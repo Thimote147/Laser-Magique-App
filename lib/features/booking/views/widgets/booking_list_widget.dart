@@ -1,8 +1,9 @@
-// filepath: c:\Users\thimo\Documents\Laser-Magique-App\lib\views\widgets\booking_list_widget.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../models/booking_model.dart';
 import 'booking_list_item.dart';
+import '../../../../shared/user_provider.dart';
 
 class BookingListWidget extends StatelessWidget {
   final BookingViewModel viewModel;
@@ -146,6 +147,8 @@ class BookingListWidget extends StatelessWidget {
     Booking booking,
     BookingViewModel viewModel,
   ) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isAdmin = userProvider.user?.settings?.role == 'admin';
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -193,14 +196,15 @@ class BookingListWidget extends StatelessWidget {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Supprimer la réservation'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmDelete(context, booking, viewModel);
-                },
-              ),
+              if (isAdmin)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Supprimer la réservation'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDelete(context, booking, viewModel);
+                  },
+                ),
               if (booking.email != null)
                 ListTile(
                   leading: const Icon(Icons.email, color: Colors.green),

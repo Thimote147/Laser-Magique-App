@@ -17,7 +17,7 @@ class AuthService {
               .select()
               .eq('user_id', user.id)
               .single();
-      developer.log('Settings récupérés pour l\'utilisateur ${user.id}');
+      developer.log('Settings récupérés pour l\'utilisateur \\${user.id}');
       return UserModel.fromSupabaseUser(user, settings: settings);
     } catch (e) {
       developer.log('Erreur lors de la récupération des settings: $e');
@@ -52,6 +52,7 @@ class AuthService {
                 'first_name': firstName,
                 'last_name': lastName,
                 'phone': phone,
+                'role': 'member',
               })
               .select()
               .single();
@@ -209,6 +210,7 @@ class AuthService {
           'phone': user.phone ?? '',
           'notifications_enabled': true,
           'theme_mode': 'system',
+          'role': 'member',
         });
         developer.log('User settings créés pour ${user.id}');
       }

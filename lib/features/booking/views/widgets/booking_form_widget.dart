@@ -67,9 +67,11 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
       _depositController.text = _deposit.toString();
       _depositPaymentMethod = widget.booking!.paymentMethod;
 
-      // Synchronisation initiale avec le ViewModel
-      final bookingEditViewModel = context.read<BookingEditViewModel>();
-      bookingEditViewModel.setFormula(widget.booking!.formula);
+      // Synchronisation initiale avec le ViewModel après le build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final bookingEditViewModel = context.read<BookingEditViewModel>();
+        bookingEditViewModel.setFormula(widget.booking!.formula);
+      });
     } else {
       selectedDate = DateTime.now();
       selectedTime = TimeOfDay.now();
@@ -193,7 +195,6 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
     }
   }
 
-
   void _adjustValuesToFormula(Formula formula) {
     // Ajuster le nombre de personnes si nécessaire
     if (numberOfPersons < formula.minParticipants) {
@@ -265,7 +266,13 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         Expanded(
           child: DropdownButtonHideUnderline(
             child: DropdownButton<Formula>(
-              value: bookingEditViewModel.selectedFormula,
+              value:
+                  bookingEditViewModel.selectedFormula != null
+                      ? formulas.firstWhere(
+                        (f) => f.id == bookingEditViewModel.selectedFormula!.id,
+                        orElse: () => bookingEditViewModel.selectedFormula!,
+                      )
+                      : null,
               isExpanded: true,
               isDense: true,
               icon: const Icon(Icons.expand_more_rounded, size: 20),
@@ -288,6 +295,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                       .toList(),
               onChanged: (Formula? value) {
                 if (value != null) {
+                  // Toujours ajuster les valeurs lors du changement de formule
                   _adjustValuesToFormula(value);
                 }
               },
@@ -349,7 +357,9 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: Column(
@@ -362,9 +372,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.5).round()),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withAlpha((255 * 0.5).round()),
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(12),
                           topRight: Radius.circular(12),
@@ -518,7 +529,9 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: InkWell(
@@ -530,9 +543,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -577,9 +591,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                       const SizedBox(height: 8),
                       Container(
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -656,7 +671,9 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: Padding(
@@ -667,9 +684,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withAlpha((255 * 0.3).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -704,9 +722,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withAlpha((255 * 0.3).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -816,9 +835,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withAlpha((255 * 0.3).round()),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -926,9 +946,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                       const SizedBox(height: 8),
                       Container(
                         decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withAlpha((255 * 0.3).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.symmetric(
@@ -992,7 +1013,9 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
               child: Padding(
@@ -1004,9 +1027,10 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                     // Montant de l'acompte
                     Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withAlpha((255 * 0.3).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -1043,8 +1067,8 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                                 12,
                                 8,
                               ),
-                              prefixText: '€ ',
-                              prefixStyle: Theme.of(context)
+                              suffixText: '€ ',
+                              suffixStyle: Theme.of(context)
                                   .textTheme
                                   .titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w500),

@@ -940,3 +940,35 @@ VALUES (
 );
 
 insert into stock_items(name, quantity, price, alert_threshold, category) VALUES ('test', 50, 2.00, 10, 'DRINK');
+
+-- Create daily_statistics table for manual fields
+CREATE TABLE daily_statistics (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  date DATE NOT NULL UNIQUE,
+  fond_caisse_ouverture DECIMAL(10,2),
+  fond_caisse_fermeture DECIMAL(10,2),
+  montant_coffre DECIMAL(10,2),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CHECK (fond_caisse_ouverture IS NULL OR fond_caisse_ouverture >= 0),
+  CHECK (fond_caisse_fermeture IS NULL OR fond_caisse_fermeture >= 0),
+  CHECK (montant_coffre IS NULL OR montant_coffre >= 0)
+);
+
+-- Create trigger for daily_statistics
+CREATE TRIGGER update_daily_statistics_updated_at
+  BEFORE UPDATE ON daily_statistics
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- Enable RLS on daily_statistics
+ALTER TABLE daily_statistics ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policy for daily_statistics
+CREATE POLICY "Allow all operations for everyone"
+  ON daily_statistics FOR ALL
+  TO public
+  USING (true)
+  WITH CHECK (true);
+
+-- Create index for daily_statistics
+CREATE INDEX idx_daily_statistics_date ON daily_statistics(date);

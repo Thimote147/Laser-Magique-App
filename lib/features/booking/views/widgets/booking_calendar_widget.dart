@@ -7,6 +7,7 @@ import '../../models/booking_model.dart';
 import '../screens/booking_details_screen.dart';
 import '../screens/booking_edit_screen.dart';
 import 'booking_list_item.dart';
+import '../../../../shared/user_provider.dart';
 
 class BookingCalendarWidget extends StatefulWidget {
   const BookingCalendarWidget({super.key});
@@ -39,6 +40,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // No need to get userProvider here, handled in _showBookingActions
     return Consumer<BookingViewModel>(
       builder: (context, bookingViewModel, child) {
         return RefreshIndicator(
@@ -249,6 +251,8 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
     Booking booking,
     BookingViewModel viewModel,
   ) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final user = userProvider.user;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -301,14 +305,16 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Supprimer la réservation'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmDelete(context, booking, viewModel);
-                },
-              ),
+              if (user != null && user.settings?.role == 'admin') ...[
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Supprimer la réservation'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDelete(context, booking, viewModel);
+                  },
+                ),
+              ],
             ],
           ),
         );
@@ -374,7 +380,9 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                   right: 0,
                   child: Container(
                     height: 1,
-                    color: Theme.of(context).dividerColor.withAlpha((255 * 0.3).round()),
+                    color: Theme.of(
+                      context,
+                    ).dividerColor.withAlpha((255 * 0.3).round()),
                   ),
                 ),
               ),
@@ -399,11 +407,9 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                 ),
               ),
               // Réservations
-              ..._groupOverlappingBookings(bookings)
-                  .expand(
-                    (group) => _buildOverlappingBookings(group, viewModel),
-                  )
-                  ,
+              ..._groupOverlappingBookings(
+                bookings,
+              ).expand((group) => _buildOverlappingBookings(group, viewModel)),
             ],
           ),
         ),
@@ -507,12 +513,18 @@ class DayViewBooking extends StatelessWidget {
 
     final backgroundColor =
         booking.isCancelled
-            ? Theme.of(context).colorScheme.errorContainer.withAlpha((255 * 0.3).round())
-            : Theme.of(context).colorScheme.primaryContainer.withAlpha((255 * 0.3).round());
+            ? Theme.of(
+              context,
+            ).colorScheme.errorContainer.withAlpha((255 * 0.3).round())
+            : Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withAlpha((255 * 0.3).round());
     final borderColor =
         booking.isCancelled
             ? Theme.of(context).colorScheme.error.withAlpha((255 * 0.5).round())
-            : Theme.of(context).colorScheme.primary.withAlpha((255 * 0.5).round());
+            : Theme.of(
+              context,
+            ).colorScheme.primary.withAlpha((255 * 0.5).round());
 
     return Positioned(
       top: top,
@@ -640,9 +652,8 @@ class DayViewBooking extends StatelessWidget {
                             decoration: BoxDecoration(
                               color:
                                   booking.remainingBalance > 0
-                                      ? Theme.of(
-                                        context,
-                                      ).colorScheme.secondary.withAlpha((255 * 0.1).round())
+                                      ? Theme.of(context).colorScheme.secondary
+                                          .withAlpha((255 * 0.1).round())
                                       : Theme.of(
                                         context,
                                       ).colorScheme.primaryContainer,

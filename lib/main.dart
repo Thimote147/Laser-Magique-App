@@ -12,6 +12,7 @@ import 'features/settings/settings.dart';
 import 'features/inventory/inventory.dart';
 import 'features/profile/profile.dart';
 import 'shared/shared.dart';
+import 'shared/user_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +69,7 @@ class LaserMagiqueApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SettingsViewModel()),
         ChangeNotifierProvider(create: (_) => CustomerViewModel()),
         ChangeNotifierProvider(create: (_) => EquipmentViewModel()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
       child: Consumer<SettingsViewModel>(
         builder: (context, settingsVM, child) {
