@@ -11,8 +11,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen>
-    with TickerProviderStateMixin {
+class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _controller;
   late Animation<double> _animation;
@@ -95,8 +94,12 @@ class _MainScreenState extends State<MainScreen>
                   decoration: BoxDecoration(
                     color:
                         isDark
-                            ? colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round())
-                            : colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                            ? colorScheme.surfaceContainerHighest.withAlpha(
+                              (255 * 0.3).round(),
+                            )
+                            : colorScheme.surfaceContainerHighest.withAlpha(
+                              (255 * 0.3).round(),
+                            ),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: TabBar(

@@ -342,7 +342,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                   if (sortedMonthKeys.last != monthKey)
                     Divider(
                       height: 32,
-                      color: colorScheme.outlineVariant.withOpacity(0.3),
+                      color: colorScheme.outlineVariant.withAlpha(
+                        77,
+                      ), // ~0.3 opacity
                     ),
                 ],
               );
@@ -469,11 +471,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
 
     // Formater la date avec le jour de la semaine
     final formattedDate =
-        DateFormat.EEEE('fr_FR').format(workDay.date).capitalize() +
-        " " +
-        DateFormat.d('fr_FR').format(workDay.date) +
-        " " +
-        DateFormat.MMMM('fr_FR').format(workDay.date).toLowerCase();
+        "${DateFormat.EEEE('fr_FR').format(workDay.date).capitalize()} ${DateFormat.d('fr_FR').format(workDay.date)} ${DateFormat.MMMM('fr_FR').format(workDay.date).toLowerCase()}";
 
     // Heures de début et de fin
     final formattedStartTime = DateFormat.Hm().format(workDay.startTime);
@@ -498,7 +496,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color:
           isRecent
-              ? colorScheme.primaryContainer.withOpacity(0.15)
+              ? colorScheme.primaryContainer.withAlpha(38) // ~0.15 opacity
               : colorScheme.surfaceContainer,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -711,7 +709,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withAlpha(26), // ~0.1 opacity
                       blurRadius: 10,
                       spreadRadius: 0,
                       offset: const Offset(0, -2),
@@ -918,13 +916,15 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.15),
+                color: colorScheme.primaryContainer.withAlpha(
+                  38,
+                ), // ~0.15 opacity
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.hourglass_empty_rounded,
                 size: 72,
-                color: colorScheme.primary.withOpacity(0.8),
+                color: colorScheme.primary.withAlpha(204), // ~0.8 opacity
               ),
             ),
             const SizedBox(height: 32),
@@ -1011,9 +1011,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     // Calculer les totaux pour le mois courant
     final now = DateTime.now();
     final String currentMonthDisplay =
-        DateFormat.MMMM('fr_FR').format(now).capitalize() +
-        ' ' +
-        now.year.toString();
+        "${DateFormat.MMMM('fr_FR').format(now).capitalize()} ${now.year}";
     final currentMonthWorkDays =
         profileVM.workDays
             .where(
@@ -1047,7 +1045,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withOpacity(0.2),
+                  color: colorScheme.primaryContainer.withAlpha(
+                    51,
+                  ), // ~0.2 opacity
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -1087,14 +1087,14 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  colorScheme.primary.withOpacity(0.7),
+                  colorScheme.primary.withAlpha(179), // ~0.7 opacity
                   colorScheme.primary,
                 ],
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: colorScheme.shadow.withOpacity(0.1),
+                  color: colorScheme.shadow.withAlpha(26), // ~0.1 opacity
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -1132,7 +1132,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withAlpha(51), // ~0.2 opacity
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -1276,7 +1276,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant,
+                    color: colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -1543,7 +1543,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: colorScheme.outlineVariant.withOpacity(0.5),
+          color: colorScheme.outlineVariant.withAlpha(128), // ~0.5 opacity
           width: 1,
         ),
       ),
@@ -1557,7 +1557,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.1),
+                    color: iconColor.withAlpha(26), // ~0.1 opacity
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(icon, color: iconColor, size: 16),

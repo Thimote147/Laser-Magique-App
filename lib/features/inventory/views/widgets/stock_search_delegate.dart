@@ -29,6 +29,7 @@ class StockSearchDelegate extends SearchDelegate<StockItem?> {
     return IconButton(
       icon: const Icon(Icons.arrow_back),
       onPressed: () {
+        stockViewModel.updateSearchQuery('');
         close(context, null);
       },
     );
@@ -43,7 +44,13 @@ class StockSearchDelegate extends SearchDelegate<StockItem?> {
         final results = stockViewModel.filteredItems;
         return results.isEmpty
             ? const Center(child: Text('Aucun article trouvé'))
-            : StockList(items: results);
+            : StockList(
+              items: results,
+              onQuantityChanged: (index, newQuantity) {
+                final item = results[index];
+                stockViewModel.updateItem(item.copyWith(quantity: newQuantity));
+              },
+            );
       },
     );
   }
@@ -61,7 +68,13 @@ class StockSearchDelegate extends SearchDelegate<StockItem?> {
         final suggestions = stockViewModel.filteredItems;
         return suggestions.isEmpty
             ? const Center(child: Text('Aucune suggestion...'))
-            : StockList(items: suggestions);
+            : StockList(
+              items: suggestions,
+              onQuantityChanged: (index, newQuantity) {
+                final item = suggestions[index];
+                stockViewModel.updateItem(item.copyWith(quantity: newQuantity));
+              },
+            );
       },
     );
   }

@@ -112,9 +112,8 @@ class _StockScreenState extends State<StockScreen> {
                 child: Container(
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest
+                        .withAlpha((255 * 0.3).round()),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TabBar(
@@ -170,52 +169,56 @@ class _StockScreenState extends State<StockScreen> {
           ),
           body: Consumer<StockViewModel>(
             builder: (context, stockVM, child) {
-              final lowStockItems = stockVM.lowStockItems;
-
               return Column(
                 children: [
-                  if (lowStockItems.isNotEmpty)
-                    Container(
-                      color:
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.red.shade900.withAlpha((255 * 0.3).round())
-                              : Colors.red.shade100,
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.warning,
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.red.shade300
-                                    : Colors.red,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Articles en stock bas : ${lowStockItems.map((e) => e.name).join(", ")}',
-                              style: TextStyle(
-                                color:
-                                    Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.red.shade300
-                                        : Colors.red,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   Expanded(
                     child: TabBarView(
                       children: [
-                        StockList(items: stockVM.drinks),
-                        StockList(items: stockVM.food),
-                        StockList(items: stockVM.others),
+                        StockList(
+                          items: stockVM.drinks,
+                          onQuantityChanged: (index, newQuantity) {
+                            final item = stockVM.drinks[index];
+                            // Créer un nouvel objet avec la nouvelle quantité
+                            final updatedItem = item.copyWith(
+                              quantity: newQuantity,
+                            );
+                            stockVM.updateItem(updatedItem);
+                          },
+                        ),
+                        StockList(
+                          items: stockVM.food,
+                          onQuantityChanged: (index, newQuantity) {
+                            final item = stockVM.food[index];
+                            // Créer un nouvel objet avec la nouvelle quantité
+                            final updatedItem = item.copyWith(
+                              quantity: newQuantity,
+                            );
+                            stockVM.updateItem(updatedItem);
+                          },
+                        ),
+                        StockList(
+                          items: stockVM.others,
+                          onQuantityChanged: (index, newQuantity) {
+                            final item = stockVM.others[index];
+                            // Créer un nouvel objet avec la nouvelle quantité
+                            final updatedItem = item.copyWith(
+                              quantity: newQuantity,
+                            );
+                            stockVM.updateItem(updatedItem);
+                          },
+                        ),
                         if (stockVM.inactiveItems.isNotEmpty)
                           StockList(
                             items: stockVM.inactiveItems,
                             showActivateButton: true,
+                            onQuantityChanged: (index, newQuantity) {
+                              final item = stockVM.inactiveItems[index];
+                              // Créer un nouvel objet avec la nouvelle quantité
+                              final updatedItem = item.copyWith(
+                                quantity: newQuantity,
+                              );
+                              stockVM.updateItem(updatedItem);
+                            },
                           ),
                       ],
                     ),

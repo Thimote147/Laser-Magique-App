@@ -60,7 +60,9 @@ class StockViewModel extends ChangeNotifier {
   String? _error;
   bool _initialized = false;
 
-  StockViewModel(this.bookingViewModel);
+  StockViewModel(this.bookingViewModel) {
+    initialize();
+  }
 
   // Getters
   List<StockItem> get items => _stockCache?.data ?? [];
@@ -72,15 +74,18 @@ class StockViewModel extends ChangeNotifier {
 
   // Initialize data
   Future<void> initialize() async {
-    if (_initialized) return;
+    if (_initialized && !_stockCache!.isExpired) return;
 
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      await refreshStock();
-      await refreshAllStock(); // Charger aussi les articles inactifs
+      // Rafraîchir le stock en parallèle pour optimiser le chargement
+      await Future.wait([
+        refreshStock(),
+        refreshAllStock(), // Charger aussi les articles inactifs
+      ]);
 
       _isLoading = false;
       _initialized = true;
@@ -466,5 +471,25 @@ class StockViewModel extends ChangeNotifier {
       debugPrint('Error refreshing stock items: $e');
       rethrow;
     }
+  }
+
+  Future<void> incrementQuantity(StockItem item) async {
+    await _updateItemQuantity(item, item.quantity + 1);
+  }
+
+  Future<void> decrementQuantity(StockItem item) async {
+    if (item.quantity > 0) {
+      await _updateItemQuantity(item, item.quantity - 1);
+    }
+  }
+
+  Future<void> incrementQuantityBy(StockItem item, int amount) async {
+    await _updateItemQuantity(item, item.quantity + amount);
+  }
+
+  Future<void> _updateItemQuantity(StockItem item, int newQuantity) async {
+    final updatedItem = item.copyWith(quantity: newQuantity);
+    await _repository.updateStockItem(updatedItem);
+    await refreshStock();
   }
 }

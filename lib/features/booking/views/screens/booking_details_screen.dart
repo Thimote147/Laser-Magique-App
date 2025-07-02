@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../auth/services/auth_service.dart';
 import '../../../profile/models/user_model.dart';
+import '../../../inventory/viewmodels/stock_view_model.dart';
 import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../widgets/booking_consumption_widget.dart';
@@ -46,6 +47,21 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         context,
         listen: false,
       );
+
+      // Invalider le cache des consommations APRÈS le build pour éviter les erreurs
+      // en utilisant Future.microtask pour s'assurer que c'est exécuté après le build
+      Future.microtask(() {
+        if (mounted) {
+          final stockViewModel = Provider.of<StockViewModel>(
+            context,
+            listen: false,
+          );
+          stockViewModel.invalidateConsumptionsCacheForBooking(
+            widget.booking.id,
+          );
+        }
+      });
+
       final updatedBooking = await bookingViewModel.getBookingDetails(
         widget.booking.id,
       );
@@ -61,7 +77,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
   Future<void> _makePhoneCall(String phoneNumber) async {
     final Uri launchUri = Uri.parse('tel:$phoneNumber');
-    
+
     try {
       if (await canLaunchUrl(launchUri)) {
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
@@ -94,10 +110,16 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   }
 
   Future<void> _sendEmail(String email) async {
-    final String subject = Uri.encodeComponent('Concernant votre réservation Laser Magique');
-    final String body = Uri.encodeComponent('Bonjour ${_currentBooking.firstName},\n\n');
-    final Uri launchUri = Uri.parse('mailto:$email?subject=$subject&body=$body');
-    
+    final String subject = Uri.encodeComponent(
+      'Concernant votre réservation Laser Magique',
+    );
+    final String body = Uri.encodeComponent(
+      'Bonjour ${_currentBooking.firstName},\n\n',
+    );
+    final Uri launchUri = Uri.parse(
+      'mailto:$email?subject=$subject&body=$body',
+    );
+
     try {
       if (await canLaunchUrl(launchUri)) {
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
@@ -163,104 +185,105 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 elevation: 4,
-                itemBuilder: (context) => [
-                  // Options admin uniquement
-                  if (user != null && user.settings?.role == 'admin') ...[
-                    if (_currentBooking.email != null)
+                itemBuilder:
+                    (context) => [
+                      // Options admin uniquement
+                      if (user != null && user.settings?.role == 'admin') ...[
+                        if (_currentBooking.email != null)
+                          PopupMenuItem<String>(
+                            value: 'email',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.email,
+                                  size: 20,
+                                  color: Colors.green,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Envoyer un email',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (_currentBooking.phone != null)
+                          PopupMenuItem<String>(
+                            value: 'call',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.phone,
+                                  size: 20,
+                                  color: Colors.green,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Appeler',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                        if ((_currentBooking.email != null ||
+                            _currentBooking.phone != null))
+                          const PopupMenuDivider(),
+                      ],
+
+                      // Option d'annulation/restauration (tous les utilisateurs)
                       PopupMenuItem<String>(
-                        value: 'email',
+                        value: 'toggle_cancel',
                         child: Row(
                           children: [
                             Icon(
-                              Icons.email,
+                              _currentBooking.isCancelled
+                                  ? Icons.restore
+                                  : Icons.cancel,
                               size: 20,
-                              color: Colors.green,
+                              color:
+                                  _currentBooking.isCancelled
+                                      ? Colors.green
+                                      : Colors.orange,
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              'Envoyer un email',
-                              style: Theme.of(context).textTheme.bodyMedium,
+                            Expanded(
+                              child: Text(
+                                _currentBooking.isCancelled
+                                    ? 'Restaurer la réservation'
+                                    : 'Marquer comme annulée',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(
+                                  color:
+                                      _currentBooking.isCancelled
+                                          ? Colors.green
+                                          : Colors.orange,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    if (_currentBooking.phone != null)
-                      PopupMenuItem<String>(
-                        value: 'call',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.phone,
-                              size: 20,
-                              color: Colors.green,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Appeler',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ),
-                    if ((_currentBooking.email != null || _currentBooking.phone != null))
-                      const PopupMenuDivider(),
-                  ],
-                  
-                  // Option d'annulation/restauration (tous les utilisateurs)
-                  PopupMenuItem<String>(
-                    value: 'toggle_cancel',
-                    child: Row(
-                      children: [
-                        Icon(
-                          _currentBooking.isCancelled
-                              ? Icons.restore
-                              : Icons.cancel,
-                          size: 20,
-                          color: _currentBooking.isCancelled
-                              ? Colors.green
-                              : Colors.orange,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _currentBooking.isCancelled
-                                ? 'Restaurer la réservation'
-                                : 'Marquer comme annulée',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: _currentBooking.isCancelled
-                                  ? Colors.green
-                                  : Colors.orange,
-                            ),
+
+                      // Option de suppression (admin uniquement)
+                      if (user != null && user.settings?.role == 'admin') ...[
+                        const PopupMenuDivider(),
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 20, color: Colors.red),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Supprimer la réservation',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: Colors.red),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  
-                  // Option de suppression (admin uniquement)
-                  if (user != null && user.settings?.role == 'admin') ...[
-                    const PopupMenuDivider(),
-                    PopupMenuItem<String>(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete,
-                            size: 20,
-                            color: Colors.red,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Supprimer la réservation',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+                    ],
                 onSelected: (String value) async {
                   switch (value) {
                     case 'email':
@@ -302,59 +325,70 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         context,
                         listen: false,
                       );
-                      
+
                       await Future.delayed(const Duration(milliseconds: 100));
                       if (!context.mounted) return;
 
                       final confirmed = await showDialog<bool>(
                         context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          title: Row(
-                            children: [
-                              Icon(
-                                Icons.warning_rounded,
-                                color: Theme.of(context).colorScheme.error,
-                                size: 24,
+                        builder:
+                            (dialogContext) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              const SizedBox(width: 12),
-                              const Text('Confirmer la suppression'),
-                            ],
-                          ),
-                          content: Text(
-                            'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} ?',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(false),
-                              style: TextButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                              title: Row(
+                                children: [
+                                  Icon(
+                                    Icons.warning_rounded,
+                                    color: Theme.of(context).colorScheme.error,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text('Confirmer la suppression'),
+                                ],
+                              ),
+                              content: Text(
+                                'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} ?',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed:
+                                      () => Navigator.of(
+                                        dialogContext,
+                                      ).pop(false),
+                                  style: TextButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Annuler',
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: Text(
-                                'Annuler',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface,
+                                FilledButton(
+                                  onPressed:
+                                      () =>
+                                          Navigator.of(dialogContext).pop(true),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.error,
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.onError,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('Supprimer'),
                                 ),
-                              ),
+                              ],
                             ),
-                            FilledButton(
-                              onPressed: () => Navigator.of(dialogContext).pop(true),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.error,
-                                foregroundColor: Theme.of(context).colorScheme.onError,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text('Supprimer'),
-                            ),
-                          ],
-                        ),
                       );
 
                       if (!mounted) return;

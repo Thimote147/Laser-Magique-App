@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/booking_model.dart';
 import '../../../../shared/models/payment_model.dart';
+import '../../../../shared/services/consumption_price_service.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
 import 'add_payment_dialog.dart';
@@ -62,11 +63,91 @@ class BookingPaymentWidget extends StatefulWidget {
 class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
   late Booking _currentBooking;
 
+  // ValueNotifiers pour conserver l'affichage pendant les mises à jour
+  final ValueNotifier<double> _totalPriceNotifier = ValueNotifier<double>(0);
+  final ValueNotifier<double> _consumptionsTotalNotifier =
+      ValueNotifier<double>(0);
+  final ValueNotifier<double> _formulaPriceNotifier = ValueNotifier<double>(0);
+  final ValueNotifier<double> _remainingAmountNotifier = ValueNotifier<double>(
+    0,
+  );
+  final ValueNotifier<bool> _showFormulaDetailsNotifier = ValueNotifier<bool>(
+    false,
+  );
+
+  // Service pour recevoir les mises à jour de prix des consommations
+  final ConsumptionPriceService _priceService = ConsumptionPriceService();
+
   @override
   void initState() {
     super.initState();
     _currentBooking = widget.booking;
-    _refreshBookingData();
+    // Initialiser les notifiers
+    _formulaPriceNotifier.value = _currentBooking.formulaPrice;
+
+    // Configurer l'écoute des mises à jour de prix des consommations
+    _listenToConsumptionPriceUpdates();
+
+    // Appeler _refreshBookingData après l'initialisation
+    Future.microtask(() {
+      if (mounted) {
+        _refreshBookingData();
+      }
+    });
+  }
+
+  // Écouter les mises à jour de prix des consommations
+  // Écouter les mises à jour de prix des consommations
+  void _listenToConsumptionPriceUpdates() {
+    final consumptionPriceNotifier = _priceService.getNotifierForBooking(
+      _currentBooking.id,
+    );
+
+    // Initialiser avec la valeur actuelle si disponible
+    // Utiliser Future.microtask pour éviter d'interférer avec le cycle de vie du widget
+    Future.microtask(() {
+      if (mounted) {
+        if (consumptionPriceNotifier.value > 0) {
+          _consumptionsTotalNotifier.value = consumptionPriceNotifier.value;
+          _totalPriceNotifier.value =
+              _currentBooking.formulaPrice + consumptionPriceNotifier.value;
+          _remainingAmountNotifier.value = _getRemainingAmount(
+            consumptionPriceNotifier.value,
+          );
+          _showFormulaDetailsNotifier.value = true;
+        } else {
+          // Si aucune valeur n'est disponible, initialiser avec StockViewModel
+          final stockVM = Provider.of<StockViewModel>(context, listen: false);
+          final consumptionsTotal = stockVM.getConsumptionTotal(
+            _currentBooking.id,
+          );
+
+          // N'initialiser le service que si nécessaire
+          if (consumptionsTotal > 0 && consumptionPriceNotifier.value == 0) {
+            _priceService.updateConsumptionPrice(
+              _currentBooking.id,
+              consumptionsTotal,
+            );
+          }
+        }
+      }
+    });
+
+    consumptionPriceNotifier.addListener(() {
+      if (mounted) {
+        // Mettre à jour le notifier du montant des consommations
+        _consumptionsTotalNotifier.value = consumptionPriceNotifier.value;
+        // Calculer et mettre à jour le prix total
+        _totalPriceNotifier.value =
+            _currentBooking.formulaPrice + consumptionPriceNotifier.value;
+        // Mettre à jour le montant restant
+        _remainingAmountNotifier.value = _getRemainingAmount(
+          consumptionPriceNotifier.value,
+        );
+        // Mettre à jour l'affichage des détails de la formule
+        _showFormulaDetailsNotifier.value = consumptionPriceNotifier.value > 0;
+      }
+    });
   }
 
   @override
@@ -85,13 +166,32 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         context,
         listen: false,
       );
+
+      // Avant de mettre à jour, récupérer la valeur actuelle des consommations
+      final consumptionPriceNotifier = _priceService.getNotifierForBooking(
+        _currentBooking.id,
+      );
+      final currentConsumptionsTotal = consumptionPriceNotifier.value;
+
       final updatedBooking = await bookingViewModel.getBookingDetails(
         _currentBooking.id,
       );
+
       if (mounted) {
         setState(() {
           _currentBooking = updatedBooking;
         });
+
+        // Mettre à jour les notifiers relatifs à la formule et au statut de paiement
+        _formulaPriceNotifier.value = _currentBooking.formulaPrice;
+
+        // Calculer le prix total en utilisant la valeur actuelle des consommations
+        _totalPriceNotifier.value =
+            _currentBooking.formulaPrice + currentConsumptionsTotal;
+        _remainingAmountNotifier.value = _getRemainingAmount(
+          currentConsumptionsTotal,
+        );
+        _showFormulaDetailsNotifier.value = currentConsumptionsTotal > 0;
       }
     } catch (e) {
       // Silent error handling
@@ -111,11 +211,23 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
   Widget _buildPaymentHeader(BuildContext context) {
     return Consumer<StockViewModel>(
       builder: (context, stockVM, _) {
+        // Calculer les valeurs pour les notifiers
         final consumptionsTotal = stockVM.getConsumptionTotal(
           _currentBooking.id,
         );
         final totalPrice = _currentBooking.formulaPrice + consumptionsTotal;
         final remainingAmount = _getRemainingAmount(consumptionsTotal);
+
+        // Mettre à jour les notifiers sans provoquer de rebuild
+        Future.microtask(() {
+          if (mounted) {
+            _totalPriceNotifier.value = totalPrice;
+            _consumptionsTotalNotifier.value = consumptionsTotal;
+            _formulaPriceNotifier.value = _currentBooking.formulaPrice;
+            _remainingAmountNotifier.value = remainingAmount;
+            _showFormulaDetailsNotifier.value = consumptionsTotal > 0;
+          }
+        });
 
         return Container(
           width: double.infinity,
@@ -138,44 +250,74 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '${totalPrice.toStringAsFixed(2)}€',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                    ValueListenableBuilder<double>(
+                      valueListenable: _totalPriceNotifier,
+                      builder: (context, totalPrice, _) {
+                        return Text(
+                          '${totalPrice.toStringAsFixed(2)}€',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w500),
+                        );
+                      },
                     ),
                     const SizedBox(height: 4),
-                    if (consumptionsTotal > 0)
-                      Text(
-                        'Formule: ${_currentBooking.formulaPrice.toStringAsFixed(2)}€ + Consommations: ${consumptionsTotal.toStringAsFixed(2)}€',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: _showFormulaDetailsNotifier,
+                      builder: (context, showDetails, _) {
+                        if (!showDetails) return const SizedBox.shrink();
+
+                        return ValueListenableBuilder<double>(
+                          valueListenable: _formulaPriceNotifier,
+                          builder: (context, formulaPrice, _) {
+                            return ValueListenableBuilder<double>(
+                              valueListenable: _consumptionsTotalNotifier,
+                              builder: (context, consumptionsTotal, _) {
+                                return Text(
+                                  'Formule: ${formulaPrice.toStringAsFixed(2)}€ + Consommations: ${consumptionsTotal.toStringAsFixed(2)}€',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.copyWith(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color:
-                      remainingAmount > 0
-                          ? Theme.of(context).colorScheme.errorContainer
-                          : Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  remainingAmount > 0 ? 'EN ATTENTE' : 'PAYÉ',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color:
-                        remainingAmount > 0
-                            ? Theme.of(context).colorScheme.error
-                            : Theme.of(context).colorScheme.primary,
-                  ),
-                ),
+              ValueListenableBuilder<double>(
+                valueListenable: _remainingAmountNotifier,
+                builder: (context, remainingAmount, _) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          remainingAmount > 0
+                              ? Theme.of(context).colorScheme.errorContainer
+                              : Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      remainingAmount > 0 ? 'EN ATTENTE' : 'PAYÉ',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color:
+                            remainingAmount > 0
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -486,5 +628,20 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
       ).cancelPayment(payment.id);
       await _refreshBookingData();
     }
+  }
+
+  @override
+  void dispose() {
+    // Nettoyer les notifiers pour éviter les fuites de mémoire
+    _totalPriceNotifier.dispose();
+    _consumptionsTotalNotifier.dispose();
+    _formulaPriceNotifier.dispose();
+    _remainingAmountNotifier.dispose();
+    _showFormulaDetailsNotifier.dispose();
+
+    // Nettoyer le notifier de prix des consommations
+    _priceService.cleanupNotifier(_currentBooking.id);
+
+    super.dispose();
   }
 }
