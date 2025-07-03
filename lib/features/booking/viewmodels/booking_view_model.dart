@@ -410,6 +410,18 @@ class BookingViewModel extends ChangeNotifier {
     try {
       final booking = _bookingCache[bookingId];
       if (booking != null) {
+        // Vérifier si le montant a réellement changé
+        if (booking.consumptionsTotal == consumptionsTotal) {
+          debugPrint(
+            'BookingViewModel: No change in consumption total, skipping update',
+          );
+          return;
+        }
+
+        debugPrint(
+          'BookingViewModel: Updating booking totals for $bookingId to $consumptionsTotal',
+        );
+
         // Mise à jour optimiste du cache
         final newTotalPrice = booking.formulaPrice + consumptionsTotal;
         final updatedBooking = booking.copyWith(
@@ -417,20 +429,27 @@ class BookingViewModel extends ChangeNotifier {
           totalPrice: newTotalPrice,
         );
         _bookingCache[bookingId] = updatedBooking;
+
+        // Ne notifier que si la réservation est dans la liste active
         final index = _bookings.indexWhere((b) => b.id == bookingId);
         if (index != -1) {
           _bookings[index] = updatedBooking;
           notifyListeners();
         }
 
-        // Synchronisation avec la base
+        // Synchronisation avec la base sans déclencher de refresh immédiat
         await _repository.updateBookingTotals(
           bookingId: bookingId,
           consumptionsTotal: consumptionsTotal,
         );
 
-        // Refresh différé
-        await _triggerImmediateRefresh();
+        // Refresh différé mais moins fréquent
+        // Utiliser un debounce plus long pour éviter les mises à jour en cascade
+        _lastManualRefresh = DateTime.now();
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(const Duration(seconds: 2), () async {
+          await loadBookings();
+        });
       }
     } catch (e) {
       _error = 'Error updating booking totals: $e';

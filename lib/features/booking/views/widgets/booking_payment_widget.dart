@@ -97,57 +97,79 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
   }
 
   // Écouter les mises à jour de prix des consommations
-  // Écouter les mises à jour de prix des consommations
   void _listenToConsumptionPriceUpdates() {
     final consumptionPriceNotifier = _priceService.getNotifierForBooking(
       _currentBooking.id,
     );
 
     // Initialiser avec la valeur actuelle si disponible
-    // Utiliser Future.microtask pour éviter d'interférer avec le cycle de vie du widget
-    Future.microtask(() {
-      if (mounted) {
-        if (consumptionPriceNotifier.value > 0) {
-          _consumptionsTotalNotifier.value = consumptionPriceNotifier.value;
-          _totalPriceNotifier.value =
-              _currentBooking.formulaPrice + consumptionPriceNotifier.value;
-          _remainingAmountNotifier.value = _getRemainingAmount(
-            consumptionPriceNotifier.value,
-          );
-          _showFormulaDetailsNotifier.value = true;
-        } else {
-          // Si aucune valeur n'est disponible, initialiser avec StockViewModel
-          final stockVM = Provider.of<StockViewModel>(context, listen: false);
-          final consumptionsTotal = stockVM.getConsumptionTotal(
-            _currentBooking.id,
-          );
+    // Éviter l'utilisation de microtask pour réduire les mises à jour en cascade
+    if (mounted) {
+      // Toujours vérifier la valeur la plus récente du StockViewModel
+      final stockVM = Provider.of<StockViewModel>(context, listen: false);
+      final stockConsumptionsTotal = stockVM.getConsumptionTotal(
+        _currentBooking.id,
+      );
 
-          // N'initialiser le service que si nécessaire
-          if (consumptionsTotal > 0 && consumptionPriceNotifier.value == 0) {
-            _priceService.updateConsumptionPrice(
-              _currentBooking.id,
-              consumptionsTotal,
-            );
-          }
+      // Utiliser la valeur du service, et la synchroniser avec StockViewModel si nécessaire
+      double effectiveTotal = consumptionPriceNotifier.value;
+      bool needsServiceUpdate = false;
+
+      // Si le StockViewModel a une valeur différente, vérifier quelle est la plus à jour
+      if (stockConsumptionsTotal != effectiveTotal) {
+        if (stockConsumptionsTotal > 0) {
+          effectiveTotal = stockConsumptionsTotal;
+          needsServiceUpdate = true;
         }
       }
-    });
 
+      // N'effectuer qu'une seule mise à jour coordonnée pour éviter les rebonds
+      if (effectiveTotal > 0) {
+        // Mise à jour locale immédiate sans déclencher de cascades
+        _updatePaymentDisplay(effectiveTotal);
+
+        // Synchroniser le service uniquement si nécessaire
+        if (needsServiceUpdate) {
+          debugPrint(
+            'BookingPaymentWidget: Synchronizing service with StockViewModel value: $effectiveTotal',
+          );
+          _priceService.updateConsumptionPriceSync(
+            _currentBooking.id,
+            effectiveTotal,
+          );
+        }
+      }
+    }
+
+    // Écouter les changements futurs
     consumptionPriceNotifier.addListener(() {
       if (mounted) {
-        // Mettre à jour le notifier du montant des consommations
-        _consumptionsTotalNotifier.value = consumptionPriceNotifier.value;
-        // Calculer et mettre à jour le prix total
-        _totalPriceNotifier.value =
-            _currentBooking.formulaPrice + consumptionPriceNotifier.value;
-        // Mettre à jour le montant restant
-        _remainingAmountNotifier.value = _getRemainingAmount(
-          consumptionPriceNotifier.value,
+        final newValue = consumptionPriceNotifier.value;
+        debugPrint(
+          'BookingPaymentWidget: Consumption price changed to $newValue',
         );
-        // Mettre à jour l'affichage des détails de la formule
-        _showFormulaDetailsNotifier.value = consumptionPriceNotifier.value > 0;
+
+        // Effectuer une seule mise à jour coordonnée
+        _updatePaymentDisplay(newValue);
       }
     });
+  }
+
+  // Méthode unifiée pour mettre à jour l'affichage des paiements
+  void _updatePaymentDisplay(double consumptionsTotal) {
+    // Ne mettre à jour que si la valeur a changé
+    if (_consumptionsTotalNotifier.value != consumptionsTotal) {
+      _consumptionsTotalNotifier.value = consumptionsTotal;
+      _totalPriceNotifier.value =
+          _currentBooking.formulaPrice + consumptionsTotal;
+      _remainingAmountNotifier.value = _getRemainingAmount(consumptionsTotal);
+      _showFormulaDetailsNotifier.value = consumptionsTotal > 0;
+
+      debugPrint(
+        'BookingPaymentWidget: Display updated - Total: ${_totalPriceNotifier.value}, '
+        'Remaining: ${_remainingAmountNotifier.value}',
+      );
+    }
   }
 
   @override
@@ -215,8 +237,28 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         final consumptionsTotal = stockVM.getConsumptionTotal(
           _currentBooking.id,
         );
-        final totalPrice = _currentBooking.formulaPrice + consumptionsTotal;
-        final remainingAmount = _getRemainingAmount(consumptionsTotal);
+
+        // S'assurer que le service de prix est à jour avec la dernière valeur
+        final currentServiceValue =
+            _priceService.getNotifierForBooking(_currentBooking.id).value;
+
+        // Si le service n'est pas à jour avec la valeur stockVM, le mettre à jour
+        if (consumptionsTotal > 0 && currentServiceValue != consumptionsTotal) {
+          Future.microtask(() {
+            _priceService.updateConsumptionPrice(
+              _currentBooking.id,
+              consumptionsTotal,
+            );
+          });
+        }
+
+        // Utiliser la valeur la plus récente pour le calcul
+        final effectiveConsumptionsTotal =
+            consumptionsTotal > 0 ? consumptionsTotal : currentServiceValue;
+
+        final totalPrice =
+            _currentBooking.formulaPrice + effectiveConsumptionsTotal;
+        final remainingAmount = _getRemainingAmount(effectiveConsumptionsTotal);
 
         // Mettre à jour les notifiers sans provoquer de rebuild
         Future.microtask(() {

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../auth/services/auth_service.dart';
 import '../../../profile/models/user_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
+import '../../../../shared/user_provider.dart';
 import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../widgets/booking_consumption_widget.dart';
@@ -153,10 +154,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UserModel?>(
-      future: AuthService().currentUserWithSettings,
-      builder: (context, snapshot) {
-        final user = snapshot.data;
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        final user = userProvider.user;
+        final isAdmin = userProvider.isAdmin;
 
         return Scaffold(
           appBar: AppBar(
@@ -188,7 +189,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                 itemBuilder:
                     (context) => [
                       // Options admin uniquement
-                      if (user != null && user.settings?.role == 'admin') ...[
+                      if (isAdmin) ...[
                         if (_currentBooking.email != null)
                           PopupMenuItem<String>(
                             value: 'email',
@@ -266,7 +267,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       ),
 
                       // Option de suppression (admin uniquement)
-                      if (user != null && user.settings?.role == 'admin') ...[
+                      if (isAdmin) ...[
                         const PopupMenuDivider(),
                         PopupMenuItem<String>(
                           value: 'delete',
@@ -440,7 +441,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   ),
 
                 // Section Client (affiché seulement si admin)
-                if (user != null && user.settings?.role == 'admin') ...[
+                if (isAdmin) ...[
                   Padding(
                     padding: const EdgeInsets.only(left: 4, bottom: 8),
                     child: Row(

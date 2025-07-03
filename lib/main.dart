@@ -71,60 +71,107 @@ class LaserMagiqueApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => EquipmentViewModel()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
-      child: Consumer<SettingsViewModel>(
-        builder: (context, settingsVM, child) {
-          ThemeMode themeMode;
-          switch (settingsVM.themeMode) {
-            case AppThemeMode.light:
-              themeMode = ThemeMode.light;
-              break;
-            case AppThemeMode.dark:
-              themeMode = ThemeMode.dark;
-              break;
-            case AppThemeMode.system:
-              themeMode = ThemeMode.system;
-              break;
-          }
+      child: Builder(
+        builder: (context) {
+          // Initialiser les données au démarrage de l'app
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Préchargement de l'utilisateur pour éviter les latences d'affichage
+            final userProvider = Provider.of<UserProvider>(
+              context,
+              listen: false,
+            );
+            final authService = Provider.of<AuthService>(
+              context,
+              listen: false,
+            );
+            authService.currentUserWithSettings.then((user) {
+              userProvider.user = user;
+            }).catchError((error) {
+              // En cas d'erreur, l'utilisateur reste null (pas d'admin)
+            });
 
-          return MaterialApp(
-            title: 'Laser Magique',
-            theme: ThemeData(
-              useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF1E88E5), // Bleu Material 600
-                brightness: Brightness.light,
-              ),
-              appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-              cardTheme: CardTheme(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            // Préchargement du stock - force l'initialisation même si déjà initialisé
+            final stockViewModel = Provider.of<StockViewModel>(
+              context,
+              listen: false,
+            );
+            stockViewModel.forceInitialize().catchError((error) {
+              // Afficher une notification en cas d'erreur, mais ne pas bloquer l'utilisation de l'app
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Erreur lors du chargement des données de stock: $error',
+                    ),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            });
+          });
+
+          return Consumer<SettingsViewModel>(
+            builder: (context, settingsVM, child) {
+              ThemeMode themeMode;
+              switch (settingsVM.themeMode) {
+                case AppThemeMode.light:
+                  themeMode = ThemeMode.light;
+                  break;
+                case AppThemeMode.dark:
+                  themeMode = ThemeMode.dark;
+                  break;
+                case AppThemeMode.system:
+                  themeMode = ThemeMode.system;
+                  break;
+              }
+
+              return MaterialApp(
+                title: 'Laser Magique',
+                theme: ThemeData(
+                  useMaterial3: true,
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: const Color(0xFF1E88E5), // Bleu Material 600
+                    brightness: Brightness.light,
+                  ),
+                  appBarTheme: const AppBarTheme(
+                    centerTitle: true,
+                    elevation: 0,
+                  ),
+                  cardTheme: CardTheme(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF1E88E5), // Bleu Material 600
-                brightness: Brightness.dark,
-              ),
-              appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
-              cardTheme: CardTheme(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: const Color(0xFF1E88E5), // Bleu Material 600
+                    brightness: Brightness.dark,
+                  ),
+                  appBarTheme: const AppBarTheme(
+                    centerTitle: true,
+                    elevation: 0,
+                  ),
+                  cardTheme: CardTheme(
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            themeMode: themeMode,
-            debugShowCheckedModeBanner: false,
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [Locale('fr', 'FR')],
-            locale: const Locale('fr', 'FR'),
-            home: const _SessionGate(),
+                themeMode: themeMode,
+                debugShowCheckedModeBanner: false,
+                localizationsDelegates: const [
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate,
+                  GlobalCupertinoLocalizations.delegate,
+                ],
+                supportedLocales: const [Locale('fr', 'FR')],
+                locale: const Locale('fr', 'FR'),
+                home: const _SessionGate(),
+              );
+            },
           );
         },
       ),
