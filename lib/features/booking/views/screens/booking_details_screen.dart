@@ -162,6 +162,25 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               '${_currentBooking.firstName} ${_currentBooking.lastName ?? ""}',
             ),
             actions: [
+              // Bouton Modifier dans la barre d'actions
+              IconButton(
+                icon: Icon(
+                  Icons.edit,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                tooltip: 'Modifier la réservation',
+                onPressed: () {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder:
+                              (context) =>
+                                  BookingEditScreen(booking: _currentBooking),
+                        ),
+                      )
+                      .then((_) => _refreshBooking());
+                },
+              ),
               PopupMenuButton<String>(
                 icon: Icon(
                   Icons.more_vert,
@@ -215,26 +234,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                             _currentBooking.phone != null))
                           const PopupMenuDivider(),
                       ],
-
-                      // Option de modification (tous les utilisateurs)
-                      PopupMenuItem<String>(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.edit,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Modifier la réservation',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
 
                       // Option d'annulation/restauration (tous les utilisateurs)
                       PopupMenuItem<String>(
@@ -301,19 +300,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       if (_currentBooking.phone != null) {
                         await _makePhoneCall(_currentBooking.phone!);
                       }
-                      break;
-                    case 'edit':
-                      // Naviguer vers l'écran de modification avec la réservation actuelle
-                      Navigator.of(context)
-                          .push(
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => BookingEditScreen(
-                                    booking: _currentBooking,
-                                  ),
-                            ),
-                          )
-                          .then((_) => _refreshBooking());
                       break;
                     case 'toggle_cancel':
                       await Provider.of<BookingViewModel>(
