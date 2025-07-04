@@ -168,9 +168,9 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
         width: 40 + (progress * 20),
         height: 4,
         decoration: BoxDecoration(
-          color: Theme.of(
-            context,
-          ).colorScheme.outlineVariant.withAlpha((255 * (1.0 - progress * 0.3)).round()),
+          color: Theme.of(context).colorScheme.outlineVariant.withAlpha(
+            (255 * (1.0 - progress * 0.3)).round(),
+          ),
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -303,6 +303,21 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
               onTap:
                   canInteract
                       ? () {
+                        debugPrint(
+                          'Item sélectionné: ${item.name} (ID: ${item.id})',
+                        );
+
+                        // Vérifier que l'article existe bien dans le StockViewModel
+                        final originalItem = _findOriginalItem(item.id);
+                        if (originalItem == null) {
+                          debugPrint('ERREUR: Article non trouvé avec ID: ${item.id}');
+                          return;
+                        }
+
+                        debugPrint(
+                          'Item original confirmé: ${originalItem.name} (ID: ${originalItem.id})',
+                        );
+
                         // Si l'article est déjà sélectionné, on le désélectionne
                         if (isSelected) {
                           setState(() => selectedItemId = null);
@@ -310,8 +325,8 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                             '',
                           ); // On envoie une chaîne vide pour indiquer la désélection
                         } else {
-                          setState(() => selectedItemId = item.id);
-                          widget.onConsumptionSelected(item.id);
+                          setState(() => selectedItemId = originalItem.id);
+                          widget.onConsumptionSelected(originalItem.id);
                         }
                         HapticFeedback.selectionClick();
                       }
@@ -322,9 +337,10 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                 decoration: BoxDecoration(
                   color:
                       !hasStock
-                          ? Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round())
+                          ? Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withAlpha((255 * 0.3).round())
                           : isSelected
                           ? Theme.of(context).colorScheme.primaryContainer
                           : Theme.of(context).colorScheme.surface,
@@ -332,23 +348,20 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                   border: Border.all(
                     color:
                         !hasStock
-                            ? Theme.of(
-                              context,
-                            ).colorScheme.outlineVariant.withAlpha((255 * 0.3).round())
+                            ? Theme.of(context).colorScheme.outlineVariant
+                                .withAlpha((255 * 0.3).round())
                             : isSelected
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(
-                              context,
-                            ).colorScheme.outlineVariant.withAlpha((255 * 0.3).round()),
+                            : Theme.of(context).colorScheme.outlineVariant
+                                .withAlpha((255 * 0.3).round()),
                     width: isSelected ? 2 : 1,
                   ),
                   boxShadow:
                       isSelected
                           ? [
                             BoxShadow(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withAlpha((255 * 0.1).round()),
+                              color: Theme.of(context).colorScheme.primary
+                                  .withAlpha((255 * 0.1).round()),
                               blurRadius: 8,
                               spreadRadius: 0,
                             ),
@@ -366,9 +379,8 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                           decoration: BoxDecoration(
                             color:
                                 hasStock
-                                    ? Theme.of(
-                                      context,
-                                    ).colorScheme.primary.withAlpha((255 * 0.1).round())
+                                    ? Theme.of(context).colorScheme.primary
+                                        .withAlpha((255 * 0.1).round())
                                     : Theme.of(
                                       context,
                                     ).colorScheme.surfaceContainerHighest,
@@ -499,9 +511,8 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.secondaryContainer.withAlpha((255 * 0.5).round()),
+                        color: Theme.of(context).colorScheme.secondaryContainer
+                            .withAlpha((255 * 0.5).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -553,14 +564,15 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                           ? Theme.of(
                             context,
                           ).colorScheme.primary.withAlpha((255 * 0.15).round())
-                          : Theme.of(context).colorScheme.surfaceContainerHighest,
+                          : Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(10),
                   border:
                       isSelected
                           ? Border.all(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withAlpha((255 * 0.3).round()),
+                            color: Theme.of(context).colorScheme.primary
+                                .withAlpha((255 * 0.3).round()),
                             width: 1,
                           )
                           : null,
@@ -606,12 +618,44 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
     }
   }
 
+  // Méthode pour trouver l'article original (non filtré) par son ID
+  StockItem? _findOriginalItem(String itemId) {
+    // Utiliser la méthode dédiée du StockViewModel qui est plus fiable
+    return widget.stockVM.findStockItemById(itemId);
+  }
+
   @override
   Widget build(BuildContext context) {
+    debugPrint('ConsumptionSelector build - isLoading: ${widget.stockVM.isLoading}');
+    debugPrint('ConsumptionSelector build - isInitialized: ${widget.stockVM.isInitialized}');
+    
+    // Vérifier si le StockViewModel est en cours de chargement
+    if (widget.stockVM.isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Chargement des articles...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final hasDrinks = widget.stockVM.drinks.isNotEmpty;
     final hasFood = widget.stockVM.food.isNotEmpty;
     final hasOthers = widget.stockVM.others.isNotEmpty;
     final hasAny = hasDrinks || hasFood || hasOthers;
+    
+    debugPrint('ConsumptionSelector - drinks: ${widget.stockVM.drinks.length}, food: ${widget.stockVM.food.length}, others: ${widget.stockVM.others.length}');
+    debugPrint('ConsumptionSelector - hasAny: $hasAny');
 
     if (!hasAny) {
       return Center(
@@ -629,6 +673,15 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Vérifiez que des articles sont bien configurés\ndans l\'inventaire avec du stock disponible',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
                 color: Theme.of(context).colorScheme.outline,
               ),
             ),
@@ -722,7 +775,9 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withAlpha((255 * 0.1).round()),
+                              color: Colors.black.withAlpha(
+                                (255 * 0.1).round(),
+                              ),
                               blurRadius: 10,
                               spreadRadius: 0,
                               offset: const Offset(0, -2),
@@ -790,9 +845,10 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                                 horizontal: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest
+                                    .withAlpha((255 * 0.3).round()),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Semantics(

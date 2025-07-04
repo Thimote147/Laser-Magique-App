@@ -77,6 +77,9 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
 
   // Service pour recevoir les mises à jour de prix des consommations
   final ConsumptionPriceService _priceService = ConsumptionPriceService();
+  
+  // Debouncer pour stabiliser les mises à jour du montant des consommations
+  Timer? _consumptionUpdateTimer;
 
   @override
   void initState() {
@@ -157,19 +160,27 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
 
   // Méthode unifiée pour mettre à jour l'affichage des paiements
   void _updatePaymentDisplay(double consumptionsTotal) {
-    // Ne mettre à jour que si la valeur a changé
-    if (_consumptionsTotalNotifier.value != consumptionsTotal) {
-      _consumptionsTotalNotifier.value = consumptionsTotal;
-      _totalPriceNotifier.value =
-          _currentBooking.formulaPrice + consumptionsTotal;
-      _remainingAmountNotifier.value = _getRemainingAmount(consumptionsTotal);
-      _showFormulaDetailsNotifier.value = consumptionsTotal > 0;
+    // Annuler le timer précédent s'il existe
+    _consumptionUpdateTimer?.cancel();
+    
+    // Utiliser un debouncer pour stabiliser les mises à jour
+    _consumptionUpdateTimer = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) {
+        // Ne mettre à jour que si la valeur a changé
+        if (_consumptionsTotalNotifier.value != consumptionsTotal) {
+          _consumptionsTotalNotifier.value = consumptionsTotal;
+          _totalPriceNotifier.value =
+              _currentBooking.formulaPrice + consumptionsTotal;
+          _remainingAmountNotifier.value = _getRemainingAmount(consumptionsTotal);
+          _showFormulaDetailsNotifier.value = consumptionsTotal > 0;
 
-      debugPrint(
-        'BookingPaymentWidget: Display updated - Total: ${_totalPriceNotifier.value}, '
-        'Remaining: ${_remainingAmountNotifier.value}',
-      );
-    }
+          debugPrint(
+            'BookingPaymentWidget: Display updated (debounced) - Total: ${_totalPriceNotifier.value}, '
+            'Remaining: ${_remainingAmountNotifier.value}',
+          );
+        }
+      }
+    });
   }
 
   @override
@@ -256,20 +267,8 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         final effectiveConsumptionsTotal =
             consumptionsTotal > 0 ? consumptionsTotal : currentServiceValue;
 
-        final totalPrice =
-            _currentBooking.formulaPrice + effectiveConsumptionsTotal;
-        final remainingAmount = _getRemainingAmount(effectiveConsumptionsTotal);
-
-        // Mettre à jour les notifiers sans provoquer de rebuild
-        Future.microtask(() {
-          if (mounted) {
-            _totalPriceNotifier.value = totalPrice;
-            _consumptionsTotalNotifier.value = consumptionsTotal;
-            _formulaPriceNotifier.value = _currentBooking.formulaPrice;
-            _remainingAmountNotifier.value = remainingAmount;
-            _showFormulaDetailsNotifier.value = consumptionsTotal > 0;
-          }
-        });
+        // Utiliser le système de debouncing pour éviter le flickering
+        _updatePaymentDisplay(effectiveConsumptionsTotal);
 
         return Container(
           width: double.infinity,
@@ -681,6 +680,9 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
     _remainingAmountNotifier.dispose();
     _showFormulaDetailsNotifier.dispose();
 
+    // Nettoyer le timer de debouncing
+    _consumptionUpdateTimer?.cancel();
+    
     // Nettoyer le notifier de prix des consommations
     _priceService.cleanupNotifier(_currentBooking.id);
 

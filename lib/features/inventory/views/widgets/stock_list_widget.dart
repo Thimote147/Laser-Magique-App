@@ -263,8 +263,7 @@ class _StockListState extends State<StockList> {
     );
   }
 
-  void _showEditModal(int index) {
-    final stockItem = widget.items[index];
+  void _showEditModal(StockItem stockItem) {
     _editingQuantity = stockItem.quantity;
 
     // Initialiser les contrôleurs avec les valeurs actuelles
@@ -777,7 +776,7 @@ class _StockListState extends State<StockList> {
                               : theme.colorScheme.surface)
                           .withAlpha(isLowStock ? 51 : 0),
                       child: ListTile(
-                        onTap: () => _showEditModal(index),
+                        onTap: () => _showEditModal(item),
                         minLeadingWidth: 24,
                         leading: Icon(
                           _getItemIcon(item.category),

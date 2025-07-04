@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/booking_model.dart';
 import '../../../../shared/models/consumption_model.dart';
 import '../../../inventory/models/stock_item_model.dart';
+import '../../../inventory/viewmodels/stock_view_model.dart';
 import '../../controllers/booking_consumption_controller.dart';
+import 'consumption_selector.dart';
 
 class BookingConsumptionWidget extends StatefulWidget {
   final Booking booking;
@@ -15,7 +18,8 @@ class BookingConsumptionWidget extends StatefulWidget {
   });
 
   @override
-  State<BookingConsumptionWidget> createState() => _BookingConsumptionWidgetState();
+  State<BookingConsumptionWidget> createState() =>
+      _BookingConsumptionWidgetState();
 }
 
 class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
@@ -24,7 +28,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
 
   // Build count par booking ID pour debugging
   static final Map<String, int> _buildCounts = {};
-  
+
   int get _currentBuildCount {
     final bookingId = widget.booking.id;
     _buildCounts[bookingId] = (_buildCounts[bookingId] ?? 0) + 1;
@@ -34,22 +38,30 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
   @override
   void initState() {
     super.initState();
-    
+
     // Pré-initialiser le service de prix IMMÉDIATEMENT pour éviter la fluctuation
-    BookingConsumptionController.preInitializePriceService(context, widget.booking.id);
-    
+    BookingConsumptionController.preInitializePriceService(
+      context,
+      widget.booking.id,
+    );
+
     controller = BookingConsumptionController.forBooking(widget.booking.id);
     _initializeController();
   }
 
   void _initializeController() async {
+    debugPrint('_initializeController appelé - isInitialized: $_isInitialized');
     if (!_isInitialized) {
       _isInitialized = true;
       if (mounted) {
-        await controller.initialize(context);
-        // Force sync une seule fois après l'initialisation
+        debugPrint('Appel de controller.reset');
+        await controller.reset(context);
+
+        // Forcer un rebuild après l'initialisation pour s'assurer que les données sont affichées
         if (mounted) {
-          await controller.forceSyncWithPriceService(context);
+          setState(() {
+            debugPrint('setState appelé dans _initializeController');
+          });
         }
       }
     }
@@ -68,12 +80,14 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
   @override
   Widget build(BuildContext context) {
     final buildCount = _currentBuildCount;
-    
+
     // Log si rebuilds multiples détectés
     if (buildCount > 1) {
-      debugPrint('BookingConsumptionWidget (${widget.booking.id}): Rebuild #$buildCount');
+      debugPrint(
+        'BookingConsumptionWidget (${widget.booking.id}): Rebuild #$buildCount',
+      );
     }
-    
+
     return _buildContent(context, controller);
   }
 
@@ -83,27 +97,29 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
     // Le controller se nettoie automatiquement quand plus personne ne l'utilise
     super.dispose();
   }
-  
-  Widget _buildContent(BuildContext context, BookingConsumptionController controller) {
+
+  Widget _buildContent(
+    BuildContext context,
+    BookingConsumptionController controller,
+  ) {
     return RepaintBoundary(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // En-tête avec montant total
-          RepaintBoundary(
-            child: _buildConsumptionHeader(context, controller),
-          ),
-          
+          RepaintBoundary(child: _buildConsumptionHeader(context, controller)),
+
           // Bouton d'ajout
-          RepaintBoundary(
-            child: _buildAddConsumptionButton(context),
-          ),
-          
+          RepaintBoundary(child: _buildAddConsumptionButton(context)),
+
           // Contenu principal avec gestion d'état
           RepaintBoundary(
             child: ValueListenableBuilder<bool>(
               valueListenable: controller.isLoadingNotifier,
               builder: (context, isLoading, _) {
+                debugPrint(
+                  'isLoading: $isLoading pour booking ${widget.booking.id}',
+                );
                 if (isLoading) {
                   return Container(
                     margin: const EdgeInsets.only(top: 16),
@@ -116,15 +132,22 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
                     ),
                   );
                 }
-                
+
                 return ValueListenableBuilder<List<(Consumption, StockItem)>?>(
                   valueListenable: controller.consumptionsNotifier,
                   builder: (context, consumptions, _) {
+                    debugPrint(
+                      'Consommations notifier: ${consumptions?.length ?? 0} items pour booking ${widget.booking.id}',
+                    );
                     if (consumptions == null || consumptions.isEmpty) {
                       return const SizedBox.shrink();
-                    }
-                    
-                    return _buildConsumptionsList(context, consumptions, controller);
+                    } 
+
+                    return _buildConsumptionsList(
+                      context,
+                      consumptions,
+                      controller,
+                    );
                   },
                 );
               },
@@ -135,14 +158,16 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
     );
   }
 
-  Widget _buildConsumptionHeader(BuildContext context, BookingConsumptionController controller) {
+  Widget _buildConsumptionHeader(
+    BuildContext context,
+    BookingConsumptionController controller,
+  ) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -182,12 +207,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
     return Container(
       margin: const EdgeInsets.only(top: 12),
       child: OutlinedButton.icon(
-        onPressed: () {
-          // Logique d'ajout simplifié
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Fonctionnalité d\'ajout en cours de développement')),
-          );
-        },
+        onPressed: () => _showConsumptionSelector(context),
         icon: const Icon(Icons.add),
         label: const Text('Nouvelle consommation'),
         style: OutlinedButton.styleFrom(
@@ -198,8 +218,116 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
     );
   }
 
+  void _showConsumptionSelector(BuildContext context) async {
+    try {
+      final stockVM = Provider.of<StockViewModel>(context, listen: false);
+
+      // Forcer l'initialisation et le refresh du stock
+      if (!stockVM.isInitialized) {
+        await stockVM.initialize();
+      } else {
+        // Même si initialisé, rafraîchir le stock pour s'assurer d'avoir les dernières données
+        await stockVM.refreshStock(silent: true);
+      }
+
+      // Vérifier qu'on a bien des articles
+      debugPrint('StockViewModel - drinks: ${stockVM.drinks.length}, food: ${stockVM.food.length}, others: ${stockVM.others.length}');
+
+      // Afficher le sélecteur de consommation
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (buildContext) {
+          return ConsumptionSelector(
+            // Force cast to ensure the type is consistent
+            stockVM: stockVM as dynamic,
+            onConsumptionSelected: (stockItemId) async {
+              if (stockItemId.isNotEmpty) {
+                Navigator.of(buildContext).pop();
+                // Utiliser le contexte principal au lieu du contexte du bottom sheet
+                if (context.mounted) {
+                  await _addConsumption(context, stockItemId);
+                }
+              }
+            },
+          );
+        },
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du chargement des articles: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _addConsumption(BuildContext context, String stockItemId) async {
+    try {
+      final stockVM = Provider.of<StockViewModel>(context, listen: false);
+
+      // Trouver l'article sélectionné avec la méthode dédiée
+      final stockItem = stockVM.findStockItemById(stockItemId);
+
+      if (stockItem == null) {
+        throw Exception('Article non trouvé (ID: $stockItemId)');
+      }
+
+      debugPrint('Ajout de consommation: ${stockItem.name} (ID: $stockItemId)');
+
+      // Ajouter la consommation via le ViewModel
+      final success = await stockVM.addConsumption(
+        bookingId: widget.booking.id,
+        stockItemId: stockItemId,
+        quantity: 1,
+      );
+
+      debugPrint('Résultat de l\'ajout: ${success ? "Succès" : "Échec"}');
+
+      if (success && context.mounted) {
+        debugPrint('Réinitialisation complète du controller après ajout');
+
+        // Réinitialiser complètement le controller avec la nouvelle méthode
+        await controller.reset(context);
+
+        // Forcer un rebuild après la réinitialisation
+        if (mounted) {
+          setState(() {
+            debugPrint('setState appelé après réinitialisation du controller');
+          });
+        }
+
+        // Notifier le parent que la réservation a été mise à jour
+        widget.onBookingUpdated?.call();
+      } else if (!success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Erreur lors de l\'ajout de la consommation'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de l\'ajout: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'ajout: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildConsumptionsList(
-    BuildContext context, 
+    BuildContext context,
     List<(Consumption, StockItem)> consumptions,
     BookingConsumptionController controller,
   ) {
@@ -262,17 +390,16 @@ class _ConsumptionItemStateless extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final quantityNotifier = controller.getQuantityNotifier(
-      consumption.id, 
+      consumption.id,
       consumption.quantity,
     );
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -282,10 +409,9 @@ class _ConsumptionItemStateless extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.1),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -315,10 +441,11 @@ class _ConsumptionItemStateless extends StatelessWidget {
                       child: IconButton(
                         icon: Icon(
                           quantity > 1 ? Icons.remove : Icons.delete_outline,
-                          size: 20,
-                          color: quantity > 1
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.error,
+                          size: 24,
+                          color:
+                              quantity > 1
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.error,
                         ),
                         onPressed: () async {
                           if (quantity > 1) {
@@ -331,27 +458,38 @@ class _ConsumptionItemStateless extends StatelessWidget {
                             // Demander confirmation avant suppression
                             final confirmed = await showDialog<bool>(
                               context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Supprimer la consommation ?'),
-                                content: Text(
-                                  'Voulez-vous vraiment supprimer "${stockItem.name}" de cette réservation ?',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(false),
-                                    child: const Text('Annuler'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(true),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: Theme.of(context).colorScheme.error,
+                              builder:
+                                  (context) => AlertDialog(
+                                    title: const Text(
+                                      'Supprimer la consommation ?',
                                     ),
-                                    child: const Text('Supprimer'),
+                                    content: Text(
+                                      'Voulez-vous vraiment supprimer "${stockItem.name}" de cette réservation ?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed:
+                                            () => Navigator.of(
+                                              context,
+                                            ).pop(false),
+                                        child: const Text('Annuler'),
+                                      ),
+                                      TextButton(
+                                        onPressed:
+                                            () =>
+                                                Navigator.of(context).pop(true),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor:
+                                              Theme.of(
+                                                context,
+                                              ).colorScheme.error,
+                                        ),
+                                        child: const Text('Supprimer'),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
                             );
-                            
+
                             if (confirmed == true && context.mounted) {
                               // Supprimer la consommation
                               try {
@@ -359,13 +497,21 @@ class _ConsumptionItemStateless extends StatelessWidget {
                                   context,
                                   consumption.id,
                                 );
-                                
+
+                                // Forcer un refresh complet après la suppression
+                                if (context.mounted) {
+                                  await controller.reset(context);
+                                }
+
                                 // Afficher un message de succès
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('${stockItem.name} supprimé'),
-                                      backgroundColor: Theme.of(context).colorScheme.primary,
+                                      content: Text(
+                                        '${stockItem.name} supprimé',
+                                      ),
+                                      backgroundColor:
+                                          Theme.of(context).colorScheme.primary,
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
@@ -375,8 +521,11 @@ class _ConsumptionItemStateless extends StatelessWidget {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Erreur lors de la suppression: $e'),
-                                      backgroundColor: Theme.of(context).colorScheme.error,
+                                      content: Text(
+                                        'Erreur lors de la suppression: $e',
+                                      ),
+                                      backgroundColor:
+                                          Theme.of(context).colorScheme.error,
                                       duration: const Duration(seconds: 3),
                                     ),
                                   );
@@ -387,7 +536,7 @@ class _ConsumptionItemStateless extends StatelessWidget {
                         },
                         padding: EdgeInsets.zero,
                         style: IconButton.styleFrom(
-                          minimumSize: const Size(32, 32),
+                          minimumSize: const Size(40, 40),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
@@ -398,11 +547,15 @@ class _ConsumptionItemStateless extends StatelessWidget {
                 ValueListenableBuilder<int>(
                   valueListenable: quantityNotifier,
                   builder: (context, quantity, _) {
-                    return Text(
-                      '$quantity',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 15,
+                    return Container(
+                      constraints: const BoxConstraints(minWidth: 32),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$quantity',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                        ),
                       ),
                     );
                   },
@@ -416,7 +569,7 @@ class _ConsumptionItemStateless extends StatelessWidget {
                       child: IconButton(
                         icon: Icon(
                           Icons.add,
-                          size: 20,
+                          size: 24,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         onPressed: () {
@@ -428,7 +581,7 @@ class _ConsumptionItemStateless extends StatelessWidget {
                         },
                         padding: EdgeInsets.zero,
                         style: IconButton.styleFrom(
-                          minimumSize: const Size(32, 32),
+                          minimumSize: const Size(40, 40),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),

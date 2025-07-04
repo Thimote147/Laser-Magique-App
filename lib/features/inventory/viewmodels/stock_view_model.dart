@@ -298,20 +298,26 @@ class StockViewModel extends ChangeNotifier {
   List<StockItem> get inactiveItems =>
       (_stockCache?.data ?? []).where((item) => !item.isActive).toList();
 
-  List<StockItem> get drinks =>
-      filteredItems
-          .where((item) => item.category == 'DRINK' && item.isActive)
-          .toList();
+  List<StockItem> get drinks {
+    final items = _stockCache?.isExpired == true ? <StockItem>[] : (_stockCache?.data ?? <StockItem>[]);
+    return items
+        .where((item) => item.category == 'DRINK' && item.isActive)
+        .toList();
+  }
 
-  List<StockItem> get food =>
-      filteredItems
-          .where((item) => item.category == 'FOOD' && item.isActive)
-          .toList();
+  List<StockItem> get food {
+    final items = _stockCache?.isExpired == true ? <StockItem>[] : (_stockCache?.data ?? <StockItem>[]);
+    return items
+        .where((item) => item.category == 'FOOD' && item.isActive)
+        .toList();
+  }
 
-  List<StockItem> get others =>
-      filteredItems
-          .where((item) => item.category == 'OTHER' && item.isActive)
-          .toList();
+  List<StockItem> get others {
+    final items = _stockCache?.isExpired == true ? <StockItem>[] : (_stockCache?.data ?? <StockItem>[]);
+    return items
+        .where((item) => item.category == 'OTHER' && item.isActive)
+        .toList();
+  }
 
   List<StockItem> get lowStockItems =>
       filteredItems.where((item) => item.isLowStock).toList();
@@ -338,6 +344,10 @@ class StockViewModel extends ChangeNotifier {
     if (cacheEntry != null) {
       return cacheEntry.data.total;
     }
+
+    // Si aucun cache n'est disponible, charger les données de manière asynchrone
+    // et retourner 0 temporairement
+    _loadConsumptionsAsync(bookingId);
     return 0.0;
   }
 
@@ -428,8 +438,15 @@ class StockViewModel extends ChangeNotifier {
         'StockViewModel: Adding consumption - bookingId: $bookingId, stockItemId: $stockItemId, quantity: $quantity',
       );
 
-      // Rechercher l'article dans le stock local pour une mise à jour optimiste
-      final stockItem = items.firstWhere((item) => item.id == stockItemId);
+      // Rechercher l'article avec la méthode dédiée pour assurer la cohérence
+      final stockItem = findStockItemById(stockItemId);
+      if (stockItem == null) {
+        throw Exception('Article non trouvé (ID: $stockItemId)');
+      }
+
+      debugPrint(
+        'StockViewModel: Found stock item: ${stockItem.name} (ID: ${stockItem.id})',
+      );
 
       // Créer une consommation temporaire locale avec un ID unique temporaire
       final tempConsumption = Consumption(
@@ -448,6 +465,9 @@ class StockViewModel extends ChangeNotifier {
         stockItem,
         true,
       );
+      
+      // Notifier immédiatement sans throttling après la mise à jour du cache local
+      _notifyListenersImmediate(bookingId);
 
       // Effectuer la mise à jour en base de données en arrière-plan
       final result = await _repository.addConsumption(
@@ -472,6 +492,12 @@ class StockViewModel extends ChangeNotifier {
       await refreshStock(silent: true);
 
       debugPrint('StockViewModel: Consumption added successfully');
+      
+      // Notifier tous les listeners pour déclencher la mise à jour des UI
+      Future.microtask(() {
+        notifyListeners();
+      });
+      
       return true;
     } catch (e) {
       // En cas d'erreur, supprimer la consommation temporaire du cache local
@@ -663,12 +689,12 @@ class StockViewModel extends ChangeNotifier {
     // Debounce pour éviter trop de mises à jour
     final now = DateTime.now().millisecondsSinceEpoch;
     final lastUpdate = _lastUpdateTimestamps[bookingId] ?? 0;
-    
+
     if (now - lastUpdate < 100) {
       // Si moins de 100ms depuis la dernière mise à jour, ignorer
       return;
     }
-    
+
     _lastUpdateTimestamps[bookingId] = now;
 
     // Mettre à jour le service de prix de manière sécurisée
@@ -726,6 +752,9 @@ class StockViewModel extends ChangeNotifier {
     } else {
       _updateConsumptionsCache(bookingId, [(consumption, stockItem)]);
     }
+    
+    // S'assurer que les notifications sont propagées
+    notifyLocalUpdate(bookingId);
   }
 
   void _updateConsumptionInCache(
@@ -743,6 +772,9 @@ class StockViewModel extends ChangeNotifier {
       if (index != -1) {
         consumptions[index] = (updatedConsumption, consumptions[index].$2);
         _updateConsumptionsCache(bookingId, consumptions);
+        
+        // S'assurer que les notifications sont propagées
+        notifyLocalUpdate(bookingId);
       }
     }
   }
@@ -755,6 +787,9 @@ class StockViewModel extends ChangeNotifier {
       );
       consumptions.removeWhere((pair) => pair.$1.id == consumptionId);
       _updateConsumptionsCache(bookingId, consumptions);
+      
+      // S'assurer que les notifications sont propagées
+      notifyLocalUpdate(bookingId);
     }
   }
 
@@ -831,7 +866,7 @@ class StockViewModel extends ChangeNotifier {
       );
       if (index != -1) {
         localConsumptions[index] = (permanentConsumption, stockItem);
-        notifyLocalUpdate(bookingId);
+        _notifyListenersImmediate(bookingId);
       }
     }
   }
@@ -848,28 +883,23 @@ class StockViewModel extends ChangeNotifier {
       final localConsumptions = _localConsumptionsCache[bookingId]!;
       final total = calculateConsumptionTotal(localConsumptions);
 
-      // Pour éviter les notifications circulaires, vérifier si le total a changé
-      final currentTotal = getConsumptionTotal(bookingId);
-      if (currentTotal == total) {
-        debugPrint('StockViewModel: Skipping update, total unchanged ($total)');
-        return;
-      }
+      debugPrint('StockViewModel: Notifying local update for $bookingId with total $total');
 
       try {
-        // Mettre à jour le service de prix de manière sûre (post-frame)
+        // Mettre à jour le service de prix immédiatement
         final priceService = ConsumptionPriceService();
+        priceService.updateConsumptionPriceSync(bookingId, total);
 
-        // Utiliser Future.microtask pour éviter les mises à jour pendant la phase de build
+        // Notifier immédiatement les listeners pour une UI réactive
+        notifyListeners();
+
+        // Mettre à jour le BookingViewModel de manière asynchrone pour éviter les conflits
         Future.microtask(() {
           try {
-            priceService.updateConsumptionPrice(bookingId, total);
-
-            // Notifier le BookingViewModel en dehors du cycle de build
             bookingViewModel.updateBookingInCache(
               bookingId,
               newConsumptionsTotal: total,
             );
-            notifyListeners();
           } catch (e) {
             debugPrint('Erreur lors de la mise à jour en arrière-plan: $e');
           }
@@ -878,9 +908,7 @@ class StockViewModel extends ChangeNotifier {
         debugPrint('Erreur lors de la mise à jour immédiate du prix: $e');
 
         // Continuer malgré l'erreur pour assurer que l'UI reste réactive
-        Future.microtask(() {
-          notifyListeners();
-        });
+        notifyListeners();
       }
     }
   }
@@ -939,5 +967,104 @@ class StockViewModel extends ChangeNotifier {
 
     _lastUpdateTimes[bookingId] = now;
     return false;
+  }
+
+  // Notification immédiate sans throttling (pour les ajouts de consommation)
+  void _notifyListenersImmediate(String bookingId) {
+    if (_localConsumptionsCache.containsKey(bookingId)) {
+      final localConsumptions = _localConsumptionsCache[bookingId]!;
+      final total = calculateConsumptionTotal(localConsumptions);
+
+      debugPrint('StockViewModel: Immediate notify for $bookingId with total $total');
+
+      try {
+        // Mettre à jour le service de prix immédiatement
+        final priceService = ConsumptionPriceService();
+        priceService.updateConsumptionPriceSync(bookingId, total);
+
+        // Notifier immédiatement les listeners
+        notifyListeners();
+
+        // Forcer la mise à jour des timestamps pour éviter les conflits
+        _lastUpdateTimes[bookingId] = DateTime.now().millisecondsSinceEpoch;
+
+        debugPrint('StockViewModel: Immediate notification sent for $bookingId');
+      } catch (e) {
+        debugPrint('StockViewModel: Error in immediate notification: $e');
+      }
+    }
+  }
+
+  // Méthode permettant de trouver un article par son ID de manière cohérente
+  StockItem? findStockItemById(String stockItemId) {
+    try {
+      // Chercher d'abord dans la liste des articles actifs
+      if (_stockCache?.data != null) {
+        final found = _stockCache!.data.firstWhere(
+          (item) => item.id == stockItemId,
+          orElse: () => throw Exception('Not found in active items'),
+        );
+        return found;
+      }
+
+      // Si non trouvé ou pas de cache, chercher dans tous les articles
+      if (_allStockCache?.data != null) {
+        final found = _allStockCache!.data.firstWhere(
+          (item) => item.id == stockItemId,
+          orElse: () => throw Exception('Not found in all items'),
+        );
+        return found;
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('Error finding stock item: $e');
+      return null;
+    }
+  }
+
+  // Set pour éviter les chargements multiples simultanés
+  final Set<String> _loadingConsumptions = {};
+
+  // Charger les consommations de manière asynchrone pour une réservation
+  void _loadConsumptionsAsync(String bookingId) {
+    // Éviter les chargements multiples simultanés
+    if (_loadingConsumptions.contains(bookingId)) {
+      return;
+    }
+
+    _loadingConsumptions.add(bookingId);
+    
+    debugPrint('StockViewModel: Loading consumptions async for booking $bookingId');
+
+    Future.microtask(() async {
+      try {
+        final consumptions = await getConsumptionsWithStockItems(bookingId);
+        final total = calculateConsumptionTotal(consumptions);
+
+        // Mettre à jour le cache persistant
+        _consumptionsCache[bookingId] = CacheEntry(
+          data: ConsumptionCacheEntry(
+            consumptions: consumptions,
+            total: total,
+            timestamp: DateTime.now(),
+          ),
+          timestamp: DateTime.now(),
+        );
+
+        // Mettre à jour le service de prix
+        final priceService = ConsumptionPriceService();
+        priceService.updateConsumptionPriceSync(bookingId, total);
+
+        debugPrint('StockViewModel: Loaded consumptions for booking $bookingId with total $total');
+        
+        // Notifier les listeners
+        notifyListeners();
+      } catch (e) {
+        debugPrint('StockViewModel: Error loading consumptions for booking $bookingId: $e');
+      } finally {
+        _loadingConsumptions.remove(bookingId);
+      }
+    });
   }
 }
