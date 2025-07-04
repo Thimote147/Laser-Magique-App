@@ -3,15 +3,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../auth/services/auth_service.dart';
-import '../../../profile/models/user_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
 import '../../../../shared/user_provider.dart';
 import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../widgets/booking_consumption_widget.dart';
 import '../widgets/booking_payment_widget.dart';
-import 'booking_edit_screen.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
   final Booking booking;
@@ -156,7 +153,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
-        final user = userProvider.user;
         final isAdmin = userProvider.isAdmin;
 
         return Scaffold(
@@ -165,18 +161,6 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               '${_currentBooking.firstName} ${_currentBooking.lastName ?? ""}',
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              BookingEditScreen(booking: _currentBooking),
-                    ),
-                  );
-                },
-              ),
               PopupMenuButton<String>(
                 icon: Icon(
                   Icons.more_vert,

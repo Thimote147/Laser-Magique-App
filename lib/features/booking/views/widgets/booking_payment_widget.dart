@@ -561,7 +561,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Le ${payment.date.day} ${_getMonthName(payment.date.month)} ${payment.date.year} - ${payment.id}',
+                  'Le ${payment.date.day} ${_getMonthName(payment.date.month)} ${payment.date.year}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
