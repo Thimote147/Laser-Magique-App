@@ -20,8 +20,8 @@ class StockItemModal extends StatefulWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: true,
+      enableDrag: true,
       useRootNavigator: true,
       builder: (context) => StockItemModal(item: item, onSave: onSave),
     );
@@ -98,31 +98,33 @@ class _StockItemModalState extends State<StockItemModal> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
                 Text(
                   _isAddMode ? 'Nouvel article' : 'Modifier l\'article',
-                  style: theme.textTheme.titleMedium?.copyWith(
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextButton(
-                  onPressed: _save,
-                  child: Text(
-                    _isAddMode ? 'Ajouter' : 'Enregistrer',
-                    style: TextStyle(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Fermer',
                 ),
               ],
             ),
@@ -188,6 +190,19 @@ class _StockItemModalState extends State<StockItemModal> {
                     ],
                   ),
                   const SizedBox(height: 32),
+                  // Bouton d'action
+                  FilledButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.check),
+                    label: Text(_isAddMode ? 'Ajouter' : 'Enregistrer'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),

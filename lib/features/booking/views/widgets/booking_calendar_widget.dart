@@ -157,7 +157,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                   decoration: BoxDecoration(
                     color:
                         Theme.of(context).brightness == Brightness.dark
-                            ? const Color(0xFF2A2A2A)
+                            ? Theme.of(context).colorScheme.surface
                             : null,
                     borderRadius: BorderRadius.circular(12),
                   ),

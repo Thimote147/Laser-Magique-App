@@ -41,9 +41,12 @@ class CalendarWidget extends StatelessWidget {
         ),
         formatButtonShowsNext: false,
         formatButtonVisible: true,
-        titleTextStyle: const TextStyle(
+        titleTextStyle: TextStyle(
           fontSize: 18.0,
           fontWeight: FontWeight.bold,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white
+              : null,
         ),
         headerPadding: const EdgeInsets.symmetric(vertical: 8.0),
         leftChevronIcon: Icon(
@@ -53,6 +56,12 @@ class CalendarWidget extends StatelessWidget {
         rightChevronIcon: Icon(
           Icons.chevron_right,
           color: Theme.of(context).colorScheme.primary,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.surface
+              : null,
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );

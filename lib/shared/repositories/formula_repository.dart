@@ -16,7 +16,7 @@ class FormulaRepository {
             description
           )
         ''')
-        .order('name');
+        .order('name', ascending: true);
 
     return (response as List).map((json) => Formula.fromMap(json)).toList();
   }
@@ -33,7 +33,7 @@ class FormulaRepository {
           )
         ''')
         .eq('activity_id', activityId)
-        .order('name');
+        .order('name', ascending: true);
 
     return (response as List).map((json) => Formula.fromMap(json)).toList();
   }

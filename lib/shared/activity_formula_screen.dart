@@ -461,8 +461,8 @@ class ActivityFormulaScreen extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: true,
+      enableDrag: true,
       useRootNavigator: true,
       builder: (context) => child,
     );

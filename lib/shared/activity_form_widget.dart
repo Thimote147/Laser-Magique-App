@@ -149,42 +149,35 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: widget.onCancel,
-                ),
                 Text(
                   widget.activity == null
                       ? 'Nouvelle activité'
                       : 'Modifier l\'activité',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    if (_formKey.currentState?.validate() == true) {
-                      widget.onSave(
-                        _nameController.text,
-                        _descriptionController.text.isNotEmpty
-                            ? _descriptionController.text
-                            : null,
-                      );
-                    }
-                  },
-                  child: Text(
-                    widget.activity == null ? 'Ajouter' : 'Enregistrer',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Fermer',
                 ),
               ],
             ),
@@ -224,6 +217,28 @@ class _ActivityFormWidgetState extends State<ActivityFormWidget> {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  // Bouton d'action
+                  FilledButton.icon(
+                    onPressed: () {
+                      if (_formKey.currentState?.validate() == true) {
+                        widget.onSave(
+                          _nameController.text,
+                          _descriptionController.text.isNotEmpty
+                              ? _descriptionController.text
+                              : null,
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.check),
+                    label: Text(widget.activity == null ? 'Ajouter' : 'Enregistrer'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),

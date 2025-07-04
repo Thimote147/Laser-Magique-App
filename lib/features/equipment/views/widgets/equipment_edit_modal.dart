@@ -24,8 +24,8 @@ class EquipmentEditModal extends StatefulWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: true,
+      enableDrag: true,
       useRootNavigator: true,
       builder: (context) => EquipmentEditModal(
         equipment: equipment,
@@ -72,20 +72,36 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
+                const SizedBox(width: 48), // Espace pour équilibrer
                 Text(
                   _isAddMode ? 'Nouvel équipement' : 'Modifier l\'équipement',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 TextButton(
@@ -94,7 +110,7 @@ class _EquipmentEditModalState extends State<EquipmentEditModal> {
                     _isAddMode ? 'Ajouter' : 'Enregistrer',
                     style: TextStyle(
                       color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),

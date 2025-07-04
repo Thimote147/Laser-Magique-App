@@ -85,59 +85,42 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: widget.onCancel,
-                ),
                 Text(
                   widget.formula == null
                       ? 'Nouvelle formule'
                       : 'Modifier la formule',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    if (_formKey.currentState?.validate() == true) {
-                      widget.onSave(
-                        nameController.text,
-                        descriptionController.text.isNotEmpty
-                            ? descriptionController.text
-                            : null,
-                        selectedActivity!,
-                        double.parse(priceController.text),
-                        int.parse(minParticipantsController.text),
-                        maxParticipantsController.text.isNotEmpty
-                            ? int.parse(maxParticipantsController.text)
-                            : null,
-                        int.parse(durationController.text),
-                        int.parse(minGamesController.text),
-                        maxGamesController.text.isNotEmpty
-                            ? int.parse(maxGamesController.text)
-                            : null,
-                      );
-                    }
-                  },
-                  child: Text(
-                    widget.formula == null ? 'Ajouter' : 'Enregistrer',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Fermer',
                 ),
               ],
             ),
           ),
           // Form content
-          SingleChildScrollView(
+          Expanded(
+            child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
               16,
               0,
@@ -390,9 +373,43 @@ class _FormulaFormWidgetState extends State<FormulaFormWidget> {
                     ],
                   ),
                   const SizedBox(height: 32),
+                  // Bouton d'action
+                  FilledButton.icon(
+                    onPressed: () {
+                      if (_formKey.currentState?.validate() == true) {
+                        widget.onSave(
+                          nameController.text,
+                          descriptionController.text.isNotEmpty
+                              ? descriptionController.text
+                              : null,
+                          selectedActivity!,
+                          double.parse(priceController.text),
+                          int.parse(minParticipantsController.text),
+                          maxParticipantsController.text.isNotEmpty
+                              ? int.parse(maxParticipantsController.text)
+                              : null,
+                          int.parse(durationController.text),
+                          int.parse(minGamesController.text),
+                          maxGamesController.text.isNotEmpty
+                              ? int.parse(maxGamesController.text)
+                              : null,
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.check),
+                    label: Text(widget.formula == null ? 'Ajouter' : 'Enregistrer'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),

@@ -788,40 +788,31 @@ class ConsumptionSelectorState extends State<ConsumptionSelector>
                           children: [
                             _buildDragHandle(context),
 
-                            // En-tête avec titre et bouton de fermeture
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 8, 16, 16),
+                            // En-tête
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
                               child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
                                     Icons.local_bar_rounded,
                                     size: 24,
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(context).colorScheme.primary,
                                   ),
                                   const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Ajouter une consommation',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton.filledTonal(
-                                    icon: const Icon(Icons.close),
-                                    onPressed: () => Navigator.pop(context),
-                                    style: IconButton.styleFrom(
-                                      backgroundColor:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.surfaceContainerHighest,
-                                      foregroundColor:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
+                                  Text(
+                                    'Ajouter une consommation',
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],

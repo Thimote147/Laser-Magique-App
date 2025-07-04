@@ -26,12 +26,12 @@ class _PaymentMethodButton extends StatelessWidget {
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? theme.primaryColor.withAlpha((255 * 0.1).round())
-                  : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
+                  ? theme.colorScheme.primaryContainer
+                  : theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? theme.primaryColor : Colors.grey.shade300,
-            width: 1,
+            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.3),
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
@@ -39,15 +39,15 @@ class _PaymentMethodButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? theme.primaryColor : Colors.grey.shade700,
+              color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? theme.primaryColor : Colors.grey.shade700,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 fontSize: 12,
               ),
             ),
@@ -97,12 +97,12 @@ class _PaymentTypeButton extends StatelessWidget {
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? theme.primaryColor.withAlpha((255 * 0.1).round())
-                  : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
+                  ? theme.colorScheme.primaryContainer
+                  : theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? theme.primaryColor : Colors.grey.shade300,
-            width: 1,
+            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.3),
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
@@ -110,15 +110,15 @@ class _PaymentTypeButton extends StatelessWidget {
           children: [
             Icon(
               _icon,
-              color: isSelected ? theme.primaryColor : Colors.grey.shade700,
+              color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(height: 4),
             Text(
               _label,
               style: TextStyle(
-                color: isSelected ? theme.primaryColor : Colors.grey.shade700,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 fontSize: 12,
               ),
             ),
@@ -229,18 +229,37 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Nouveau paiement',
-                  style: Theme.of(context).textTheme.titleLarge,
+            // Drag handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Nouveau paiement',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Fermer',
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -280,7 +299,20 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                 labelText: 'Montant',
                 suffixText: '€',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
                 ),
               ),
               keyboardType: const TextInputType.numberWithOptions(
@@ -350,14 +382,14 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
               ],
             ),
             const SizedBox(height: 32),
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => Navigator.of(context).pop(_payment),
               icon: const Icon(Icons.check),
               label: const Text('Ajouter le paiement'),
-              style: OutlinedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),

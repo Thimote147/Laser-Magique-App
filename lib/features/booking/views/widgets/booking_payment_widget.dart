@@ -615,6 +615,8 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
       builder:
           (context) => AddPaymentDialog(
             booking: _currentBooking,
