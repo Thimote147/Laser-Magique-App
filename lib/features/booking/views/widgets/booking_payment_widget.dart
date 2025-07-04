@@ -2,31 +2,31 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/booking_model.dart';
-import '../../../../shared/models/payment_model.dart';
+import '../../../../shared/models/payment_model.dart' as payment_model;
 import '../../../../shared/services/consumption_price_service.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
 import 'add_payment_dialog.dart';
 
-extension PaymentMethodExtension on PaymentMethod {
+extension PaymentMethodExtension on payment_model.PaymentMethod {
   String get displayName {
     switch (this) {
-      case PaymentMethod.card:
+      case payment_model.PaymentMethod.card:
         return 'Carte bancaire';
-      case PaymentMethod.cash:
+      case payment_model.PaymentMethod.cash:
         return 'Espèces';
-      case PaymentMethod.transfer:
+      case payment_model.PaymentMethod.transfer:
         return 'Virement';
     }
   }
 }
 
-extension PaymentTypeExtension on PaymentType {
+extension PaymentTypeExtension on payment_model.PaymentType {
   String get displayName {
     switch (this) {
-      case PaymentType.deposit:
+      case payment_model.PaymentType.deposit:
         return 'Acompte';
-      case PaymentType.balance:
+      case payment_model.PaymentType.balance:
         return 'Solde';
     }
   }
@@ -77,7 +77,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
 
   // Service pour recevoir les mises à jour de prix des consommations
   final ConsumptionPriceService _priceService = ConsumptionPriceService();
-  
+
   // Debouncer pour stabiliser les mises à jour du montant des consommations
   Timer? _consumptionUpdateTimer;
 
@@ -162,7 +162,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
   void _updatePaymentDisplay(double consumptionsTotal) {
     // Annuler le timer précédent s'il existe
     _consumptionUpdateTimer?.cancel();
-    
+
     // Utiliser un debouncer pour stabiliser les mises à jour
     _consumptionUpdateTimer = Timer(const Duration(milliseconds: 150), () {
       if (mounted) {
@@ -171,7 +171,9 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
           _consumptionsTotalNotifier.value = consumptionsTotal;
           _totalPriceNotifier.value =
               _currentBooking.formulaPrice + consumptionsTotal;
-          _remainingAmountNotifier.value = _getRemainingAmount(consumptionsTotal);
+          _remainingAmountNotifier.value = _getRemainingAmount(
+            consumptionsTotal,
+          );
           _showFormulaDetailsNotifier.value = consumptionsTotal > 0;
 
           debugPrint(
@@ -231,10 +233,19 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
     }
   }
 
-  double get _totalPaid => _currentBooking.payments.fold(
-    0.0,
-    (sum, payment) => sum + payment.amount,
-  );
+  double get _totalPaid {
+    // Déduplication des paiements par ID pour le calcul
+    final uniquePayments = <String, payment_model.Payment>{};
+    for (final payment in _currentBooking.payments) {
+      uniquePayments[payment.id] = payment;
+    }
+
+    // Calculer le total uniquement sur les paiements uniques
+    return uniquePayments.values.fold(
+      0.0,
+      (sum, payment) => sum + payment.amount,
+    );
+  }
 
   double _getRemainingAmount(double consumptionsTotal) {
     final totalPrice = _currentBooking.formulaPrice + consumptionsTotal;
@@ -447,6 +458,14 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
       return const SizedBox.shrink();
     }
 
+    // Filtrer les paiements pour éviter les doublons en se basant sur l'ID
+    final uniquePayments = <String, payment_model.Payment>{};
+    for (final payment in _currentBooking.payments) {
+      uniquePayments[payment.id] = payment;
+    }
+
+    final payments = uniquePayments.values.toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -459,7 +478,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
           ),
         ),
         const SizedBox(height: 8),
-        ..._currentBooking.payments.map(
+        ...payments.map(
           (payment) => Container(
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
@@ -542,7 +561,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Le ${payment.date.day} ${_getMonthName(payment.date.month)} ${payment.date.year}',
+                  'Le ${payment.date.day} ${_getMonthName(payment.date.month)} ${payment.date.year} - ${payment.id}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -603,15 +622,15 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
     final consumptionsTotal = stockVM.getConsumptionTotal(_currentBooking.id);
     final remainingAmount = _getRemainingAmount(consumptionsTotal);
 
-    final originalPayment = Payment(
+    final originalPayment = payment_model.Payment(
       bookingId: _currentBooking.id,
       amount: remainingAmount,
-      method: PaymentMethod.card,
-      type: PaymentType.balance,
+      method: payment_model.PaymentMethod.card,
+      type: payment_model.PaymentType.balance,
       date: DateTime.now(),
     );
 
-    final payment = await showModalBottomSheet<Payment>(
+    final payment = await showModalBottomSheet<payment_model.Payment>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -638,7 +657,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
 
   Future<void> _showDeletePaymentDialog(
     BuildContext context,
-    Payment payment,
+    payment_model.Payment payment,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -684,7 +703,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
 
     // Nettoyer le timer de debouncing
     _consumptionUpdateTimer?.cancel();
-    
+
     // Nettoyer le notifier de prix des consommations
     _priceService.cleanupNotifier(_currentBooking.id);
 

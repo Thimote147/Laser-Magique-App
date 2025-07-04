@@ -1,13 +1,37 @@
+------------------------------------------------------------------
+-- SUPABASE DATABASE SCHEMA
+-- Organisation par sections:
+-- 1. Extensions
+-- 2. Suppressions d'objets existants
+-- 3. Types personnalisés
+-- 4. Tables
+-- 5. Vues
+-- 6. Fonctions de trigger
+-- 7. Triggers
+-- 8. Fonctions métier
+-- 9. Sécurité (RLS)
+-- 10. Index
+-- 11. Permissions
+-- 12. Données initiales
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+-- EXTENSIONS
+------------------------------------------------------------------
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "moddatetime";
 
+------------------------------------------------------------------
+-- DROP EXISTING OBJECTS
+------------------------------------------------------------------
 -- Drop existing views if they exist
 DROP VIEW IF EXISTS booking_summaries CASCADE;
 DROP VIEW IF EXISTS low_stock_items CASCADE;
 DROP VIEW IF EXISTS v_formula CASCADE;
 
 -- Drop existing tables if they exist
+DROP TABLE IF EXISTS daily_statistics CASCADE;
 DROP TABLE IF EXISTS user_settings CASCADE;
 DROP TABLE IF EXISTS consumptions CASCADE;
 DROP TABLE IF EXISTS stock_items CASCADE;
@@ -17,7 +41,26 @@ DROP TABLE IF EXISTS formulas CASCADE;
 DROP TABLE IF EXISTS customers CASCADE;
 DROP TABLE IF EXISTS activities CASCADE;
 DROP TABLE IF EXISTS work_days CASCADE;
+DROP TABLE IF EXISTS equipment CASCADE;
 
+-- Drop existing types if they exist
+DROP TYPE IF EXISTS payment_method CASCADE;
+DROP TYPE IF EXISTS payment_type CASCADE;
+DROP TYPE IF EXISTS item_category CASCADE;
+DROP TYPE IF EXISTS theme_mode CASCADE;
+
+------------------------------------------------------------------
+-- CUSTOM TYPES
+------------------------------------------------------------------
+-- Create ENUM types
+CREATE TYPE payment_method AS ENUM('card', 'cash', 'transfer');
+CREATE TYPE payment_type AS ENUM('deposit', 'balance');
+CREATE TYPE item_category AS ENUM('DRINK', 'FOOD', 'OTHER');
+CREATE TYPE theme_mode AS ENUM('system', 'light', 'dark');
+
+------------------------------------------------------------------
+-- TABLES
+------------------------------------------------------------------
 -- Create activities table
 CREATE TABLE activities (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -27,27 +70,13 @@ CREATE TABLE activities (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Drop existing types if they exist
-DROP TYPE IF EXISTS payment_method CASCADE;
-DROP TYPE IF EXISTS payment_type CASCADE;
-DROP TYPE IF EXISTS item_category CASCADE;
-DROP TYPE IF EXISTS theme_mode CASCADE;
-DROP TYPE IF EXISTS user_role CASCADE;
-
--- Create ENUM types
-CREATE TYPE payment_method AS ENUM ('card', 'cash', 'transfer');
-CREATE TYPE payment_type AS ENUM ('deposit', 'balance');
-CREATE TYPE item_category AS ENUM ('DRINK', 'FOOD', 'OTHER');
-CREATE TYPE theme_mode AS ENUM ('system', 'light', 'dark');
-CREATE TYPE user_role AS ENUM ('admin', 'member');
-
 -- Create formulas table
 CREATE TABLE formulas (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  activity_id UUID REFERENCES activities(id) ON DELETE CASCADE,
+  activity_id UUID REFERENCES activities (id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
-  price DECIMAL(10,2) NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
   min_persons INTEGER NOT NULL,
   max_persons INTEGER,
   duration_minutes INTEGER NOT NULL DEFAULT 60,
@@ -79,15 +108,15 @@ CREATE TABLE customers (
 -- Create bookings table
 CREATE TABLE bookings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  formula_id UUID REFERENCES formulas(id) ON DELETE RESTRICT,
-  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+  formula_id UUID REFERENCES formulas (id) ON DELETE RESTRICT,
+  customer_id UUID NOT NULL REFERENCES customers (id) ON DELETE RESTRICT,
   date_time TIMESTAMP WITH TIME ZONE NOT NULL,
   number_of_persons INTEGER NOT NULL,
   number_of_games INTEGER NOT NULL,
   is_cancelled BOOLEAN DEFAULT false,
-  deposit DECIMAL(10,2) DEFAULT 0,
+  deposit DECIMAL(10, 2) DEFAULT 0,
   payment_method payment_method DEFAULT 'card',
-  total_paid DECIMAL(10,2) DEFAULT 0,
+  total_paid DECIMAL(10, 2) DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   CHECK (number_of_persons > 0),
@@ -99,14 +128,15 @@ CREATE TABLE bookings (
 -- Create payments table
 CREATE TABLE payments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
-  amount DECIMAL(10,2) NOT NULL,
+  booking_id UUID REFERENCES bookings (id) ON DELETE CASCADE,
+  amount DECIMAL(10, 2) NOT NULL,
   payment_method payment_method NOT NULL,
   payment_type payment_type NOT NULL,
   payment_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  CHECK (amount > 0)
+  CHECK (amount > 0),
+  CONSTRAINT unique_payment_id UNIQUE (id)
 );
 
 -- Create stock items table
@@ -114,7 +144,7 @@ CREATE TABLE stock_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL UNIQUE,
   quantity INTEGER NOT NULL DEFAULT 0,
-  price DECIMAL(10,2) NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
   alert_threshold INTEGER NOT NULL,
   category item_category NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT true,
@@ -128,14 +158,14 @@ CREATE TABLE stock_items (
 -- Create consumptions table
 CREATE TABLE consumptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
-  stock_item_id UUID REFERENCES stock_items(id) ON DELETE RESTRICT,
+  booking_id UUID REFERENCES bookings (id) ON DELETE CASCADE,
+  stock_item_id UUID REFERENCES stock_items (id) ON DELETE RESTRICT,
   quantity INTEGER NOT NULL,
-  unit_price DECIMAL(10,2) NOT NULL,
+  unit_price DECIMAL(10, 2) NOT NULL,
   timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(booking_id, stock_item_id),
+  UNIQUE (booking_id, stock_item_id),
   CHECK (quantity > 0),
   CHECK (unit_price >= 0)
 );
@@ -143,14 +173,13 @@ CREATE TABLE consumptions (
 -- Create user settings table
 CREATE TABLE user_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  user_id UUID REFERENCES auth.users (id) ON DELETE CASCADE NOT NULL UNIQUE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   phone TEXT NOT NULL,
-  hourly_rate DECIMAL(10,2) NOT NULL DEFAULT 10,
+  hourly_rate DECIMAL(10, 2) NOT NULL DEFAULT 10,
   notifications_enabled BOOLEAN DEFAULT true NOT NULL,
   theme_mode theme_mode DEFAULT 'system' NOT NULL,
-  role user_role NOT NULL DEFAULT 'member',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
@@ -158,12 +187,12 @@ CREATE TABLE user_settings (
 -- Create work_days table
 CREATE TABLE work_days (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users (id) ON DELETE CASCADE NOT NULL,
   date DATE NOT NULL,
   start_time TIMESTAMP WITH TIME ZONE NOT NULL,
   end_time TIMESTAMP WITH TIME ZONE NOT NULL,
-  hours DECIMAL(10,2) NOT NULL,
-  total_amount DECIMAL(10,2),
+  hours DECIMAL(10, 2) NOT NULL,
+  total_amount DECIMAL(10, 2),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   CONSTRAINT valid_time_range CHECK (end_time >= start_time),
@@ -171,32 +200,130 @@ CREATE TABLE work_days (
   CONSTRAINT non_negative_amount CHECK (total_amount IS NULL OR total_amount >= 0)
 );
 
--- Create views
-CREATE OR REPLACE VIEW low_stock_items AS 
+-- Create equipment table
+CREATE TABLE equipment (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  is_functional BOOLEAN NOT NULL DEFAULT true,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create daily_statistics table for manual fields
+CREATE TABLE daily_statistics (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  date DATE NOT NULL UNIQUE,
+  fond_caisse_ouverture DECIMAL(10,2),
+  fond_caisse_fermeture DECIMAL(10,2),
+  montant_coffre DECIMAL(10,2),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CHECK (fond_caisse_ouverture IS NULL OR fond_caisse_ouverture >= 0),
+  CHECK (fond_caisse_fermeture IS NULL OR fond_caisse_fermeture >= 0),
+  CHECK (montant_coffre IS NULL OR montant_coffre >= 0)
+);
+
+------------------------------------------------------------------
+-- VIEWS
+------------------------------------------------------------------
+-- Create low_stock_items view
+CREATE OR REPLACE VIEW low_stock_items AS
 SELECT *
 FROM stock_items
-WHERE quantity <= alert_threshold 
-AND is_active = true;
+WHERE quantity <= alert_threshold
+  AND is_active = true;
 
+-- Create formula view
 CREATE OR REPLACE VIEW v_formula AS
-SELECT 
-    f.*,
-    a.name as activity_name,
-    a.description as activity_description
+SELECT
+  f.*,
+  a.name AS activity_name,
+  a.description AS activity_description
 FROM formulas f
 JOIN activities a ON f.activity_id = a.id;
 
+-- Create booking_summaries view
+CREATE OR REPLACE VIEW booking_summaries AS
+SELECT
+  b.id,
+  b.formula_id,
+  cust.first_name,
+  cust.last_name,
+  cust.email,
+  cust.phone,
+  b.date_time,
+  b.number_of_persons,
+  b.number_of_games,
+  b.is_cancelled,
+  b.deposit,
+  b.payment_method,
+  b.total_paid,
+  b.created_at,
+  b.updated_at,
+  f.name AS formula_name,
+  f.description AS formula_description,
+  a.id AS activity_id,
+  a.name AS activity_name,
+  a.description AS activity_description,
+  f.price AS formula_base_price,
+  f.price * b.number_of_persons * b.number_of_games AS formula_price,
+  COALESCE(SUM(cons.quantity * cons.unit_price), 0) AS consumptions_total,
+  (
+    f.price * b.number_of_persons * b.number_of_games + COALESCE(SUM(cons.quantity * cons.unit_price), 0)
+  ) AS total_price,
+  (
+    (
+      f.price * b.number_of_persons * b.number_of_games + COALESCE(SUM(cons.quantity * cons.unit_price), 0)
+    ) - b.total_paid
+  ) AS remaining_balance,
+  json_agg(
+    json_build_object(
+      'id', cons.id,
+      'item_id', cons.stock_item_id,
+      'quantity', cons.quantity,
+      'unit_price', cons.unit_price,
+      'total_price', cons.quantity * cons.unit_price,
+      'timestamp', cons.timestamp
+    )
+  ) FILTER (WHERE cons.id IS NOT NULL) AS consumptions,
+  json_agg(
+    json_build_object(
+      'id', p.id,
+      'amount', p.amount,
+      'method', p.payment_method,
+      'type', p.payment_type,
+      'date', p.payment_date
+    )
+  ) FILTER (WHERE p.id IS NOT NULL) AS payments
+FROM bookings b
+LEFT JOIN formulas f ON b.formula_id = f.id
+LEFT JOIN activities a ON f.activity_id = a.id
+LEFT JOIN customers cust ON b.customer_id = cust.id
+LEFT JOIN consumptions cons ON b.id = cons.booking_id AND cons.quantity > 0
+LEFT JOIN payments p ON b.id = p.booking_id
+GROUP BY
+  b.id,
+  f.id,
+  f.name,
+  f.description,
+  f.price,
+  a.id,
+  a.name,
+  a.description,
+  cust.id,
+  cust.first_name,
+  cust.last_name,
+  cust.email,
+  cust.phone;
+
 -- Create function to safely create a customer
-CREATE OR REPLACE FUNCTION create_customer(
+create or replace function create_customer (
   p_first_name TEXT,
   p_last_name TEXT,
   p_phone TEXT,
   p_email TEXT
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER as $$
 DECLARE
   v_customer_id UUID;
 BEGIN
@@ -218,51 +345,19 @@ BEGIN
 END;
 $$;
 
+------------------------------------------------------------------
+-- TRIGGER FUNCTIONS
+------------------------------------------------------------------
 -- Create trigger function to update updated_at column
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Create triggers for updating updated_at column
-CREATE TRIGGER update_activities_updated_at
-  BEFORE UPDATE ON activities
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_formulas_updated_at
-  BEFORE UPDATE ON formulas
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_bookings_updated_at
-  BEFORE UPDATE ON bookings
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_payments_updated_at
-  BEFORE UPDATE ON payments
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_stock_items_updated_at
-  BEFORE UPDATE ON stock_items
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_consumptions_updated_at
-  BEFORE UPDATE ON consumptions
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_user_settings_updated_at
-  BEFORE UPDATE ON user_settings
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
-CREATE TRIGGER update_work_days_updated_at
-  BEFORE UPDATE ON work_days
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
 -- Create function to update stock quantities
-CREATE OR REPLACE FUNCTION update_stock_quantity()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION update_stock_quantity() RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
     -- Vérifier si le stock est suffisant et si l'article est actif
@@ -307,15 +402,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create trigger for stock updates
-CREATE TRIGGER update_stock_after_consumption
-  AFTER INSERT OR UPDATE OR DELETE ON consumptions
-  FOR EACH ROW
-  EXECUTE PROCEDURE update_stock_quantity();
-
 -- Create function to update booking payments
-CREATE OR REPLACE FUNCTION update_booking_payments()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION update_booking_payments() RETURNS TRIGGER AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
     UPDATE bookings
@@ -338,86 +426,89 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+------------------------------------------------------------------
+-- TRIGGERS
+------------------------------------------------------------------
+-- Create triggers for updating updated_at column
+CREATE TRIGGER update_activities_updated_at 
+  BEFORE UPDATE ON activities 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_formulas_updated_at 
+  BEFORE UPDATE ON formulas 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_bookings_updated_at 
+  BEFORE UPDATE ON bookings 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_payments_updated_at 
+  BEFORE UPDATE ON payments 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_stock_items_updated_at 
+  BEFORE UPDATE ON stock_items 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_consumptions_updated_at 
+  BEFORE UPDATE ON consumptions 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_user_settings_updated_at 
+  BEFORE UPDATE ON user_settings 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_work_days_updated_at 
+  BEFORE UPDATE ON work_days 
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_daily_statistics_updated_at
+  BEFORE UPDATE ON daily_statistics
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- Create trigger for stock updates
+CREATE TRIGGER update_stock_after_consumption
+  AFTER INSERT OR UPDATE OR DELETE ON consumptions 
+  FOR EACH ROW EXECUTE PROCEDURE update_stock_quantity();
+
 -- Create trigger for payment updates
 CREATE TRIGGER update_booking_payments_after_change
-  AFTER INSERT OR DELETE ON payments
-  FOR EACH ROW
-  EXECUTE PROCEDURE update_booking_payments();
+  AFTER INSERT OR DELETE ON payments 
+  FOR EACH ROW EXECUTE PROCEDURE update_booking_payments();
 
--- Create booking_summaries view
-CREATE OR REPLACE VIEW booking_summaries AS
-SELECT 
-  b.id,
-  b.formula_id,
-  cust.first_name,
-  cust.last_name,
-  cust.email,
-  cust.phone,
-  b.date_time,
-  b.number_of_persons,
-  b.number_of_games,
-  b.is_cancelled,
-  b.deposit,
-  b.payment_method,
-  b.total_paid,
-  b.created_at,
-  b.updated_at,
-  f.name AS formula_name,
-  f.description AS formula_description,
-  a.id AS activity_id,
-  a.name AS activity_name,
-  a.description AS activity_description,
-  f.price AS formula_base_price,
-  f.price * b.number_of_persons * b.number_of_games AS formula_price,
-  COALESCE(SUM(cons.quantity * cons.unit_price), 0) AS consumptions_total,
-  (f.price * b.number_of_persons * b.number_of_games + COALESCE(SUM(cons.quantity * cons.unit_price), 0)) AS total_price,
-  ((f.price * b.number_of_persons * b.number_of_games + COALESCE(SUM(cons.quantity * cons.unit_price), 0)) - b.total_paid) AS remaining_balance,
-  json_agg(
-    json_build_object(
-      'id', cons.id,
-      'item_id', cons.stock_item_id,
-      'quantity', cons.quantity,
-      'unit_price', cons.unit_price,
-      'total_price', cons.quantity * cons.unit_price,
-      'timestamp', cons.timestamp
-    )
-  ) FILTER (WHERE cons.id IS NOT NULL) AS consumptions,
-  json_agg(
-    json_build_object(
-      'id', p.id,
-      'amount', p.amount,
-      'method', p.payment_method,
-      'type', p.payment_type,
-      'date', p.payment_date
-    )
-  ) FILTER (WHERE p.id IS NOT NULL) AS payments
-FROM bookings b
-LEFT JOIN formulas f ON b.formula_id = f.id
-LEFT JOIN activities a ON f.activity_id = a.id
-LEFT JOIN customers cust ON b.customer_id = cust.id
-LEFT JOIN consumptions cons ON b.id = cons.booking_id AND cons.quantity > 0
-LEFT JOIN payments p ON b.id = p.booking_id
-GROUP BY 
-  b.id,
-  f.id,
-  f.name,
-  f.description,
-  f.price,
-  a.id,
-  a.name,
-  a.description,
-  cust.id,
-  cust.first_name,
-  cust.last_name,
-  cust.email,
-  cust.phone;
+------------------------------------------------------------------
+-- BUSINESS FUNCTIONS
+------------------------------------------------------------------
+-- Create function to safely create a customer
+CREATE OR REPLACE FUNCTION create_customer(
+  p_first_name TEXT,
+  p_last_name TEXT,
+  p_phone TEXT,
+  p_email TEXT
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_customer_id UUID;
+BEGIN
+  INSERT INTO customers (
+    first_name,
+    last_name,
+    phone,
+    email
+  )
+  VALUES (
+    p_first_name,
+    p_last_name,
+    p_phone,
+    p_email
+  )
+  RETURNING id INTO v_customer_id;
 
--- Drop existing search_customers function if it exists
-DROP FUNCTION IF EXISTS search_customers(TEXT);
+  RETURN v_customer_id;
+END;
+$$;
 
 -- Create search customers function
-CREATE OR REPLACE FUNCTION search_customers(search_query TEXT)
-RETURNS TABLE (
+CREATE OR REPLACE FUNCTION search_customers(search_query TEXT) RETURNS TABLE(
   id UUID,
   first_name TEXT,
   last_name TEXT,
@@ -435,7 +526,7 @@ BEGIN
       c.last_name,
       c.phone,
       c.email,
-      COUNT(b.id)::BIGINT as total_bookings
+      COUNT(b.id)::BIGINT AS total_bookings
     FROM customers c
     LEFT JOIN bookings b ON c.id = b.customer_id
     WHERE false  -- Cette condition ne retournera aucun résultat
@@ -451,7 +542,7 @@ BEGIN
     c.last_name,
     c.phone,
     c.email,
-    COUNT(b.id)::BIGINT as total_bookings
+    COUNT(b.id)::BIGINT AS total_bookings
   FROM customers c
   LEFT JOIN bookings b ON c.id = b.customer_id
   WHERE 
@@ -476,11 +567,7 @@ CREATE OR REPLACE FUNCTION create_booking_with_payment(
   p_number_of_games INTEGER,
   p_deposit DECIMAL = 0,
   p_payment_method payment_method = 'card'
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+) RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_booking_id UUID;
   v_customer_id UUID;
@@ -620,15 +707,11 @@ CREATE OR REPLACE FUNCTION update_booking_with_customer(
   p_is_cancelled BOOLEAN,
   p_deposit DECIMAL,
   p_payment_method payment_method
-)
-RETURNS record
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+) RETURNS RECORD LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_customer_id UUID;
   v_formula RECORD;
-  v_result record;
+  v_result RECORD;
 BEGIN
   -- Get the current customer_id from the booking
   SELECT b.customer_id, b.id AS booking_id INTO v_result
@@ -737,16 +820,10 @@ END;
 $$;
 
 -- Create function to cancel a booking
-CREATE OR REPLACE FUNCTION cancel_booking(
-  p_booking_id UUID
-)
-RETURNS record
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+CREATE OR REPLACE FUNCTION cancel_booking(p_booking_id UUID) RETURNS RECORD LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   v_booking_exists BOOLEAN;
-  v_result record;
+  v_result RECORD;
 BEGIN
   -- Check if booking exists
   SELECT EXISTS(
@@ -771,19 +848,13 @@ BEGIN
 END;
 $$;
 
--- Drop existing function before recreating it
-DROP FUNCTION IF EXISTS public.update_consumption(UUID, INTEGER);
-
 -- Function to update a consumption's quantity and related stock
 CREATE OR REPLACE FUNCTION public.update_consumption(
-  p_consumption_id UUID,  -- ID de la consommation à mettre à jour
-  p_new_quantity INTEGER  -- Nouvelle quantité à définir
-)
-RETURNS consumptions  -- Retourne l'enregistrement de consommation mis à jour
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
+  p_consumption_id UUID, -- ID de la consommation à mettre à jour
+  p_new_quantity INTEGER -- Nouvelle quantité à définir
+) RETURNS consumptions -- Retourne l'enregistrement de consommation mis à jour
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public AS $$
 DECLARE
   v_old_quantity INTEGER;
   v_stock_item_id UUID;
@@ -832,10 +903,33 @@ BEGIN
 END;
 $$;
 
--- Grant access to the update_consumption function
-GRANT EXECUTE ON FUNCTION public.update_consumption(UUID, INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.update_consumption(UUID, INTEGER) TO service_role;
+-- Fonction pour récupérer les utilisateurs avec leurs paramètres
+CREATE OR REPLACE FUNCTION public.get_users_with_settings()
+RETURNS SETOF jsonb
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT 
+    jsonb_build_object(
+      'id', au.id,
+      'email', au.email,
+      'created_at', au.created_at,
+      'last_sign_in_at', au.last_sign_in_at,
+      'role', us.role,
+      'first_name', us.first_name,
+      'last_name', us.last_name,
+      'phone', us.phone,
+      'hourly_rate', us.hourly_rate
+    )
+  FROM auth.users au
+  LEFT JOIN public.user_settings us ON au.id = us.user_id
+  WHERE au.deleted_at IS NULL
+  ORDER BY us.last_name ASC, us.first_name ASC;
+$$;
 
+------------------------------------------------------------------
+-- ROW LEVEL SECURITY (RLS)
+------------------------------------------------------------------
 -- Enable Row Level Security (RLS)
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE formulas ENABLE ROW LEVEL SECURITY;
@@ -845,130 +939,70 @@ ALTER TABLE stock_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consumptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_days ENABLE ROW LEVEL SECURITY;
-
--- Create RLS Policies
-CREATE POLICY "Allow all operations for everyone"
-  ON activities FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Allow all operations for everyone"
-  ON formulas FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Enable all for authenticated users"
-  ON bookings FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Enable all for authenticated users"
-  ON payments FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Enable all for authenticated users"
-  ON stock_items FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Enable all for authenticated users"
-  ON consumptions FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
-
-CREATE POLICY "Users can manage their own settings"
-  ON user_settings FOR ALL
-  TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Allow all operations on work_days for authenticated users"
-  ON work_days FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
--- Create indexes for better performance
-CREATE INDEX idx_bookings_date_time ON bookings(date_time);
-CREATE INDEX idx_bookings_formula ON bookings(formula_id);
-CREATE INDEX idx_bookings_customer ON bookings(customer_id);
-CREATE INDEX idx_consumptions_booking ON consumptions(booking_id);
-CREATE INDEX idx_consumptions_stock_item ON consumptions(stock_item_id);
-CREATE INDEX idx_payments_booking ON payments(booking_id);
-CREATE INDEX idx_formulas_activity ON formulas(activity_id);
-CREATE INDEX idx_stock_items_category ON stock_items(category);
-CREATE INDEX idx_user_settings_user ON user_settings(user_id);
-CREATE INDEX idx_customers_phone ON customers(phone);
-CREATE INDEX idx_customers_name ON customers(first_name, last_name);
-
--- Insert initial data
--- Insert initial customer data with all fields for the first customer
-INSERT INTO customers(first_name, last_name, email, phone) 
-VALUES ('Thimoté', 'Fétu', 'thimotefetu@gmail.com', '0492504409');
-
-INSERT INTO activities(name, description) 
-VALUES ('Laser Game', 'Partie de laser game en équipe');
-
-INSERT INTO formulas(
-  activity_id, 
-  name, 
-  description, 
-  price, 
-  min_persons, 
-  max_persons, 
-  duration_minutes, 
-  min_games,
-  max_games
-)
-VALUES (
-  (SELECT id FROM activities WHERE name = 'Laser Game'),
-  'Groupe standard',
-  'Une partie de laser game en groupe',
-  8.00,
-  2,
-  20,
-  15,
-  1,
-  NULL
-);
-
-insert into stock_items(name, quantity, price, alert_threshold, category) VALUES ('test', 50, 2.00, 10, 'DRINK');
-
--- Create daily_statistics table for manual fields
-CREATE TABLE daily_statistics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  date DATE NOT NULL UNIQUE,
-  fond_caisse_ouverture DECIMAL(10,2),
-  fond_caisse_fermeture DECIMAL(10,2),
-  montant_coffre DECIMAL(10,2),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  CHECK (fond_caisse_ouverture IS NULL OR fond_caisse_ouverture >= 0),
-  CHECK (fond_caisse_fermeture IS NULL OR fond_caisse_fermeture >= 0),
-  CHECK (montant_coffre IS NULL OR montant_coffre >= 0)
-);
-
--- Create trigger for daily_statistics
-CREATE TRIGGER update_daily_statistics_updated_at
-  BEFORE UPDATE ON daily_statistics
-  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-
--- Enable RLS on daily_statistics
 ALTER TABLE daily_statistics ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policy for daily_statistics
-CREATE POLICY "Allow all operations for everyone"
-  ON daily_statistics FOR ALL
-  TO public
-  USING (true)
-  WITH CHECK (true);
+-- Create RLS Policies
+CREATE POLICY "Allow all operations for everyone" ON activities 
+  FOR ALL TO public 
+  USING (true) WITH CHECK (true);
 
--- Create index for daily_statistics
-CREATE INDEX idx_daily_statistics_date ON daily_statistics(date);
+CREATE POLICY "Allow all operations for everyone" ON formulas 
+  FOR ALL TO public 
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all for authenticated users" ON bookings 
+  FOR ALL TO public 
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all for authenticated users" ON payments 
+  FOR ALL TO public 
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all for authenticated users" ON stock_items 
+  FOR ALL TO public 
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all for authenticated users" ON consumptions 
+  FOR ALL TO public 
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Users can manage their own settings" ON user_settings 
+  FOR ALL TO authenticated 
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow all operations on work_days for authenticated users" ON work_days 
+  FOR ALL TO authenticated 
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow all operations for everyone" ON daily_statistics 
+  FOR ALL TO public 
+  USING (true) WITH CHECK (true);
+
+------------------------------------------------------------------
+-- INDEXES
+------------------------------------------------------------------
+-- Create indexes for better performance
+CREATE INDEX idx_bookings_date_time ON bookings (date_time);
+CREATE INDEX idx_bookings_formula ON bookings (formula_id);
+CREATE INDEX idx_bookings_customer ON bookings (customer_id);
+CREATE INDEX idx_consumptions_booking ON consumptions (booking_id);
+CREATE INDEX idx_consumptions_stock_item ON consumptions (stock_item_id);
+CREATE INDEX idx_payments_booking ON payments (booking_id);
+CREATE INDEX idx_formulas_activity ON formulas (activity_id);
+CREATE INDEX idx_stock_items_category ON stock_items (category);
+CREATE INDEX idx_user_settings_user ON user_settings (user_id);
+CREATE INDEX idx_customers_phone ON customers (phone);
+CREATE INDEX idx_customers_name ON customers (first_name, last_name);
+CREATE INDEX idx_daily_statistics_date ON daily_statistics (date);
+
+------------------------------------------------------------------
+-- GRANTS & PERMISSIONS
+------------------------------------------------------------------
+-- Grant access to the update_consumption function
+GRANT EXECUTE ON FUNCTION public.update_consumption(UUID, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_consumption(UUID, INTEGER) TO service_role;
+
+-- Ajouter les privilèges pour get_users_with_settings
+GRANT EXECUTE ON FUNCTION public.get_users_with_settings() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_users_with_settings() TO anon;
+GRANT EXECUTE ON FUNCTION public.get_users_with_settings() TO service_role;
