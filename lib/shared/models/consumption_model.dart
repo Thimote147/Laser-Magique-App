@@ -15,6 +15,7 @@ class Consumption {
     required this.unitPrice,
   });
 
+  // Calculate total price as a getter
   double get totalPrice => quantity * unitPrice;
 
   Map<String, dynamic> toMap() {

@@ -44,17 +44,17 @@ class Payment {
       'id': id,
       'booking_id': bookingId,
       'amount': amount,
-      'method': method.toString().split('.').last,
-      'type': type.toString().split('.').last,
-      'date': date.toIso8601String(),
+      'payment_method': method.toString().split('.').last,
+      'payment_type': type.toString().split('.').last,
+      'payment_date': date.toIso8601String(),
     };
   }
 
   factory Payment.fromJson(Map<String, dynamic> json) {
     final amount = json['amount'];
-    final methodStr = json['method'] ?? json['payment_method'];
-    final typeStr = json['type'] ?? json['payment_type'];
-    final dateStr = json['date'] ?? json['payment_date'];
+    final methodStr = json['payment_method'];
+    final typeStr = json['payment_type'];
+    final dateStr = json['payment_date'];
 
     return Payment(
       id: json['id'] ?? '',

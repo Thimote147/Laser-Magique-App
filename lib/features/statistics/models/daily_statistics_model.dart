@@ -25,13 +25,9 @@ class DailyStatistics {
     required this.methodesPaiementDetails,
   });
 
-  double get totalRecettes => totalBancontact + totalCash + totalVirement;
+  double get total => totalBancontact + totalCash + totalVirement;
   double get totalParCategorie => totalBoissons + totalNourritures;
   
-  double get soldeFinal {
-    return fondCaisseFermeture - fondCaisseOuverture;
-  }
-
   DailyStatistics copyWith({
     DateTime? date,
     double? fondCaisseOuverture,
