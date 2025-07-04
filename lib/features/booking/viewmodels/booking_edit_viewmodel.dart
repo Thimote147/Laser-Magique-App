@@ -77,6 +77,12 @@ class BookingEditViewModel extends ChangeNotifier {
         throw StateError('Les informations du client sont incomplètes');
       }
 
+      print('BookingEditViewModel - Initializing from booking: ${booking!.id}');
+      print('BookingEditViewModel - Formula from booking: ${booking!.formula}');
+      print(
+        'BookingEditViewModel - Formula min participants: ${booking!.formula.minParticipants}, min games: ${booking!.formula.minGames}',
+      );
+
       _selectedCustomer = Customer(
         firstName: booking!.firstName,
         lastName: booking!.lastName!,
@@ -132,17 +138,79 @@ class BookingEditViewModel extends ChangeNotifier {
   }
 
   void setFormula(Formula formula) {
+    print('BookingEditViewModel - Setting formula: ${formula.name}');
+    print(
+      'BookingEditViewModel - Formula constraints: min persons=${formula.minParticipants}, max persons=${formula.maxParticipants}',
+    );
+    print(
+      'BookingEditViewModel - Formula constraints: min games=${formula.minGames}, max games=${formula.maxGames}',
+    );
+    print(
+      'BookingEditViewModel - Current values: persons=${_numberOfPersons}, games=${_numberOfGames}',
+    );
+
     _selectedFormula = formula;
-    _numberOfGames = formula.minGames;
-      notifyListeners();
+
+    // Ajuster le nombre de personnes selon les limites de la formule
+    if (_numberOfPersons < formula.minParticipants) {
+      print(
+        'BookingEditViewModel - Adjusting persons: ${_numberOfPersons} -> ${formula.minParticipants}',
+      );
+      _numberOfPersons = formula.minParticipants;
+    } else if (formula.maxParticipants != null &&
+        _numberOfPersons > formula.maxParticipants!) {
+      print(
+        'BookingEditViewModel - Adjusting persons: ${_numberOfPersons} -> ${formula.maxParticipants}',
+      );
+      _numberOfPersons = formula.maxParticipants!;
+    }
+
+    // Ajuster le nombre de jeux selon les limites de la formule
+    if (_numberOfGames < formula.minGames) {
+      print(
+        'BookingEditViewModel - Adjusting games: ${_numberOfGames} -> ${formula.minGames}',
+      );
+      _numberOfGames = formula.minGames;
+    } else if (formula.maxGames != null && _numberOfGames > formula.maxGames!) {
+      print(
+        'BookingEditViewModel - Adjusting games: ${_numberOfGames} -> ${formula.maxGames}',
+      );
+      _numberOfGames = formula.maxGames!;
+    }
+
+    print(
+      'BookingEditViewModel - After adjustment: persons=${_numberOfPersons}, games=${_numberOfGames}',
+    );
+
+    notifyListeners();
   }
 
   void setNumberOfPersons(int value) {
+    // Vérifier que la valeur est dans les limites de la formule sélectionnée
+    if (_selectedFormula != null) {
+      if (value < _selectedFormula!.minParticipants) {
+        value = _selectedFormula!.minParticipants;
+      } else if (_selectedFormula!.maxParticipants != null &&
+          value > _selectedFormula!.maxParticipants!) {
+        value = _selectedFormula!.maxParticipants!;
+      }
+    }
+
     _numberOfPersons = value;
     notifyListeners();
   }
 
   void setNumberOfGames(int value) {
+    // Vérifier que la valeur est dans les limites de la formule sélectionnée
+    if (_selectedFormula != null) {
+      if (value < _selectedFormula!.minGames) {
+        value = _selectedFormula!.minGames;
+      } else if (_selectedFormula!.maxGames != null &&
+          value > _selectedFormula!.maxGames!) {
+        value = _selectedFormula!.maxGames!;
+      }
+    }
+
     _numberOfGames = value;
     notifyListeners();
   }

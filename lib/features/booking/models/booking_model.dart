@@ -106,25 +106,34 @@ class Booking {
   }
 
   factory Booking.fromMap(Map<String, dynamic> map) {
-    Map<String, dynamic> formula =
-        map['formula'] ??
-        {
-          'id': map['formula_id'],
-          'activity': {
-            'id': map['activity_id'],
-            'name': map['activity_name'] ?? 'Activité inconnue',
-            'description': map['activity_description'] ?? '',
-          },
-          'name': map['formula_name'] ?? 'Formule inconnue',
-          'description': map['formula_description'] ?? '',
-          'price':
-              map['formula_base_price']?.toDouble() ??
-              map['price']?.toDouble() ??
-              0.0,
-          'default_game_count': map['default_game_count']?.toInt(),
-          'min_game_count': map['min_game_count']?.toInt(),
-          'max_game_count': map['max_game_count']?.toInt(),
-        };
+    print('Booking.fromMap - Raw data: $map');
+
+    Map<String, dynamic> formulaMap = map['formula'] ?? {};
+
+    // Si la formule est vide mais que nous avons des champs formula_id, etc.
+    if (formulaMap.isEmpty && map['formula_id'] != null) {
+      formulaMap = {
+        'id': map['formula_id'],
+        'activity': {
+          'id': map['activity_id'] ?? '',
+          'name': map['activity_name'] ?? 'Activité inconnue',
+          'description': map['activity_description'] ?? '',
+        },
+        'name': map['formula_name'] ?? 'Formule inconnue',
+        'description': map['formula_description'] ?? '',
+        'price':
+            map['formula_base_price']?.toDouble() ??
+            map['price']?.toDouble() ??
+            0.0,
+        'min_persons': map['min_persons'] ?? 1,
+        'max_persons': map['max_persons'],
+        'duration_minutes': map['duration_minutes'] ?? 15,
+        'min_games': map['min_games'] ?? 1,
+        'max_games': map['max_games'],
+      };
+    }
+
+    print('Booking.fromMap - Formula map constructed: $formulaMap');
 
     // Ensure we store as UTC
     var dateTime = DateTime.parse(map['date_time']).toUtc();
@@ -138,7 +147,7 @@ class Booking {
       numberOfGames: map['number_of_games']?.toInt() ?? 1,
       email: map['email'],
       phone: map['phone'],
-      formula: Formula.fromMap(formula),
+      formula: Formula.fromMap(formulaMap),
       isCancelled: map['is_cancelled'] ?? false,
       deposit: (map['deposit'] ?? 0.0).toDouble(),
       paymentMethod: payment_model.PaymentMethod.values.firstWhere(

@@ -6,19 +6,29 @@ class FormulaRepository {
   final SupabaseClient _client = SupabaseConfig.client;
 
   Future<List<Formula>> getAllFormulas() async {
-    final response = await _client
-        .from('formulas')
-        .select('''
-          *,
-          activity:activities (
-            id,
-            name,
-            description
-          )
-        ''')
-        .order('name', ascending: true);
+    try {
+      final response = await _client
+          .from('formulas')
+          .select('''
+            *,
+            activity:activities (
+              id,
+              name,
+              description
+            )
+          ''')
+          .order('name', ascending: true);
 
-    return (response as List).map((json) => Formula.fromMap(json)).toList();
+      print('FormulaRepository - getAllFormulas response: $response');
+      return (response as List).map((json) {
+        print('FormulaRepository - Processing formula JSON: $json');
+        return Formula.fromMap(json);
+      }).toList();
+    } catch (e, stackTrace) {
+      print('FormulaRepository - Error in getAllFormulas: $e');
+      print('FormulaRepository - Stack trace: $stackTrace');
+      rethrow;
+    }
   }
 
   Future<List<Formula>> getFormulasForActivity(String activityId) async {
@@ -111,11 +121,11 @@ class FormulaRepository {
   }
 
   Stream<List<Formula>> streamFormulas() {
-    return _client.from('formulas').stream(primaryKey: ['id']).asyncMap(
-      (response) async {
-        // Pour chaque mise à jour du stream, on récupère les formules complètes
-        return await getAllFormulas();
-      },
-    );
+    return _client.from('formulas').stream(primaryKey: ['id']).asyncMap((
+      response,
+    ) async {
+      // Pour chaque mise à jour du stream, on récupère les formules complètes
+      return await getAllFormulas();
+    });
   }
 }

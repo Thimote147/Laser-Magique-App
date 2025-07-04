@@ -9,6 +9,7 @@ import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../widgets/booking_consumption_widget.dart';
 import '../widgets/booking_payment_widget.dart';
+import 'booking_edit_screen.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
   final Booking booking;
@@ -215,6 +216,26 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           const PopupMenuDivider(),
                       ],
 
+                      // Option de modification (tous les utilisateurs)
+                      PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Modifier la réservation',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+
                       // Option d'annulation/restauration (tous les utilisateurs)
                       PopupMenuItem<String>(
                         value: 'toggle_cancel',
@@ -280,6 +301,19 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       if (_currentBooking.phone != null) {
                         await _makePhoneCall(_currentBooking.phone!);
                       }
+                      break;
+                    case 'edit':
+                      // Naviguer vers l'écran de modification avec la réservation actuelle
+                      Navigator.of(context)
+                          .push(
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => BookingEditScreen(
+                                    booking: _currentBooking,
+                                  ),
+                            ),
+                          )
+                          .then((_) => _refreshBooking());
                       break;
                     case 'toggle_cancel':
                       await Provider.of<BookingViewModel>(

@@ -70,17 +70,47 @@ class Formula {
 
   // Méthode pour créer un objet Formula à partir d'un Map
   factory Formula.fromMap(Map<String, dynamic> map) {
+    print('Formula.fromMap - Raw data: $map');
+
+    // Extraire les valeurs avec des logs
+    final minPersons = map['min_persons'] ?? 1;
+    final minGames = map['min_games'] ?? 1;
+
+    print(
+      'Formula.fromMap - Extracted min_persons: $minPersons, min_games: $minGames',
+    );
+
     return Formula(
       id: map['id'],
       name: map['name'],
       description: map['description'],
-      activity: Activity.fromMap(map['activity']),
-      price: map['price']?.toDouble() ?? 0.0,
-      minParticipants: map['min_persons'] ?? 1,
-      maxParticipants: map['max_persons'],
+      activity:
+          map['activity'] is Map
+              ? Activity.fromMap(map['activity'])
+              : Activity(
+                id: map['activity_id'] ?? '',
+                name: map['activity_name'] ?? 'Unknown Activity',
+                description: map['activity_description'],
+              ),
+      price:
+          (map['price'] is String)
+              ? double.tryParse(map['price']) ?? 0.0
+              : (map['price']?.toDouble() ?? 0.0),
+      minParticipants:
+          minPersons is int
+              ? minPersons
+              : int.tryParse(minPersons.toString()) ?? 1,
+      maxParticipants:
+          map['max_persons'] is int
+              ? map['max_persons']
+              : int.tryParse(map['max_persons']?.toString() ?? ''),
       durationMinutes: map['duration_minutes'] ?? 15,
-      minGames: map['min_games'] ?? 1,
-      maxGames: map['max_games'],
+      minGames:
+          minGames is int ? minGames : int.tryParse(minGames.toString()) ?? 1,
+      maxGames:
+          map['max_games'] is int
+              ? map['max_games']
+              : int.tryParse(map['max_games']?.toString() ?? ''),
     );
   }
 

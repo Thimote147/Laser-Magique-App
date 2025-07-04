@@ -170,19 +170,37 @@ class BookingRepository {
   // Récupère les détails complets d'une réservation, y compris les montants à jour
   Future<Booking> getBookingDetails(String bookingId) async {
     try {
-      // Ajout d'un délai pour laisser le temps à la vue SQL de se mettre à jour
-      await Future.delayed(const Duration(milliseconds: 500));
+      print('BookingRepository - Getting booking details for ID: $bookingId');
 
       // Récupère les données depuis la vue qui inclut tous les calculs
       final data =
           await _client
               .from('booking_summaries')
-              .select()
+              .select('''
+            *,
+            formula:formulas!formula_id (
+              *,
+              activity:activities (
+                id,
+                name,
+                description
+              )
+            )
+          ''')
               .eq('id', bookingId)
               .single();
 
+      print('BookingRepository - Booking details response: $data');
+
+      // Si formulas contient des données complètes, utilisons-les
+      if (data['formula'] != null) {
+        print('BookingRepository - Formula data from join: ${data['formula']}');
+      }
+
       return Booking.fromMap(data);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('BookingRepository - Error getting booking details: $e');
+      print('BookingRepository - Stack trace: $stackTrace');
       rethrow;
     }
   }
