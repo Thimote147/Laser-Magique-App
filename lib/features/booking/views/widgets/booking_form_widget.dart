@@ -1207,14 +1207,14 @@ class _PaymentMethodButton extends StatelessWidget {
       decoration: BoxDecoration(
         color:
             isSelected
-                ? Theme.of(context).primaryColor.withAlpha((255 * 0.1).round())
-                : Colors.grey.shade100,
+                ? Theme.of(context).colorScheme.primary.withAlpha((255 * 0.1).round())
+                : Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha((255 * 0.3).round()),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color:
               isSelected
-                  ? Theme.of(context).primaryColor
-                  : Colors.grey.shade300,
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.outline.withAlpha((255 * 0.3).round()),
           width: 1,
         ),
       ),
@@ -1231,8 +1231,8 @@ class _PaymentMethodButton extends StatelessWidget {
                 size: 24,
                 color:
                     isSelected
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.shade700,
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(height: 4),
               Text(
@@ -1241,8 +1241,8 @@ class _PaymentMethodButton extends StatelessWidget {
                   fontSize: 12,
                   color:
                       isSelected
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey.shade700,
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
                 textAlign: TextAlign.center,
