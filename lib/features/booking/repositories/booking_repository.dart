@@ -114,14 +114,31 @@ class BookingRepository {
     required PaymentType type,
     DateTime? date,
   }) async {
-    await _client.from('payments').insert({
+    final paymentData = {
       'booking_id': bookingId,
       'amount': amount,
       'payment_method': method.toString().split('.').last,
       'payment_type': type.toString().split('.').last,
       'payment_date':
           date?.toIso8601String() ?? DateTime.now().toIso8601String(),
-    });
+    };
+
+    print('Inserting payment with data: $paymentData');
+
+    try {
+      final response =
+          await _client.from('payments').insert(paymentData).select();
+      print('Payment insert response: $response');
+
+      // Check the actual columns in the response
+      if (response.isNotEmpty) {
+        final responseObj = response[0];
+        print('Payment response column names: ${responseObj.keys.toList()}');
+      }
+    } catch (e) {
+      print('Error inserting payment: $e');
+      rethrow;
+    }
   }
 
   Future<void> cancelPayment(String paymentId) async {

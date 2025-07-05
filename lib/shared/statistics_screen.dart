@@ -127,7 +127,14 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   const SizedBox(height: 16),
                   // N'afficher le résumé de caisse que pour la vue jour
                   if (viewModel.periodType == PeriodType.day) ...[
-                    _buildSummarySection(statistics),
+                    // Utiliser un Consumer pour s'assurer que cette section se reconstruit
+                    // lorsque le ViewModel change, indépendamment du reste de l'interface
+                    Consumer<StatisticsViewModel>(
+                      builder: (context, vm, child) {
+                        // Force la reconstruction chaque fois que le ViewModel change
+                        return _buildSummarySection(vm);
+                      },
+                    ),
                   ],
                 ],
               ),
@@ -452,53 +459,137 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   }
 
   Widget _buildManualFieldsSection(StatisticsViewModel viewModel) {
+    // Nous n'effectuons plus de calcul automatique du fond de caisse de fermeture
+    // car il s'agit maintenant d'une saisie manuelle
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader('Saisie manuelle', Icons.edit_rounded),
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: Theme.of(
-                context,
-              ).colorScheme.outline.withAlpha((255 * 0.2).round()),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildManualFieldContainer(
-                  'Fond de caisse ouverture',
-                  viewModel.fondOuvertureController,
-                  (value) =>
-                      viewModel.updateManualField('fond_ouverture', value),
-                  Icons.account_balance_wallet,
-                  'Obligatoire',
+        // Utiliser un Consumer ici pour s'assurer que toute la carte est reconstruite
+        // lorsque le ViewModel change
+        Consumer<StatisticsViewModel>(
+          builder: (context, vm, child) {
+            return Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
-                const SizedBox(height: 8),
-                _buildManualFieldContainer(
-                  'Fond de caisse fermeture',
-                  viewModel.fondFermetureController,
-                  (value) =>
-                      viewModel.updateManualField('fond_fermeture', value),
-                  Icons.account_balance_wallet_outlined,
-                  'Obligatoire',
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildManualFieldContainer(
+                      'Fond de caisse ouverture',
+                      vm.fondOuvertureController,
+                      (value) async {
+                        // Utiliser une mise à jour asynchrone pour éviter les blocages UI
+                        await vm.updateManualField('fond_ouverture', value);
+                      },
+                      Icons.account_balance_wallet,
+                      'Obligatoire',
+                    ),
+
+                    // Afficher l'alerte de différence de fond de caisse si nécessaire
+                    // Ne pas afficher si le fond d'ouverture est à 0
+                    if (vm.balanceMismatch &&
+                        vm.previousDayClosingBalance != null &&
+                        double.tryParse(vm.fondOuvertureController.text) !=
+                            0) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.orange,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Différence avec la caisse de la veille',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Fermeture veille: ${vm.formatCurrency(vm.previousDayClosingBalance)}',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Différence: ${vm.balanceDifference.abs().toStringAsFixed(2).replaceAll('.', ',')} €',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ElevatedButton(
+                                    onPressed: () async {
+                                      await vm.usePreviousDayClosingBalance();
+                                      // Plus besoin d'appeler setState() car le ViewModel notifiera déjà via notifyListeners()
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(context).colorScheme.primary,
+                                      foregroundColor:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary,
+                                    ),
+                                    child: const Text(
+                                      'Utiliser le fond de la veille',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 8),
+                    _buildManualFieldContainer(
+                      'Fond de caisse fermeture',
+                      vm.fondFermetureController,
+                      (value) async {
+                        // Utiliser une mise à jour asynchrone pour éviter les blocages UI
+                        await vm.updateManualField('fond_fermeture', value);
+                      },
+                      Icons.account_balance_wallet_outlined,
+                      'Obligatoire',
+                    ),
+                    const SizedBox(height: 8),
+                    _buildManualFieldContainer(
+                      'Montant déposé au coffre',
+                      vm.montantCoffreController,
+                      (value) async {
+                        // Utiliser une mise à jour asynchrone pour éviter les blocages UI
+                        await vm.updateManualField('montant_coffre', value);
+                      },
+                      Icons.lock,
+                      'Obligatoire',
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                _buildManualFieldContainer(
-                  'Montant déposé au coffre',
-                  viewModel.montantCoffreController,
-                  (value) =>
-                      viewModel.updateManualField('montant_coffre', value),
-                  Icons.lock,
-                  'Obligatoire',
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -528,8 +619,10 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     TextEditingController controller,
     Function(String) onChanged,
     IconData icon,
-    String subtitle,
-  ) {
+    String subtitle, {
+    bool readOnly = false,
+    String? helperText,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(
@@ -560,6 +653,18 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         .withAlpha((255 * 0.7).round()),
                   ),
                 ),
+                if (helperText != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      helperText,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontStyle: FontStyle.italic,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -571,19 +676,47 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              readOnly: readOnly,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
               ],
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 suffixText: '€',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: 8,
                   vertical: 8,
                 ),
                 isDense: true,
+                fillColor:
+                    readOnly
+                        ? Theme.of(context).colorScheme.surfaceContainerHighest
+                        : null,
+                filled: readOnly,
               ),
-              onChanged: onChanged,
+              style:
+                  readOnly
+                      ? TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      )
+                      : null,
+              onChanged:
+                  readOnly
+                      ? null
+                      : (value) {
+                        // Appeler la fonction de modification immédiatement sans attendre
+                        // que la base de données soit mise à jour
+                        onChanged(value);
+                      },
+              // Ajout de onFieldSubmitted pour gérer l'appui sur la touche Enter
+              onFieldSubmitted:
+                  readOnly
+                      ? null
+                      : (value) {
+                        // Appeler la même fonction que pour onChanged
+                        onChanged(value);
+                      },
             ),
           ),
         ],
@@ -1084,14 +1217,17 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  Widget _buildSummarySection(DailyStatistics statistics) {
+  Widget _buildSummarySection(StatisticsViewModel viewModel) {
+    // S'assurer que les statistiques courantes sont disponibles
+    final statistics = viewModel.currentStatistics;
+    if (statistics == null) return const SizedBox.shrink();
+
+    // Calculer l'écart de caisse avec les valeurs les plus récentes
+    final double theoricalCashAmount = viewModel.getTheoricalCashAmount();
+
     // Calcul de l'écart de caisse
-    final double totalCashExpected =
-        statistics.fondCaisseOuverture +
-        statistics.totalCash -
-        statistics.montantCoffre;
     final double cashDifference =
-        statistics.fondCaisseFermeture - totalCashExpected;
+        statistics.fondCaisseFermeture - theoricalCashAmount;
     final bool hasCashDiscrepancy =
         cashDifference.abs() > 0.01; // Seuil de tolérance pour les arrondis
 
@@ -1134,7 +1270,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 const SizedBox(height: 8),
                 _buildStatsContainer(
                   'Espèces théoriques en caisse',
-                  totalCashExpected,
+                  theoricalCashAmount,
                   Icons.calculate,
                 ),
                 const SizedBox(height: 8),
@@ -1156,62 +1292,77 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   Icons.lock,
                 ),
 
-                // Ajout de l'écart de caisse
-                if (hasCashDiscrepancy) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      color:
-                          cashDifference > 0
-                              ? Colors.green.withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          cashDifference > 0
-                              ? Icons.arrow_upward
-                              : Icons.arrow_downward,
-                          color: cashDifference > 0 ? Colors.green : Colors.red,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                cashDifference > 0
-                                    ? 'Excédent de caisse'
-                                    : 'Déficit de caisse',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      cashDifference > 0
-                                          ? Colors.green
-                                          : Colors.red,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Écart: ${cashDifference.abs().toStringAsFixed(2).replaceAll('.', ',')} €',
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                cashDifference > 0
-                                    ? "Il y a plus d'argent en caisse que prévu."
-                                    : "Il manque de l'argent en caisse.",
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                // N'afficher l'écart de caisse que si le fond d'ouverture n'est pas à 0
+                if (statistics.fondCaisseOuverture > 0) ...[
+                  const SizedBox(height: 8),
+                  _buildStatsContainer(
+                    'Écart de caisse',
+                    cashDifference,
+                    Icons.compare_arrows,
+                    valueColor:
+                        hasCashDiscrepancy
+                            ? (cashDifference > 0 ? Colors.green : Colors.red)
+                            : null,
                   ),
+
+                  // Ajout de l'écart de caisse
+                  if (hasCashDiscrepancy) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color:
+                            cashDifference > 0
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            cashDifference > 0
+                                ? Icons.arrow_upward
+                                : Icons.arrow_downward,
+                            color:
+                                cashDifference > 0 ? Colors.green : Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  cashDifference > 0
+                                      ? 'Excédent de caisse'
+                                      : 'Déficit de caisse',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        cashDifference > 0
+                                            ? Colors.green
+                                            : Colors.red,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Écart: ${cashDifference.abs().toStringAsFixed(2).replaceAll('.', ',')} €',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  cashDifference > 0
+                                      ? "Il y a plus d'argent en caisse que prévu."
+                                      : "Il manque de l'argent en caisse.",
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -1248,7 +1399,10 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             ),
           ),
           Text(
-            '${value.toStringAsFixed(2).replaceAll('.', ',')} €',
+            // Formatage spécial pour les valeurs positives/négatives (signe plus visible)
+            value < 0
+                ? '-${value.abs().toStringAsFixed(2).replaceAll('.', ',')} €'
+                : '${value.toStringAsFixed(2).replaceAll('.', ',')} €',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: valueColor ?? Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w500,
@@ -1523,11 +1677,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       return;
     }
 
-    final viewModel = Provider.of<StatisticsViewModel>(context, listen: false);
+    // Utiliser l'instance locale plutôt que le Provider
     final statistics =
-        viewModel.periodType == PeriodType.day
-            ? viewModel.currentStatistics
-            : viewModel.periodAggregateStatistics;
+        _viewModel.periodType == PeriodType.day
+            ? _viewModel.currentStatistics
+            : _viewModel.periodAggregateStatistics;
 
     if (statistics == null) {
       ScaffoldMessenger.of(
@@ -1619,10 +1773,10 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       final pdfExportService = PdfExportService();
       final pdfBytes = await pdfExportService.generateStatisticsReport(
         statistics: statistics,
-        periodType: viewModel.periodType,
-        startDate: viewModel.startDate,
-        endDate: viewModel.endDate,
-        periodStatistics: viewModel.periodStatistics,
+        periodType: _viewModel.periodType,
+        startDate: _viewModel.startDate,
+        endDate: _viewModel.endDate,
+        periodStatistics: _viewModel.periodStatistics,
       );
 
       // Fermer le dialogue de progression
@@ -1996,47 +2150,24 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   }
 
   // Widget pour afficher les erreurs
-  Widget _buildErrorWidget(String error) {
+  Widget _buildErrorWidget(String errorMessage) {
     return Center(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.red.shade300),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              'Erreur lors du chargement des statistiques',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => _viewModel.loadStatistics(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade50,
-                foregroundColor: Colors.red,
-              ),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            'Une erreur est survenue',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            errorMessage,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ],
       ),
     );
   }

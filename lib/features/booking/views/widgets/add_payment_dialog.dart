@@ -30,7 +30,10 @@ class _PaymentMethodButton extends StatelessWidget {
                   : theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.3),
+            color:
+                isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -39,14 +42,20 @@ class _PaymentMethodButton extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+              color:
+                  isSelected
+                      ? theme.colorScheme.onPrimaryContainer
+                      : theme.colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                color:
+                    isSelected
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 fontSize: 12,
               ),
@@ -101,7 +110,10 @@ class _PaymentTypeButton extends StatelessWidget {
                   : theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.3),
+            color:
+                isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -110,14 +122,20 @@ class _PaymentTypeButton extends StatelessWidget {
           children: [
             Icon(
               _icon,
-              color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+              color:
+                  isSelected
+                      ? theme.colorScheme.onPrimaryContainer
+                      : theme.colorScheme.onSurfaceVariant,
               size: 24,
             ),
             const SizedBox(height: 4),
             Text(
               _label,
               style: TextStyle(
-                color: isSelected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                color:
+                    isSelected
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 fontSize: 12,
               ),
@@ -151,6 +169,20 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
   void initState() {
     super.initState();
     _payment = widget.initialPayment;
+
+    // Définir le moyen de paiement par défaut selon le type
+    _setDefaultPaymentMethod();
+  }
+
+  void _setDefaultPaymentMethod() {
+    PaymentMethod defaultMethod =
+        _payment.type == PaymentType.deposit
+            ? PaymentMethod.transfer
+            : PaymentMethod.card;
+
+    setState(() {
+      _payment = _payment.copyWith(method: defaultMethod);
+    });
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -236,14 +268,16 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -270,7 +304,10 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                     isSelected: _payment.type == PaymentType.deposit,
                     onTap: () {
                       setState(() {
-                        _payment = _payment.copyWith(type: PaymentType.deposit);
+                        _payment = _payment.copyWith(
+                          type: PaymentType.deposit,
+                          method: PaymentMethod.transfer,
+                        );
                       });
                     },
                   ),
@@ -285,6 +322,7 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                         _payment = _payment.copyWith(
                           type: PaymentType.balance,
                           date: DateTime.now(),
+                          method: PaymentMethod.card,
                         );
                       });
                     },
@@ -304,7 +342,9 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outline.withValues(alpha: 0.3),
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
@@ -338,7 +378,7 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                 Expanded(
                   child: _PaymentMethodButton(
                     icon: Icons.credit_card,
-                    label: 'CB',
+                    label: 'Bancontact',
                     isSelected: _payment.method == PaymentMethod.card,
                     onTap: () {
                       setState(() {

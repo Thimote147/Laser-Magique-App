@@ -7,31 +7,47 @@ class PaymentRepository {
 
   // Create a new payment
   Future<Payment> createPayment(Payment payment) async {
-    final response =
-        await _client
-            .from('payments')
-            .insert({
-              'booking_id': payment.bookingId,
-              'amount': payment.amount,
-              'method': payment.method.toString().split('.').last,
-              'type': payment.type.toString().split('.').last,
-              'date': payment.date.toIso8601String(),
-            })
-            .select()
-            .single();
+    final paymentData = {
+      'booking_id': payment.bookingId,
+      'amount': payment.amount,
+      'payment_method': payment.method.toString().split('.').last,
+      'payment_type': payment.type.toString().split('.').last,
+      'payment_date': payment.date.toIso8601String(),
+    };
 
-    return Payment.fromJson(response);
+    print('PaymentRepository.createPayment - inserting data: $paymentData');
+
+    try {
+      final response =
+          await _client.from('payments').insert(paymentData).select().single();
+
+      print('PaymentRepository.createPayment - response: $response');
+      return Payment.fromJson(response);
+    } catch (e) {
+      print('PaymentRepository.createPayment - error: $e');
+      rethrow;
+    }
   }
 
   // Get all payments for a booking
   Future<List<Payment>> getPaymentsByBooking(String bookingId) async {
-    final response = await _client
-        .from('payments')
-        .select()
-        .eq('booking_id', bookingId)
-        .order('date');
+    try {
+      final response = await _client
+          .from('payments')
+          .select()
+          .eq('booking_id', bookingId)
+          .order('payment_date');
 
-    return response.map<Payment>((json) => Payment.fromJson(json)).toList();
+      print('getPaymentsByBooking response: $response');
+      if (response.isNotEmpty) {
+        print('Payment response columns: ${response[0].keys.toList()}');
+      }
+
+      return response.map<Payment>((json) => Payment.fromJson(json)).toList();
+    } catch (e) {
+      print('Error in getPaymentsByBooking: $e');
+      rethrow;
+    }
   }
 
   // Delete a payment
@@ -45,7 +61,7 @@ class PaymentRepository {
         .from('payments')
         .stream(primaryKey: ['id'])
         .eq('booking_id', bookingId)
-        .order('date')
+        .order('payment_date')
         .map(
           (response) =>
               response.map<Payment>((json) => Payment.fromJson(json)).toList(),

@@ -15,6 +15,11 @@ class StatisticsViewModel extends ChangeNotifier {
   String? _error;
   PeriodType _periodType = PeriodType.day;
 
+  // Variables pour la vérification du fond de caisse
+  double? _previousDayClosingBalance;
+  bool _balanceMismatch = false;
+  double _balanceDifference = 0.0;
+
   // Cache pour stocker les résultats des périodes précédentes
   final Map<String, List<DailyStatistics>> _periodCache = {};
   final Map<String, DailyStatistics> _aggregateCache = {};
@@ -29,6 +34,11 @@ class StatisticsViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   PeriodType get periodType => _periodType;
+
+  // Getters pour la vérification du fond de caisse
+  bool get balanceMismatch => _balanceMismatch;
+  double get balanceDifference => _balanceDifference;
+  double? get previousDayClosingBalance => _previousDayClosingBalance;
 
   // Dates de début et fin en fonction de la période sélectionnée
   DateTime get startDate {
@@ -273,8 +283,22 @@ class StatisticsViewModel extends ChangeNotifier {
           final statistics = await _repository.getDailyStatistics(targetDate);
           final manualFields = await _repository.getManualFields(targetDate);
 
+          // Récupérer le fond de caisse de fermeture de la veille
+          _previousDayClosingBalance = await _repository
+              .getPreviousDayClosingBalance(targetDate);
+
+          // Vérifier si le fond d'ouverture correspond au fond de fermeture de la veille
+          final fondOuverture = manualFields['fond_caisse_ouverture'] ?? 0.0;
+          if (_previousDayClosingBalance != null) {
+            _balanceDifference = _previousDayClosingBalance! - fondOuverture;
+            _balanceMismatch = _balanceDifference.abs() > 0.01;
+          } else {
+            _balanceMismatch = false;
+            _balanceDifference = 0.0;
+          }
+
           _currentStatistics = statistics.copyWith(
-            fondCaisseOuverture: manualFields['fond_caisse_ouverture'] ?? 0.0,
+            fondCaisseOuverture: fondOuverture,
             fondCaisseFermeture: manualFields['fond_caisse_fermeture'] ?? 0.0,
             montantCoffre: manualFields['montant_coffre'] ?? 0.0,
           );
@@ -352,49 +376,95 @@ class StatisticsViewModel extends ChangeNotifier {
       loadStatistics(_selectedDate);
       notifyListeners();
     }
-  }
+  } // Une variable pour éviter les mises à jour multiples simultanées
+
+  bool _isUpdatingField = false;
 
   Future<void> updateManualField(String field, String value) async {
     // Ne permettre la mise à jour que pour la vue jour
     if (_currentStatistics == null || _periodType != PeriodType.day) return;
 
+    // Éviter les mises à jour simultanées qui peuvent causer des problèmes de cohérence
+    if (_isUpdatingField) return;
+    _isUpdatingField = true;
+
     try {
-      final doubleValue = double.tryParse(value);
+      // Assurez-vous que les valeurs décimales utilisent '.' comme séparateur
+      String normalizedValue = value.replaceAll(',', '.');
+      final doubleValue = double.tryParse(normalizedValue) ?? 0.0;
 
       switch (field) {
         case 'fond_ouverture':
+          // Mettre à jour en mémoire immédiatement
+          _currentStatistics = _currentStatistics!.copyWith(
+            fondCaisseOuverture: doubleValue,
+          );
+
+          // Vérifier et mettre à jour la différence avec le fond de caisse de la veille en temps réel
+          if (_previousDayClosingBalance != null) {
+            _balanceDifference = _previousDayClosingBalance! - doubleValue;
+            _balanceMismatch = _balanceDifference.abs() > 0.01;
+          }
+
+          // Notification immédiate pour l'UI
+          notifyListeners();
+
+          // Mise à jour dans la base de données
           await _repository.updateManualFields(
             date: _selectedDate,
             fondCaisseOuverture: doubleValue,
           );
-          _currentStatistics = _currentStatistics!.copyWith(
-            fondCaisseOuverture: doubleValue ?? 0.0,
-          );
           break;
+
         case 'fond_fermeture':
+          // Mettre à jour en mémoire immédiatement
+          _currentStatistics = _currentStatistics!.copyWith(
+            fondCaisseFermeture: doubleValue,
+          );
+          // Notification immédiate pour l'UI
+          notifyListeners();
+
+          // Mise à jour dans la base de données
           await _repository.updateManualFields(
             date: _selectedDate,
             fondCaisseFermeture: doubleValue,
           );
-          _currentStatistics = _currentStatistics!.copyWith(
-            fondCaisseFermeture: doubleValue ?? 0.0,
-          );
           break;
+
         case 'montant_coffre':
+          // Mettre à jour en mémoire immédiatement
+          _currentStatistics = _currentStatistics!.copyWith(
+            montantCoffre: doubleValue,
+          );
+          // Notification immédiate pour l'UI
+          notifyListeners();
+
+          // Mise à jour dans la base de données
           await _repository.updateManualFields(
             date: _selectedDate,
             montantCoffre: doubleValue,
           );
-          _currentStatistics = _currentStatistics!.copyWith(
-            montantCoffre: doubleValue ?? 0.0,
-          );
           break;
       }
+      // Une notification finale pour s'assurer que l'UI est à jour
       notifyListeners();
     } catch (e) {
       _error = 'Erreur lors de la mise à jour: $e';
       notifyListeners();
+    } finally {
+      // Important: libérer le drapeau pour permettre de futures mises à jour
+      _isUpdatingField = false;
     }
+  }
+
+  // Méthode pour calculer les espèces théoriques en caisse
+  double getTheoricalCashAmount() {
+    if (_currentStatistics == null) return 0.0;
+
+    // Calcul: Fond ouverture + Total cash - Montant coffre
+    return _currentStatistics!.fondCaisseOuverture +
+        _currentStatistics!.totalCash -
+        _currentStatistics!.montantCoffre;
   }
 
   void changeDate(DateTime newDate) {
@@ -406,6 +476,52 @@ class StatisticsViewModel extends ChangeNotifier {
   String formatCurrency(double? amount) {
     if (amount == null) return '0,00 €';
     return '${amount.toStringAsFixed(2).replaceAll('.', ',')} €';
+  }
+
+  // Méthode pour utiliser le fond de caisse de fermeture de la veille comme fond d'ouverture
+  Future<void> usePreviousDayClosingBalance() async {
+    if (_previousDayClosingBalance == null ||
+        _previousDayClosingBalance == 0.0) {
+      return;
+    }
+
+    // Éviter les mises à jour simultanées
+    if (_isUpdatingField) return;
+    _isUpdatingField = true;
+
+    try {
+      // Mettre à jour directement le contrôleur du fond d'ouverture
+      fondOuvertureController.text = _previousDayClosingBalance!
+          .toStringAsFixed(2);
+
+      // Mettre à jour les données en mémoire
+      if (_currentStatistics != null) {
+        _currentStatistics = _currentStatistics!.copyWith(
+          fondCaisseOuverture: _previousDayClosingBalance!,
+        );
+      }
+
+      // Réinitialiser l'état de vérification car maintenant les valeurs correspondent
+      _balanceMismatch = false;
+      _balanceDifference = 0.0;
+
+      // Mettre à jour le fond d'ouverture avec la valeur de la veille dans la base de données
+      await _repository.updateManualFields(
+        date: _selectedDate,
+        fondCaisseOuverture: _previousDayClosingBalance,
+      );
+
+      // Mettre à jour l'interface avec les nouvelles données
+      notifyListeners();
+
+      // Ne pas recharger les statistiques complètes car cela pourrait écraser les modifications
+      // loadStatistics();
+    } catch (e) {
+      _error = 'Erreur lors de la mise à jour: $e';
+      notifyListeners();
+    } finally {
+      _isUpdatingField = false;
+    }
   }
 
   @override

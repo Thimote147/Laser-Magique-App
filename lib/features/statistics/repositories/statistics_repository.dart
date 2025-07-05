@@ -443,4 +443,19 @@ class StatisticsRepository {
       'montant_coffre': response?['montant_coffre']?.toDouble(),
     };
   }
+
+  // Récupère uniquement le fond de caisse de fermeture de la veille
+  Future<double?> getPreviousDayClosingBalance(DateTime date) async {
+    // Calculer la date de la veille
+    final previousDay = date.subtract(const Duration(days: 1));
+
+    final response =
+        await _supabase
+            .from('daily_statistics')
+            .select('fond_caisse_fermeture')
+            .eq('date', previousDay.toIso8601String().substring(0, 10))
+            .maybeSingle();
+
+    return response?['fond_caisse_fermeture']?.toDouble();
+  }
 }
