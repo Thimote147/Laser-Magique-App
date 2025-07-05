@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_statistics_model.dart';
+import '../models/cash_movement_model.dart';
 import '../repositories/statistics_repository.dart';
 
 enum PeriodType { day, week, month, year }
@@ -28,6 +29,10 @@ class StatisticsViewModel extends ChangeNotifier {
   final TextEditingController fondFermetureController = TextEditingController();
   final TextEditingController montantCoffreController = TextEditingController();
 
+  // Variables pour les mouvements de caisse
+  List<CashMovement> _cashMovements = [];
+  bool _isLoadingMovements = false;
+
   DailyStatistics? get currentStatistics => _currentStatistics;
   List<DailyStatistics> get periodStatistics => _periodStatistics;
   DateTime get selectedDate => _selectedDate;
@@ -39,6 +44,10 @@ class StatisticsViewModel extends ChangeNotifier {
   bool get balanceMismatch => _balanceMismatch;
   double get balanceDifference => _balanceDifference;
   double? get previousDayClosingBalance => _previousDayClosingBalance;
+
+  // Getters pour les mouvements de caisse
+  List<CashMovement> get cashMovements => _cashMovements;
+  bool get isLoadingMovements => _isLoadingMovements;
 
   // Dates de début et fin en fonction de la période sélectionnée
   DateTime get startDate {
@@ -336,6 +345,11 @@ class StatisticsViewModel extends ChangeNotifier {
 
       // Mettre en cache les statistiques agrégées
       _aggregateCache[periodCacheKey] = periodAggregateStatistics;
+
+      // Charger les mouvements de caisse pour la vue jour
+      if (_periodType == PeriodType.day) {
+        await _loadCashMovements();
+      }
     } catch (e) {
       _error = _formatErrorMessage(e);
       print('Erreur de chargement: $e');
@@ -522,6 +536,63 @@ class StatisticsViewModel extends ChangeNotifier {
     } finally {
       _isUpdatingField = false;
     }
+  }
+
+  // Méthodes pour les mouvements de caisse
+  Future<void> _loadCashMovements() async {
+    _isLoadingMovements = true;
+    notifyListeners();
+
+    try {
+      _cashMovements = await _repository.getCashMovements(_selectedDate);
+    } catch (e) {
+      _error = _formatErrorMessage(e);
+      print('Erreur lors du chargement des mouvements de caisse: $e');
+    } finally {
+      _isLoadingMovements = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> addCashMovement(CashMovement movement) async {
+    try {
+      await _repository.addCashMovement(movement);
+      await _loadCashMovements();
+    } catch (e) {
+      _error = _formatErrorMessage(e);
+      print('Erreur lors de l\'ajout du mouvement de caisse: $e');
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteCashMovement(String id) async {
+    try {
+      print('Tentative de suppression du mouvement de caisse avec ID: $id');
+      await _repository.deleteCashMovement(id);
+      print('Suppression réussie, rechargement des mouvements...');
+      await _loadCashMovements();
+      print('Mouvements rechargés avec succès');
+      notifyListeners();
+    } catch (e) {
+      _error = _formatErrorMessage(e);
+      print('Erreur lors de la suppression du mouvement de caisse: $e');
+      print('Type d\'erreur: ${e.runtimeType}');
+      print('Stack trace: ${StackTrace.current}');
+      notifyListeners();
+    }
+  }
+
+  // Calcul du total des mouvements de caisse
+  double getTotalCashMovements() {
+    double total = 0;
+    for (final movement in _cashMovements) {
+      if (movement.type == CashMovementType.entry) {
+        total += movement.amount;
+      } else {
+        total -= movement.amount;
+      }
+    }
+    return total;
   }
 
   @override

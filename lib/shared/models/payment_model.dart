@@ -1,5 +1,3 @@
-import 'package:uuid/uuid.dart';
-
 enum PaymentMethod { cash, card, transfer }
 
 enum PaymentType { deposit, balance }
@@ -19,7 +17,7 @@ class Payment {
     required this.method,
     required this.type,
     required this.date,
-  }) : id = id ?? const Uuid().v4();
+  }) : id = id ?? '';
 
   Payment copyWith({
     String? id,
@@ -40,14 +38,22 @@ class Payment {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
+    // Pour l'insertion en base de données, on n'inclut pas l'ID
+    // car il sera généré automatiquement par Supabase
+    final map = {
       'booking_id': bookingId,
       'amount': amount,
       'payment_method': method.toString().split('.').last,
       'payment_type': type.toString().split('.').last,
       'payment_date': date.toIso8601String(),
     };
+
+    // On n'ajoute l'ID que s'il est non vide (cas des mises à jour)
+    if (id.isNotEmpty) {
+      map['id'] = id;
+    }
+
+    return map;
   }
 
   factory Payment.fromJson(Map<String, dynamic> json) {

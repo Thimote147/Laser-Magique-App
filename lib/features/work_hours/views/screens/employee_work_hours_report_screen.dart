@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../../viewmodels/employee_work_hours_viewmodel.dart';
 import '../../models/work_day_model.dart';
+import '../../../../shared/services/pdf_header_service.dart';
 
 class EmployeeWorkHoursReportScreen extends StatefulWidget {
   const EmployeeWorkHoursReportScreen({super.key});
@@ -1047,17 +1048,13 @@ class _EmployeeWorkHoursReportScreenState
       final fileName =
           'releve_${employee['name'].toString().toLowerCase().replaceAll(' ', '_')}_${monthYear.toLowerCase().replaceAll(' ', '_')}.pdf';
 
-      // Créer les styles avec Courier qui a un meilleur support Unicode
-      final baseStyle = pw.TextStyle(font: pw.Font.courier());
-      final headerStyle = baseStyle.copyWith(
-        fontWeight: pw.FontWeight.bold,
-        fontSize: 12,
-      );
-      final cellStyle = baseStyle.copyWith(fontSize: 10);
-      final totalStyle = baseStyle.copyWith(
-        fontWeight: pw.FontWeight.bold,
-        fontSize: 12,
-      );
+      // Créer les styles avec Google Fonts pour une meilleure cohérence
+      final font = await PdfGoogleFonts.openSansRegular();
+      final fontBold = await PdfGoogleFonts.openSansBold();
+      
+      final headerStyle = pw.TextStyle(font: fontBold, fontSize: 12);
+      final cellStyle = pw.TextStyle(font: font, fontSize: 10);
+      final totalStyle = pw.TextStyle(font: fontBold, fontSize: 12);
 
       // Calculer les totaux
       double totalHours = 0;
@@ -1067,56 +1064,33 @@ class _EmployeeWorkHoursReportScreenState
         totalAmount += log['amount'] as double;
       }
 
+      // Générer le header standard
+      final standardHeader = await PdfHeaderService.buildStandardHeader(
+        title: 'Relevé des heures',
+        subtitle: 'Employé: ${employee['name']} • Période: $monthYear • Taux horaire: ${employee['hourlyRate'].toStringAsFixed(2)}€/h',
+        font: font,
+        fontBold: fontBold,
+      );
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
-          header:
-              (context) => pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        'Laser-Magique',
-                        style: headerStyle.copyWith(fontSize: 20),
-                      ),
-                      pw.Text(
-                        'Relevé des heures',
-                        style: baseStyle.copyWith(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(height: 10),
-                  pw.Divider(),
-                  pw.SizedBox(height: 10),
-                  pw.Text(
-                    'Employé: ${employee['name']}',
-                    style: headerStyle.copyWith(fontSize: 14),
-                  ),
-                  pw.Text('Période: $monthYear', style: cellStyle),
-                  pw.Text(
-                    'Taux horaire: ${employee['hourlyRate'].toStringAsFixed(2)}€/h',
-                    style: cellStyle,
-                  ),
-                ],
+          header: (context) => standardHeader,
+          footer: (context) => pw.Column(
+            children: [
+              PdfHeaderService.buildStandardFooter(font: font),
+              pw.SizedBox(height: 5),
+              pw.Text(
+                'Page ${context.pageNumber} sur ${context.pagesCount}',
+                style: cellStyle.copyWith(
+                  fontSize: 8,
+                  color: PdfColors.grey,
+                ),
+                textAlign: pw.TextAlign.center,
               ),
-          footer:
-              (context) => pw.Column(
-                children: [
-                  pw.Divider(),
-                  pw.SizedBox(height: 5),
-                  pw.Text(
-                    'Page ${context.pageNumber} sur ${context.pagesCount}',
-                    style: cellStyle.copyWith(
-                      fontSize: 8,
-                      color: PdfColors.grey,
-                    ),
-                    textAlign: pw.TextAlign.center,
-                  ),
-                ],
-              ),
+            ],
+          ),
           build:
               (context) => [
                 pw.Table(

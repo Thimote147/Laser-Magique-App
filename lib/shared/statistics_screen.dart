@@ -7,6 +7,8 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import '../features/statistics/viewmodels/statistics_view_model.dart';
 import '../features/statistics/models/daily_statistics_model.dart';
+import '../features/statistics/models/cash_movement_model.dart';
+import '../features/statistics/widgets/cash_movement_dialog.dart';
 import '../features/statistics/services/pdf_export_service.dart';
 import './user_provider.dart';
 
@@ -1224,10 +1226,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     // Calculer l'écart de caisse avec les valeurs les plus récentes
     final double theoricalCashAmount = viewModel.getTheoricalCashAmount();
+    final double totalCashMovements = viewModel.getTotalCashMovements();
 
-    // Calcul de l'écart de caisse
+    // Calcul de l'écart de caisse en tenant compte des mouvements de caisse
     final double cashDifference =
-        statistics.fondCaisseFermeture - theoricalCashAmount;
+        statistics.fondCaisseFermeture - (theoricalCashAmount + totalCashMovements);
     final bool hasCashDiscrepancy =
         cashDifference.abs() > 0.01; // Seuil de tolérance pour les arrondis
 
@@ -1270,7 +1273,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 const SizedBox(height: 8),
                 _buildStatsContainer(
                   'Espèces théoriques en caisse',
-                  theoricalCashAmount,
+                  theoricalCashAmount + totalCashMovements,
                   Icons.calculate,
                 ),
                 const SizedBox(height: 8),
@@ -1292,22 +1295,15 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   Icons.lock,
                 ),
 
+                // Section mouvements de caisse
+                const SizedBox(height: 16),
+                _buildCashMovementsSection(viewModel),
+
                 // N'afficher l'écart de caisse que si le fond d'ouverture n'est pas à 0
                 if (statistics.fondCaisseOuverture > 0) ...[
-                  const SizedBox(height: 8),
-                  _buildStatsContainer(
-                    'Écart de caisse',
-                    cashDifference,
-                    Icons.compare_arrows,
-                    valueColor:
-                        hasCashDiscrepancy
-                            ? (cashDifference > 0 ? Colors.green : Colors.red)
-                            : null,
-                  ),
-
                   // Ajout de l'écart de caisse
                   if (hasCashDiscrepancy) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
                         color:
@@ -1431,11 +1427,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         case PeriodType.day:
           return DateFormat('dd/MM').format(date);
         case PeriodType.week:
-          return DateFormat('E').format(date); // Jour de la semaine
+          return DateFormat('E', 'fr_FR').format(date); // Jour de la semaine en français
         case PeriodType.month:
-          return DateFormat('dd').format(date); // Jour du mois
+          return DateFormat('dd/MM', 'fr_FR').format(date); // Jour du mois
         case PeriodType.year:
-          return DateFormat('MMM').format(date); // Mois de l'année
+          return DateFormat('MMM', 'fr_FR').format(date); // Mois de l'année en français
       }
     }
 
@@ -1777,6 +1773,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         startDate: _viewModel.startDate,
         endDate: _viewModel.endDate,
         periodStatistics: _viewModel.periodStatistics,
+        cashMovements: _viewModel.cashMovements,
       );
 
       // Fermer le dialogue de progression
@@ -2168,6 +2165,152 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             style: const TextStyle(color: Colors.red),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCashMovementsSection(StatisticsViewModel viewModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // En-tête avec bouton d'ajout
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Mouvements de caisse',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            IconButton(
+              onPressed: () {
+                CashMovementDialog.show(
+                  context,
+                  onSubmit: (movement) {
+                    viewModel.addCashMovement(movement);
+                  },
+                );
+              },
+              icon: const Icon(Icons.add),
+              tooltip: 'Ajouter un mouvement',
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // Total des mouvements
+        _buildStatsContainer(
+          'Total mouvements',
+          viewModel.getTotalCashMovements(),
+          Icons.compare_arrows,
+          valueColor:
+              viewModel.getTotalCashMovements() == 0
+                  ? null
+                  : viewModel.getTotalCashMovements() > 0
+                  ? Colors.green
+                  : Colors.red,
+        ),
+
+        const SizedBox(height: 8),
+
+        // Liste des mouvements
+        if (viewModel.isLoadingMovements)
+          const Center(child: CircularProgressIndicator())
+        else if (viewModel.cashMovements.isEmpty)
+          const SizedBox.shrink()
+        else
+          ...viewModel.cashMovements.map(
+            (movement) => _buildCashMovementItem(movement, viewModel),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCashMovementItem(
+    CashMovement movement,
+    StatisticsViewModel viewModel,
+  ) {
+    final isEntry = movement.type == CashMovementType.entry;
+    final color = isEntry ? Colors.green : Colors.red;
+    final icon = isEntry ? Icons.arrow_upward : Icons.arrow_downward;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(
+            context,
+          ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+        ),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withAlpha((255 * 0.1).round()),
+          child: Icon(icon, color: color, size: 16),
+        ),
+        title: Text(
+          movement.justification,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${isEntry ? '+' : '-'}${movement.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
+            if (movement.details != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                movement.details!,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            Text(
+              'Créé le ${DateFormat('dd/MM/yyyy à HH:mm').format(movement.createdAt)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        trailing: IconButton(
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder:
+                  (context) => AlertDialog(
+                    title: const Text('Supprimer le mouvement'),
+                    content: const Text(
+                      'Êtes-vous sûr de vouloir supprimer ce mouvement de caisse ?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Annuler'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          viewModel.deleteCashMovement(movement.id);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Supprimer'),
+                      ),
+                    ],
+                  ),
+            );
+          },
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Supprimer',
+        ),
       ),
     );
   }

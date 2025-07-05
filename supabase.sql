@@ -31,6 +31,7 @@ DROP VIEW IF EXISTS low_stock_items CASCADE;
 DROP VIEW IF EXISTS v_formula CASCADE;
 
 -- Drop existing tables if they exist
+DROP TABLE IF EXISTS cash_movements CASCADE;
 DROP TABLE IF EXISTS daily_statistics CASCADE;
 DROP TABLE IF EXISTS user_settings CASCADE;
 DROP TABLE IF EXISTS consumptions CASCADE;
@@ -222,6 +223,19 @@ CREATE TABLE daily_statistics (
   CHECK (fond_caisse_ouverture IS NULL OR fond_caisse_ouverture >= 0),
   CHECK (fond_caisse_fermeture IS NULL OR fond_caisse_fermeture >= 0),
   CHECK (montant_coffre IS NULL OR montant_coffre >= 0)
+);
+
+-- Create cash_movements table for cash register movements
+CREATE TABLE cash_movements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  date DATE NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('entry', 'exit')),
+  amount DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
+  justification TEXT NOT NULL,
+  details TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 ------------------------------------------------------------------
@@ -464,6 +478,10 @@ CREATE TRIGGER update_work_days_updated_at
 
 CREATE TRIGGER update_daily_statistics_updated_at
   BEFORE UPDATE ON daily_statistics
+  FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+CREATE TRIGGER update_cash_movements_updated_at
+  BEFORE UPDATE ON cash_movements
   FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 -- Create trigger for stock updates
@@ -940,6 +958,7 @@ ALTER TABLE consumptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_days ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_statistics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cash_movements ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS Policies
 CREATE POLICY "Allow all operations for everyone" ON activities 
@@ -978,6 +997,11 @@ CREATE POLICY "Allow all operations for everyone" ON daily_statistics
   FOR ALL TO public 
   USING (true) WITH CHECK (true);
 
+-- Politiques spécifiques pour cash_movements (voir section RLS plus bas)
+-- CREATE POLICY "Allow all operations for authenticated users" ON cash_movements 
+--   FOR ALL TO authenticated 
+--   USING (true) WITH CHECK (true);
+
 ------------------------------------------------------------------
 -- INDEXES
 ------------------------------------------------------------------
@@ -994,6 +1018,9 @@ CREATE INDEX idx_user_settings_user ON user_settings (user_id);
 CREATE INDEX idx_customers_phone ON customers (phone);
 CREATE INDEX idx_customers_name ON customers (first_name, last_name);
 CREATE INDEX idx_daily_statistics_date ON daily_statistics (date);
+CREATE INDEX idx_cash_movements_date ON cash_movements (date);
+CREATE INDEX idx_cash_movements_created_at ON cash_movements (created_at);
+CREATE INDEX idx_cash_movements_created_by ON cash_movements (created_by);
 
 ------------------------------------------------------------------
 -- GRANTS & PERMISSIONS
@@ -1006,3 +1033,4 @@ GRANT EXECUTE ON FUNCTION public.update_consumption(UUID, INTEGER) TO service_ro
 GRANT EXECUTE ON FUNCTION public.get_users_with_settings() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_users_with_settings() TO anon;
 GRANT EXECUTE ON FUNCTION public.get_users_with_settings() TO service_role;
+

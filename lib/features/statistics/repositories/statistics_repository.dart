@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_statistics_model.dart';
+import '../models/cash_movement_model.dart';
 import '../../../shared/models/payment_model.dart';
 import '../../../shared/models/consumption_model.dart';
 import '../../inventory/models/stock_item_model.dart';
@@ -457,5 +458,56 @@ class StatisticsRepository {
             .maybeSingle();
 
     return response?['fond_caisse_fermeture']?.toDouble();
+  }
+
+  // Méthodes pour les mouvements de caisse
+  Future<void> addCashMovement(CashMovement movement) async {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    final movementData = movement.toJson();
+    
+    // Remplacer created_by par l'ID utilisateur réel
+    movementData['created_by'] = currentUserId;
+    
+    await _supabase.from('cash_movements').insert(movementData);
+  }
+
+  Future<List<CashMovement>> getCashMovements(DateTime date) async {
+    final response = await _supabase
+        .from('cash_movements')
+        .select()
+        .eq('date', date.toIso8601String().substring(0, 10))
+        .order('created_at', ascending: false);
+
+    return response.map((json) => CashMovement.fromJson(json)).toList();
+  }
+
+  Future<void> deleteCashMovement(String id) async {
+    print('Repository: Tentative de suppression du mouvement avec ID: $id');
+    
+    // Vérifier d'abord si le mouvement existe
+    final existingMovement = await _supabase
+        .from('cash_movements')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+    
+    print('Repository: Mouvement trouvé avant suppression: $existingMovement');
+    
+    if (existingMovement != null) {
+      print('Repository: created_by = ${existingMovement['created_by']}');
+      print('Repository: current user = ${_supabase.auth.currentUser?.id}');
+    }
+    
+    final result = await _supabase.from('cash_movements').delete().eq('id', id);
+    print('Repository: Résultat de la suppression: $result');
+    
+    // Vérifier si le mouvement existe encore après suppression
+    final stillExists = await _supabase
+        .from('cash_movements')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+    
+    print('Repository: Mouvement encore présent après suppression: $stillExists');
   }
 }

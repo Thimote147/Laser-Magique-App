@@ -3,9 +3,7 @@ import '../models/payment_model.dart';
 import '../../core/constants/supabase_config.dart';
 
 class PaymentRepository {
-  final SupabaseClient _client = SupabaseConfig.client;
-
-  // Create a new payment
+  final SupabaseClient _client = SupabaseConfig.client; // Create a new payment
   Future<Payment> createPayment(Payment payment) async {
     final paymentData = {
       'booking_id': payment.bookingId,
@@ -27,9 +25,8 @@ class PaymentRepository {
       print('PaymentRepository.createPayment - error: $e');
       rethrow;
     }
-  }
+  } // Get all payments for a booking
 
-  // Get all payments for a booking
   Future<List<Payment>> getPaymentsByBooking(String bookingId) async {
     try {
       final response = await _client
@@ -48,9 +45,8 @@ class PaymentRepository {
       print('Error in getPaymentsByBooking: $e');
       rethrow;
     }
-  }
+  } // Delete a payment
 
-  // Delete a payment
   Future<void> deletePayment(String paymentId) async {
     await _client.from('payments').delete().eq('id', paymentId);
   }
