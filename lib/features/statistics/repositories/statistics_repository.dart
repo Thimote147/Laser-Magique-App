@@ -404,31 +404,95 @@ class StatisticsRepository {
     );
   }
 
+  // Méthode simplifiée pour mettre à jour UN seul champ manuel
+  Future<void> updateSingleManualField({
+    required DateTime date,
+    required String fieldName,
+    required double value,
+  }) async {
+    final dateString = date.toIso8601String().substring(0, 10);
+    
+    // Valider le nom du champ
+    final validFields = ['fond_caisse_ouverture', 'fond_caisse_fermeture', 'montant_coffre'];
+    if (!validFields.contains(fieldName)) {
+      throw ArgumentError('Nom de champ invalide: $fieldName');
+    }
+
+    try {
+      // Faire l'upsert avec seulement le champ spécifique
+      final data = {
+        'date': dateString,
+        fieldName: value,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      await _supabase.from('daily_statistics').upsert(
+        data,
+        onConflict: 'date',
+        ignoreDuplicates: false,
+      );
+
+      // Invalider SEULEMENT le cache pour cette date
+      final cacheKey = _getCacheKey(date);
+      _manualFieldsCache.remove(cacheKey);
+      _statisticsCache.remove(cacheKey);
+      
+    } catch (e) {
+      throw Exception('Erreur lors de la mise à jour du champ $fieldName: $e');
+    }
+  }
+
+  // Méthode pour vider le cache d'une date spécifique
+  void clearCacheForDate(DateTime date) {
+    final cacheKey = _getCacheKey(date);
+    _manualFieldsCache.remove(cacheKey);
+    _statisticsCache.remove(cacheKey);
+  }
+
+  // Méthode pour forcer le rechargement des champs manuels depuis la BDD
+  Future<Map<String, double?>> forceRefreshManualFields(DateTime date) async {
+    return getManualFields(date, forceRefresh: true);
+  }
+
+  // Ancienne méthode maintenue pour compatibilité
   Future<void> updateManualFields({
     required DateTime date,
     double? fondCaisseOuverture,
     double? fondCaisseFermeture,
     double? montantCoffre,
   }) async {
-    final data = <String, dynamic>{};
-
+    // Mettre à jour chaque champ individuellement
     if (fondCaisseOuverture != null) {
-      data['fond_caisse_ouverture'] = fondCaisseOuverture;
+      await updateSingleManualField(
+        date: date,
+        fieldName: 'fond_caisse_ouverture',
+        value: fondCaisseOuverture,
+      );
     }
     if (fondCaisseFermeture != null) {
-      data['fond_caisse_fermeture'] = fondCaisseFermeture;
+      await updateSingleManualField(
+        date: date,
+        fieldName: 'fond_caisse_fermeture',
+        value: fondCaisseFermeture,
+      );
     }
     if (montantCoffre != null) {
-      data['montant_coffre'] = montantCoffre;
+      await updateSingleManualField(
+        date: date,
+        fieldName: 'montant_coffre',
+        value: montantCoffre,
+      );
     }
-
-    data['date'] = date.toIso8601String().substring(0, 10);
-    data['updated_at'] = DateTime.now().toIso8601String();
-
-    await _supabase.from('daily_statistics').upsert(data, onConflict: 'date');
   }
 
-  Future<Map<String, double?>> getManualFields(DateTime date) async {
+  Future<Map<String, double?>> getManualFields(DateTime date, {bool forceRefresh = false}) async {
+    final cacheKey = _getCacheKey(date);
+    
+    // Vérifier le cache d'abord (sauf si forceRefresh est demandé)
+    if (!forceRefresh && _manualFieldsCache.containsKey(cacheKey)) {
+      return Map<String, double?>.from(_manualFieldsCache[cacheKey]!);
+    }
+
     final response =
         await _supabase
             .from('daily_statistics')
@@ -438,11 +502,16 @@ class StatisticsRepository {
             .eq('date', date.toIso8601String().substring(0, 10))
             .maybeSingle();
 
-    return {
+    final result = <String, double?>{
       'fond_caisse_ouverture': response?['fond_caisse_ouverture']?.toDouble(),
       'fond_caisse_fermeture': response?['fond_caisse_fermeture']?.toDouble(),
       'montant_coffre': response?['montant_coffre']?.toDouble(),
     };
+
+    // Mettre en cache le résultat
+    _manualFieldsCache[cacheKey] = result;
+    
+    return result;
   }
 
   // Récupère uniquement le fond de caisse de fermeture de la veille

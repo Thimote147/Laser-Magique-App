@@ -255,9 +255,6 @@ class StatisticsViewModel extends ChangeNotifier {
   Future<void> loadStatistics([DateTime? date]) async {
     final targetDate = date ?? _selectedDate;
     
-    // Sauvegarder les valeurs saisies par l'utilisateur avant de rafraîchir
-    _preserveCurrentInput();
-    
     _selectedDate = targetDate;
     _isLoading = true;
     _error = null;
@@ -285,10 +282,36 @@ class StatisticsViewModel extends ChangeNotifier {
             _periodStatistics = monthlyAggregatedStatistics;
           }
 
+          // Pour la vue jour, recalculer la différence avec la caisse de la veille
+          // et s'assurer que les champs manuels sont à jour
+          if (_periodType == PeriodType.day && _currentStatistics != null) {
+            // Toujours récupérer les champs manuels les plus récents (pas de cache)
+            final manualFields = await _repository.getManualFields(targetDate);
+            
+            // Récupérer le fond de caisse de fermeture de la veille
+            _previousDayClosingBalance = await _repository
+                .getPreviousDayClosingBalance(targetDate);
+            
+            // Mettre à jour les statistiques avec les champs manuels les plus récents
+            _currentStatistics = _currentStatistics!.copyWith(
+              fondCaisseOuverture: manualFields['fond_caisse_ouverture'] ?? 0.0,
+              fondCaisseFermeture: manualFields['fond_caisse_fermeture'] ?? 0.0,
+              montantCoffre: manualFields['montant_coffre'] ?? 0.0,
+            );
+            
+            // Mettre à jour la vérification de différence
+            final fondOuverture = manualFields['fond_caisse_ouverture'] ?? 0.0;
+            _updateBalanceCheck(fondOuverture);
+          }
+
           _updateControllers();
         } else {
           _currentStatistics = null;
           _resetControllers();
+          // Réinitialiser la vérification de la caisse de la veille pour les vues périodiques
+          _balanceMismatch = false;
+          _balanceDifference = 0.0;
+          _previousDayClosingBalance = null;
         }
       } else {
         // Chargement depuis le repository
@@ -302,13 +325,7 @@ class StatisticsViewModel extends ChangeNotifier {
 
           // Vérifier si le fond d'ouverture correspond au fond de fermeture de la veille
           final fondOuverture = manualFields['fond_caisse_ouverture'] ?? 0.0;
-          if (_previousDayClosingBalance != null) {
-            _balanceDifference = _previousDayClosingBalance! - fondOuverture;
-            _balanceMismatch = _balanceDifference.abs() > 0.01;
-          } else {
-            _balanceMismatch = false;
-            _balanceDifference = 0.0;
-          }
+          _updateBalanceCheck(fondOuverture);
 
           _currentStatistics = statistics.copyWith(
             fondCaisseOuverture: fondOuverture,
@@ -319,7 +336,12 @@ class StatisticsViewModel extends ChangeNotifier {
           _periodStatistics = [_currentStatistics!];
           _updateControllers();
         } else {
-          // Chargement des statistiques sur une période
+          // Chargement des statistiques sur une période (semaine, mois, année)
+          // Réinitialiser les vérifications de caisse car elles ne s'appliquent qu'à la vue jour
+          _balanceMismatch = false;
+          _balanceDifference = 0.0;
+          _previousDayClosingBalance = null;
+          
           _periodStatistics = await _repository.getStatisticsForPeriod(
             startDate,
             endDate,
@@ -340,6 +362,10 @@ class StatisticsViewModel extends ChangeNotifier {
           } else {
             _currentStatistics = null;
             _resetControllers();
+            // Réinitialiser la vérification de la caisse de la veille
+            _balanceMismatch = false;
+            _balanceDifference = 0.0;
+            _previousDayClosingBalance = null;
           }
         }
 
@@ -362,43 +388,43 @@ class StatisticsViewModel extends ChangeNotifier {
     }
   }
 
-  // Méthodes utilitaires pour la mise à jour des contrôleurs
-  void _updateControllers() {
-    // Mettre à jour les contrôleurs de saisie manuelle uniquement pour la vue jour
-    // ET seulement si l'utilisateur n'est pas en train de modifier un champ
-    if (_currentStatistics != null && _periodType == PeriodType.day && !_isUpdatingField) {
-      // Préserver les valeurs actuelles des contrôleurs si elles diffèrent des données BDD
-      // Cela indique que l'utilisateur a saisi quelque chose qui n'a pas encore été sauvegardé
-      
-      String currentFondOuverture = fondOuvertureController.text;
-      String currentFondFermeture = fondFermetureController.text;
-      String currentMontantCoffre = montantCoffreController.text;
-      
-      String dbFondOuverture = _currentStatistics!.fondCaisseOuverture.toStringAsFixed(2);
-      String dbFondFermeture = _currentStatistics!.fondCaisseFermeture.toStringAsFixed(2);
-      String dbMontantCoffre = _currentStatistics!.montantCoffre.toStringAsFixed(2);
-      
-      // Ne mettre à jour que si le contrôleur est vide ou identique aux données BDD
-      if (currentFondOuverture.isEmpty || currentFondOuverture == dbFondOuverture) {
-        fondOuvertureController.text = _lastUserInput['fond_ouverture'] ?? dbFondOuverture;
-      }
-      
-      if (currentFondFermeture.isEmpty || currentFondFermeture == dbFondFermeture) {
-        fondFermetureController.text = _lastUserInput['fond_fermeture'] ?? dbFondFermeture;
-      }
-      
-      if (currentMontantCoffre.isEmpty || currentMontantCoffre == dbMontantCoffre) {
-        montantCoffreController.text = _lastUserInput['montant_coffre'] ?? dbMontantCoffre;
-      }
+  // Méthode pour mettre à jour la vérification de différence avec la caisse de la veille
+  void _updateBalanceCheck(double fondOuverture) {
+    if (_previousDayClosingBalance != null) {
+      _balanceDifference = _previousDayClosingBalance! - fondOuverture;
+      _balanceMismatch = _balanceDifference.abs() > 0.01;
+    } else {
+      _balanceMismatch = false;
+      _balanceDifference = 0.0;
     }
+  }
+
+  // Méthode pour forcer la mise à jour des contrôleurs (utilisée lors du rafraîchissement)
+  void _forceUpdateControllers() {
+    if (_currentStatistics == null || _periodType != PeriodType.day) {
+      return;
+    }
+
+    fondOuvertureController.text = _currentStatistics!.fondCaisseOuverture.toStringAsFixed(2);
+    fondFermetureController.text = _currentStatistics!.fondCaisseFermeture.toStringAsFixed(2);
+    montantCoffreController.text = _currentStatistics!.montantCoffre.toStringAsFixed(2);
+  }
+
+  // Méthode simplifiée pour mettre à jour les contrôleurs depuis la BDD
+  void _updateControllers() {
+    if (_currentStatistics == null || _periodType != PeriodType.day || _isUpdatingField) {
+      return;
+    }
+
+    fondOuvertureController.text = _currentStatistics!.fondCaisseOuverture.toStringAsFixed(2);
+    fondFermetureController.text = _currentStatistics!.fondCaisseFermeture.toStringAsFixed(2);
+    montantCoffreController.text = _currentStatistics!.montantCoffre.toStringAsFixed(2);
   }
 
   void _resetControllers() {
     fondOuvertureController.text = "0.00";
     fondFermetureController.text = "0.00";
     montantCoffreController.text = "0.00";
-    // Nettoyer les valeurs saisies par l'utilisateur
-    _lastUserInput.clear();
   }
 
   // Cette méthode sera appelée avec le statut d'administrateur de l'utilisateur
@@ -417,37 +443,15 @@ class StatisticsViewModel extends ChangeNotifier {
 
   bool _isUpdatingField = false;
   
-  // Map pour suivre les dernières valeurs saisies par l'utilisateur
-  final Map<String, String> _lastUserInput = {};
   
-  // Méthode pour sauvegarder les valeurs actuelles des contrôleurs avant rafraîchissement
-  void _preserveCurrentInput() {
-    if (_periodType == PeriodType.day && _currentStatistics != null) {
-      String dbFondOuverture = _currentStatistics!.fondCaisseOuverture.toStringAsFixed(2);
-      String dbFondFermeture = _currentStatistics!.fondCaisseFermeture.toStringAsFixed(2);
-      String dbMontantCoffre = _currentStatistics!.montantCoffre.toStringAsFixed(2);
-      
-      // Sauvegarder uniquement si la valeur diffère de la BDD (= saisie utilisateur)
-      if (fondOuvertureController.text.isNotEmpty && fondOuvertureController.text != dbFondOuverture) {
-        _lastUserInput['fond_ouverture'] = fondOuvertureController.text;
-      }
-      
-      if (fondFermetureController.text.isNotEmpty && fondFermetureController.text != dbFondFermeture) {
-        _lastUserInput['fond_fermeture'] = fondFermetureController.text;
-      }
-      
-      if (montantCoffreController.text.isNotEmpty && montantCoffreController.text != dbMontantCoffre) {
-        _lastUserInput['montant_coffre'] = montantCoffreController.text;
-      }
-    }
+  // Méthode pour vider le cache d'une date spécifique
+  void clearCacheForDate(DateTime date) {
+    _repository.clearCacheForDate(date);
   }
 
   Future<void> updateManualField(String field, String value) async {
     // Ne permettre la mise à jour que pour la vue jour
     if (_currentStatistics == null || _periodType != PeriodType.day) return;
-
-    // Sauvegarder la dernière valeur saisie par l'utilisateur
-    _lastUserInput[field] = value;
 
     // Éviter les mises à jour simultanées qui peuvent causer des problèmes de cohérence
     if (_isUpdatingField) return;
@@ -458,64 +462,51 @@ class StatisticsViewModel extends ChangeNotifier {
       String normalizedValue = value.replaceAll(',', '.');
       final doubleValue = double.tryParse(normalizedValue) ?? 0.0;
 
+      // Déterminer le nom du champ en base
+      String dbFieldName;
       switch (field) {
         case 'fond_ouverture':
-          // Mettre à jour en mémoire immédiatement
-          _currentStatistics = _currentStatistics!.copyWith(
-            fondCaisseOuverture: doubleValue,
-          );
-
-          // Vérifier et mettre à jour la différence avec le fond de caisse de la veille en temps réel
-          if (_previousDayClosingBalance != null) {
-            _balanceDifference = _previousDayClosingBalance! - doubleValue;
-            _balanceMismatch = _balanceDifference.abs() > 0.01;
-          }
-
-          // Notification immédiate pour l'UI
-          notifyListeners();
-
-          // Mise à jour dans la base de données
-          await _repository.updateManualFields(
-            date: _selectedDate,
-            fondCaisseOuverture: doubleValue,
-          );
+          dbFieldName = 'fond_caisse_ouverture';
           break;
-
         case 'fond_fermeture':
-          // Mettre à jour en mémoire immédiatement
-          _currentStatistics = _currentStatistics!.copyWith(
-            fondCaisseFermeture: doubleValue,
-          );
-          // Notification immédiate pour l'UI
-          notifyListeners();
+          dbFieldName = 'fond_caisse_fermeture';
+          break;
+        case 'montant_coffre':
+          dbFieldName = 'montant_coffre';
+          break;
+        default:
+          throw ArgumentError('Champ invalide: $field');
+      }
 
-          // Mise à jour dans la base de données
-          await _repository.updateManualFields(
-            date: _selectedDate,
+      // Mettre à jour en base de données d'abord
+      await _repository.updateSingleManualField(
+        date: _selectedDate,
+        fieldName: dbFieldName,
+        value: doubleValue,
+      );
+
+      // Mettre à jour en mémoire après succès en BDD
+      switch (field) {
+        case 'fond_ouverture':
+          _currentStatistics = _currentStatistics!.copyWith(
+            fondCaisseOuverture: doubleValue,
+          );
+          // Mettre à jour la vérification de différence avec la caisse de la veille
+          _updateBalanceCheck(doubleValue);
+          break;
+        case 'fond_fermeture':
+          _currentStatistics = _currentStatistics!.copyWith(
             fondCaisseFermeture: doubleValue,
           );
           break;
-
         case 'montant_coffre':
-          // Mettre à jour en mémoire immédiatement
           _currentStatistics = _currentStatistics!.copyWith(
-            montantCoffre: doubleValue,
-          );
-          // Notification immédiate pour l'UI
-          notifyListeners();
-
-          // Mise à jour dans la base de données
-          await _repository.updateManualFields(
-            date: _selectedDate,
             montantCoffre: doubleValue,
           );
           break;
       }
       
-      // Nettoyer la valeur saisie une fois sauvegardée avec succès
-      _lastUserInput.remove(field);
-      
-      // Une notification finale pour s'assurer que l'UI est à jour
+      // Notification finale pour l'UI
       notifyListeners();
     } catch (e) {
       _error = 'Erreur lors de la mise à jour: $e';
@@ -538,15 +529,63 @@ class StatisticsViewModel extends ChangeNotifier {
 
   void changeDate(DateTime newDate) {
     if (newDate != _selectedDate) {
-      // Nettoyer les valeurs saisies lors du changement de date
-      _lastUserInput.clear();
+      // Réinitialiser le flag de mise à jour pour éviter les blocages
+      _isUpdatingField = false;
       loadStatistics(newDate);
     }
   }
   
-  // Méthode publique pour rafraîchir les données en préservant les saisies
+  // Méthode publique pour rafraîchir les données
   Future<void> refreshStatistics() async {
-    await loadStatistics(_selectedDate);
+    // Réinitialiser le flag de mise à jour pour éviter les blocages
+    _isUpdatingField = false;
+    
+    // Vider le cache pour forcer le rechargement
+    clearCacheForDate(_selectedDate);
+    
+    try {
+      _isLoading = true;
+      notifyListeners();
+      
+      if (_periodType == PeriodType.day) {
+        // Forcer le rechargement des données depuis la BDD
+        final statistics = await _repository.getDailyStatistics(_selectedDate);
+        final manualFields = await _repository.forceRefreshManualFields(_selectedDate);
+        
+        // Debug: vérifier les valeurs récupérées
+        print('Refresh - Valeurs récupérées de la BDD:');
+        print('  fond_ouverture: ${manualFields['fond_caisse_ouverture']}');
+        print('  fond_fermeture: ${manualFields['fond_caisse_fermeture']}');
+        print('  montant_coffre: ${manualFields['montant_coffre']}');
+        
+        // Récupérer le fond de caisse de fermeture de la veille
+        _previousDayClosingBalance = await _repository
+            .getPreviousDayClosingBalance(_selectedDate);
+        
+        // Vérifier si le fond d'ouverture correspond au fond de fermeture de la veille
+        final fondOuverture = manualFields['fond_caisse_ouverture'] ?? 0.0;
+        _updateBalanceCheck(fondOuverture);
+        
+        _currentStatistics = statistics.copyWith(
+          fondCaisseOuverture: fondOuverture,
+          fondCaisseFermeture: manualFields['fond_caisse_fermeture'] ?? 0.0,
+          montantCoffre: manualFields['montant_coffre'] ?? 0.0,
+        );
+        
+        _periodStatistics = [_currentStatistics!];
+        
+        // Forcer la mise à jour des contrôleurs après le rechargement
+        _forceUpdateControllers();
+      } else {
+        // Pour les autres vues, utiliser la méthode normale
+        await loadStatistics(_selectedDate);
+      }
+    } catch (e) {
+      _error = 'Erreur lors du rafraîchissement: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   String formatCurrency(double? amount) {
