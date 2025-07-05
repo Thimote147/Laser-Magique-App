@@ -106,8 +106,6 @@ class Booking {
   }
 
   factory Booking.fromMap(Map<String, dynamic> map) {
-    print('Booking.fromMap - Raw data: $map');
-
     Map<String, dynamic> formulaMap = map['formula'] ?? {};
 
     // Si la formule est vide mais que nous avons des champs formula_id, etc.
@@ -132,8 +130,6 @@ class Booking {
         'max_games': map['max_games'],
       };
     }
-
-    print('Booking.fromMap - Formula map constructed: $formulaMap');
 
     // Ensure we store as UTC
     var dateTime = DateTime.parse(map['date_time']).toUtc();

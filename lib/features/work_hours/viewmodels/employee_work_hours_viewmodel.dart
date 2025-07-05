@@ -169,9 +169,6 @@ class EmployeeWorkHoursViewModel extends ChangeNotifier {
           'currentMonthAmount': totalAmount,
           'totalHours': totalHours,
           'totalAmount': totalAmount,
-          'avatarUrl':
-              userData['avatar_url'] ??
-              'https://ui-avatars.com/api/?name=${Uri.encodeComponent((userData['first_name'] ?? '') + " " + (userData['last_name'] ?? ''))}&background=random',
           'daysWorked': workDays.length,
           'startDate':
               userData['created_at'] != null

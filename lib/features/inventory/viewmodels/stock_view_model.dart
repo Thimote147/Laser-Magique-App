@@ -146,7 +146,7 @@ class StockViewModel extends ChangeNotifier {
         notifyListeners();
       });
       // Propager l'erreur pour que le gestionnaire puisse la capturer
-      throw e;
+      rethrow;
     }
   }
 

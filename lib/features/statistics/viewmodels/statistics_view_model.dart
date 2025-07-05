@@ -352,7 +352,6 @@ class StatisticsViewModel extends ChangeNotifier {
       }
     } catch (e) {
       _error = _formatErrorMessage(e);
-      print('Erreur de chargement: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -547,7 +546,6 @@ class StatisticsViewModel extends ChangeNotifier {
       _cashMovements = await _repository.getCashMovements(_selectedDate);
     } catch (e) {
       _error = _formatErrorMessage(e);
-      print('Erreur lors du chargement des mouvements de caisse: $e');
     } finally {
       _isLoadingMovements = false;
       notifyListeners();
@@ -560,24 +558,17 @@ class StatisticsViewModel extends ChangeNotifier {
       await _loadCashMovements();
     } catch (e) {
       _error = _formatErrorMessage(e);
-      print('Erreur lors de l\'ajout du mouvement de caisse: $e');
       notifyListeners();
     }
   }
 
   Future<void> deleteCashMovement(String id) async {
     try {
-      print('Tentative de suppression du mouvement de caisse avec ID: $id');
       await _repository.deleteCashMovement(id);
-      print('Suppression réussie, rechargement des mouvements...');
       await _loadCashMovements();
-      print('Mouvements rechargés avec succès');
       notifyListeners();
     } catch (e) {
       _error = _formatErrorMessage(e);
-      print('Erreur lors de la suppression du mouvement de caisse: $e');
-      print('Type d\'erreur: ${e.runtimeType}');
-      print('Stack trace: ${StackTrace.current}');
       notifyListeners();
     }
   }

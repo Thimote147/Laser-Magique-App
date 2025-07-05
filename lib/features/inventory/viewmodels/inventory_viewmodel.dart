@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/stock_item.dart';
 
 class InventoryViewModel extends ChangeNotifier {
-  List<StockItem> _items = [];
+  final List<StockItem> _items = [];
   List<StockItem> get items => _items;
 
   void incrementQuantity(StockItem item) {

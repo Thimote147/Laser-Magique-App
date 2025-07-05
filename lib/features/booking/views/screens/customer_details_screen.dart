@@ -59,7 +59,7 @@ class CustomerDetailsScreen extends StatelessWidget {
                   color: colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: colorScheme.outlineVariant.withOpacity(0.5),
+                    color: colorScheme.outlineVariant.withAlpha((255*0.5).round()),
                   ),
                 ),
                 child: Column(
@@ -196,7 +196,7 @@ class CustomerDetailsScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                         side: BorderSide(
-                          color: colorScheme.outlineVariant.withOpacity(0.5),
+                          color: colorScheme.outlineVariant.withAlpha((255 * 0.5).round()),
                           width: 1,
                         ),
                       ),
@@ -321,7 +321,7 @@ class CustomerDetailsScreen extends StatelessWidget {
             color: colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: colorScheme.outlineVariant.withOpacity(0.2),
+              color: colorScheme.outlineVariant.withAlpha((255 * 0.2).round()),
             ),
           ),
           child: Row(
@@ -330,7 +330,7 @@ class CustomerDetailsScreen extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withOpacity(0.4),
+                  color: colorScheme.primaryContainer.withAlpha((255 * 0.4).round()),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: colorScheme.primary, size: 20),

@@ -138,13 +138,17 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     Icon(
                       Icons.calendar_today_outlined,
                       size: 48,
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                      color: colorScheme.onSurfaceVariant.withAlpha(
+                        (255 * 0.5).round(),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Aucune journée de travail enregistrée',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        color: colorScheme.onSurfaceVariant.withAlpha(
+                          (255 * 0.7).round(),
+                        ),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -200,9 +204,12 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                               decoration: BoxDecoration(
                                 color:
                                     isCurrentMonth
-                                        ? colorScheme.primary.withOpacity(0.15)
-                                        : colorScheme.surfaceVariant
-                                            .withOpacity(0.5),
+                                        ? colorScheme.primary.withAlpha(
+                                          (255 * 0.15).round(),
+                                        )
+                                        : colorScheme.surfaceContainerHighest.withAlpha(
+                                          (255 * 0.5).round(),
+                                        ),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
@@ -239,8 +246,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                           vertical: 2,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: colorScheme.primary
-                                              .withOpacity(0.15),
+                                          color: colorScheme.primary.withAlpha(
+                                            (255 * 0.15).round(),
+                                          ),
                                           borderRadius: BorderRadius.circular(
                                             16,
                                           ),
@@ -279,8 +287,11 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                 decoration: BoxDecoration(
                                   color:
                                       isCurrentMonth
-                                          ? colorScheme.primary.withOpacity(0.3)
-                                          : colorScheme.surfaceVariant,
+                                          ? colorScheme.primary.withAlpha(
+                                            (255 * 0.3).round(),
+                                          )
+                                          : colorScheme.surfaceContainerHighest
+                                              .withAlpha((255 * 0.3).round()),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
@@ -288,8 +299,8 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                 child: Container(
                                   height: 1,
                                   margin: const EdgeInsets.only(left: 8),
-                                  color: colorScheme.outlineVariant.withOpacity(
-                                    0.3,
+                                  color: colorScheme.outlineVariant.withAlpha(
+                                    (255 * 0.3).round(),
                                   ),
                                 ),
                               ),
@@ -406,13 +417,13 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     Icon(
                       Icons.calendar_today_outlined,
                       size: 48,
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                      color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Aucune journée ce mois-ci',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -515,7 +526,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     decoration: BoxDecoration(
                       color:
                           isRecent
-                              ? colorScheme.primary.withOpacity(0.15)
+                              ? colorScheme.primary.withAlpha((255 * 0.15).round())
                               : colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -569,7 +580,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         decoration: BoxDecoration(
                           color:
                               isRecent
-                                  ? colorScheme.primary.withOpacity(0.15)
+                                  ? colorScheme.primary.withAlpha((255 * 0.15).round())
                                   : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -609,7 +620,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.1),
+                          color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -1108,7 +1119,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withAlpha((255 * 0.2).round()),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -1155,7 +1166,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                           Text(
                             'Montant gagné',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.white.withAlpha((255 * 0.8).round()),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1172,7 +1183,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withAlpha((255 * 0.2).round()),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -1348,8 +1359,8 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                     isToday
                                         ? colorScheme.primary
                                         : hours > 0
-                                        ? colorScheme.primary.withOpacity(0.6)
-                                        : colorScheme.surfaceVariant,
+                                        ? colorScheme.primary.withAlpha((255 * 0.6).round())
+                                        : colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),
@@ -1493,9 +1504,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                   title: 'Tendance',
                   value:
                       lastMonthHours > 0
-                          ? (percentChange >= 0 ? '+' : '') +
-                              percentChange.toStringAsFixed(1) +
-                              '%'
+                          ? '${percentChange >= 0 ? '+' : ''}${percentChange.toStringAsFixed(1)}%'
                           : 'N/A',
                   subtitle: 'vs mois dernier',
                   iconColor: percentChange >= 0 ? Colors.green : Colors.orange,

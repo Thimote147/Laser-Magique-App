@@ -71,7 +71,7 @@ class CustomerBookingSearchDelegate extends SearchDelegate<Customer?> {
                         if (_selectedCategory != i) {
                           _selectedCategory = i;
                           // Force un rebuild sans utiliser setState
-                          this.showSuggestions(context);
+                          showSuggestions(context);
                         }
                       },
                       child: Container(

@@ -99,7 +99,7 @@ class _StockListState extends State<StockList> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Material(
-        color: theme.colorScheme.errorContainer.withOpacity(0.1),
+        color: theme.colorScheme.errorContainer.withAlpha((255 * 0.1).round()),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => setState(() => _showLowStockOnly = !_showLowStockOnly),
@@ -131,7 +131,7 @@ class _StockListState extends State<StockList> {
                             ? 'Afficher tous les articles'
                             : 'Filtrer les articles dont le stock est bas',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error.withOpacity(0.8),
+                          color: theme.colorScheme.error.withAlpha((255 * 0.8).round()),
                         ),
                       ),
                     ],
@@ -165,7 +165,7 @@ class _StockListState extends State<StockList> {
       children: [
         // Bouton -1
         Material(
-          color: theme.colorScheme.errorContainer.withOpacity(0.3),
+          color: theme.colorScheme.errorContainer.withAlpha((255 * 0.3).round()),
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
@@ -195,7 +195,7 @@ class _StockListState extends State<StockList> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+            color: theme.colorScheme.primaryContainer.withAlpha((255*0.3).round()),
           ),
           child: Text(
             '$_editingQuantity',
@@ -208,7 +208,7 @@ class _StockListState extends State<StockList> {
 
         // Bouton +1
         Material(
-          color: theme.colorScheme.primary.withOpacity(0.1),
+          color: theme.colorScheme.primary.withAlpha((255 * 0.1).round()),
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
@@ -236,7 +236,7 @@ class _StockListState extends State<StockList> {
 
         // Bouton +24
         Material(
-          color: theme.colorScheme.primary.withOpacity(0.15),
+          color: theme.colorScheme.primary.withAlpha((255 * 0.15).round()),
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
@@ -307,8 +307,8 @@ class _StockListState extends State<StockList> {
                             width: 36,
                             height: 4,
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.onSurface.withOpacity(
-                                0.2,
+                              color: theme.colorScheme.onSurface.withAlpha(
+                                (255 * 0.2).round(),
                               ),
                               borderRadius: BorderRadius.circular(2),
                             ),
@@ -345,8 +345,8 @@ class _StockListState extends State<StockList> {
                             IconButton(
                               icon: Icon(
                                 Icons.close,
-                                color: theme.colorScheme.onSurface.withOpacity(
-                                  0.7,
+                                color: theme.colorScheme.onSurface.withAlpha(
+                                  (255 * 0.7).round(),
                                 ),
                               ),
                               onPressed: () => Navigator.pop(context),
@@ -393,7 +393,7 @@ class _StockListState extends State<StockList> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: theme.colorScheme.outline.withOpacity(0.2),
+                              color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
                             ),
                           ),
                           child: Container(
@@ -405,8 +405,8 @@ class _StockListState extends State<StockList> {
                                 Container(
                                   width: double.infinity,
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceVariant
-                                        .withOpacity(0.3),
+                                    color: theme.colorScheme.surfaceContainerHighest
+                                        .withAlpha((255 * 0.3).round()),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   padding: const EdgeInsets.symmetric(
@@ -467,8 +467,8 @@ class _StockListState extends State<StockList> {
                                 Container(
                                   width: double.infinity,
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceVariant
-                                        .withOpacity(0.3),
+                                    color: theme.colorScheme.surfaceContainerHighest
+                                        .withAlpha((255 * 0.3).round()),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   padding: const EdgeInsets.symmetric(
@@ -568,7 +568,7 @@ class _StockListState extends State<StockList> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: theme.colorScheme.outline.withOpacity(0.2),
+                              color: theme.colorScheme.outline.withAlpha((255 * 0.2).round()),
                             ),
                           ),
                           child: Container(
@@ -580,8 +580,8 @@ class _StockListState extends State<StockList> {
                                 Container(
                                   width: double.infinity,
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceVariant
-                                        .withOpacity(0.3),
+                                    color: theme.colorScheme.surfaceContainerHighest
+                                        .withAlpha((255 * 0.3).round()),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   padding: const EdgeInsets.symmetric(
@@ -644,8 +644,8 @@ class _StockListState extends State<StockList> {
                                 Container(
                                   width: double.infinity,
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceVariant
-                                        .withOpacity(0.3),
+                                    color: theme.colorScheme.surfaceContainerHighest
+                                        .withAlpha((255 * 0.3).round()),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   padding: const EdgeInsets.all(16),

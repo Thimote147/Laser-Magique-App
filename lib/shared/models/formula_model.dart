@@ -70,15 +70,9 @@ class Formula {
 
   // Méthode pour créer un objet Formula à partir d'un Map
   factory Formula.fromMap(Map<String, dynamic> map) {
-    print('Formula.fromMap - Raw data: $map');
-
     // Extraire les valeurs avec des logs
     final minPersons = map['min_persons'] ?? 1;
     final minGames = map['min_games'] ?? 1;
-
-    print(
-      'Formula.fromMap - Extracted min_persons: $minPersons, min_games: $minGames',
-    );
 
     return Formula(
       id: map['id'],

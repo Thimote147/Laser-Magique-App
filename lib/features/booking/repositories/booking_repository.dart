@@ -123,20 +123,9 @@ class BookingRepository {
           date?.toIso8601String() ?? DateTime.now().toIso8601String(),
     };
 
-    print('Inserting payment with data: $paymentData');
-
     try {
-      final response =
-          await _client.from('payments').insert(paymentData).select();
-      print('Payment insert response: $response');
-
-      // Check the actual columns in the response
-      if (response.isNotEmpty) {
-        final responseObj = response[0];
-        print('Payment response column names: ${responseObj.keys.toList()}');
-      }
+      await _client.from('payments').insert(paymentData).select();
     } catch (e) {
-      print('Error inserting payment: $e');
       rethrow;
     }
   }
@@ -186,14 +175,11 @@ class BookingRepository {
 
   // Récupère les détails complets d'une réservation, y compris les montants à jour
   Future<Booking> getBookingDetails(String bookingId) async {
-    try {
-      print('BookingRepository - Getting booking details for ID: $bookingId');
-
-      // Récupère les données depuis la vue qui inclut tous les calculs
-      final data =
-          await _client
-              .from('booking_summaries')
-              .select('''
+    // Récupère les données depuis la vue qui inclut tous les calculs
+    final data =
+        await _client
+            .from('booking_summaries')
+            .select('''
             *,
             formula:formulas!formula_id (
               *,
@@ -204,22 +190,10 @@ class BookingRepository {
               )
             )
           ''')
-              .eq('id', bookingId)
-              .single();
+            .eq('id', bookingId)
+            .single();
 
-      print('BookingRepository - Booking details response: $data');
-
-      // Si formulas contient des données complètes, utilisons-les
-      if (data['formula'] != null) {
-        print('BookingRepository - Formula data from join: ${data['formula']}');
-      }
-
-      return Booking.fromMap(data);
-    } catch (e, stackTrace) {
-      print('BookingRepository - Error getting booking details: $e');
-      print('BookingRepository - Stack trace: $stackTrace');
-      rethrow;
-    }
+    return Booking.fromMap(data);
   }
 
   // Mise à jour des totaux d'une réservation

@@ -98,7 +98,7 @@ class BookingFunctions {
 
 class SuccessDialog extends StatefulWidget {
   final String message;
-  const SuccessDialog({Key? key, required this.message}) : super(key: key);
+  const SuccessDialog({super.key, required this.message});
 
   @override
   State<SuccessDialog> createState() => _SuccessDialogState();
@@ -144,7 +144,7 @@ class _SuccessDialogState extends State<SuccessDialog>
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withAlpha((255 * 0.08).round()),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),

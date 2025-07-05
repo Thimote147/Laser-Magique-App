@@ -46,7 +46,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     return ChangeNotifierProvider.value(
       value: _viewModel,
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
           title: const Text('Statistiques'),
           backgroundColor: Theme.of(context).colorScheme.surface,
@@ -190,7 +190,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         decoration: BoxDecoration(
                           color: Theme.of(
                             context,
-                          ).colorScheme.primary.withOpacity(0.1),
+                          ).colorScheme.primary.withAlpha((255 * 0.1).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -299,7 +299,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                     child: LinearProgressIndicator(
                       backgroundColor: Theme.of(
                         context,
-                      ).colorScheme.primary.withOpacity(0.1),
+                      ).colorScheme.primary.withAlpha((255 * 0.1).round()),
                       color: Theme.of(context).colorScheme.primary,
                       minHeight: 4,
                     ),
@@ -420,7 +420,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               decoration: BoxDecoration(
                 color:
                     selected
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+                        ? Theme.of(context).colorScheme.primary.withAlpha((255 * 0.2).round())
                         : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -506,7 +506,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       const SizedBox(height: 8),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
+                          color: Colors.orange.withAlpha((255 * 0.1).round()),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: const EdgeInsets.all(12),
@@ -747,7 +747,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               children: [
                 // Ajout du graphique camembert pour les méthodes de paiement
                 if (statistics.total > 0)
-                  Container(
+                  SizedBox(
                     height: 220,
                     width: double.infinity,
                     child: _buildPaymentMethodsPieChart(statistics),
@@ -998,7 +998,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               children: [
                 // Ajout du graphique camembert pour les catégories
                 if (statistics.totalParCategorie > 0)
-                  Container(
+                  SizedBox(
                     height: 220,
                     width: double.infinity,
                     child: _buildCategoriesPieChart(statistics),
@@ -1308,8 +1308,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       decoration: BoxDecoration(
                         color:
                             cashDifference > 0
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.red.withOpacity(0.1),
+                                ? Colors.green.withAlpha((255 * 0.1).round())
+                                : Colors.red.withAlpha((255 * 0.1).round()),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.all(12),
@@ -1559,8 +1559,9 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                           showTitles: true,
                           getTitlesWidget: (value, meta) {
                             final index = (value.toInt() * step);
-                            if (index >= statistics.length)
+                            if (index >= statistics.length) {
                               return const SizedBox.shrink();
+                            }
 
                             // Limiter le nombre d'étiquettes affichées en fonction du nombre de barres
                             int skipFactor =
@@ -1874,7 +1875,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                               ).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                ).colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),

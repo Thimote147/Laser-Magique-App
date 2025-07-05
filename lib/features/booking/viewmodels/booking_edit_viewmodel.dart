@@ -77,12 +77,6 @@ class BookingEditViewModel extends ChangeNotifier {
         throw StateError('Les informations du client sont incomplètes');
       }
 
-      print('BookingEditViewModel - Initializing from booking: ${booking!.id}');
-      print('BookingEditViewModel - Formula from booking: ${booking!.formula}');
-      print(
-        'BookingEditViewModel - Formula min participants: ${booking!.formula.minParticipants}, min games: ${booking!.formula.minGames}',
-      );
-
       _selectedCustomer = Customer(
         firstName: booking!.firstName,
         lastName: booking!.lastName!,
@@ -138,49 +132,22 @@ class BookingEditViewModel extends ChangeNotifier {
   }
 
   void setFormula(Formula formula) {
-    print('BookingEditViewModel - Setting formula: ${formula.name}');
-    print(
-      'BookingEditViewModel - Formula constraints: min persons=${formula.minParticipants}, max persons=${formula.maxParticipants}',
-    );
-    print(
-      'BookingEditViewModel - Formula constraints: min games=${formula.minGames}, max games=${formula.maxGames}',
-    );
-    print(
-      'BookingEditViewModel - Current values: persons=${_numberOfPersons}, games=${_numberOfGames}',
-    );
-
     _selectedFormula = formula;
 
     // Ajuster le nombre de personnes selon les limites de la formule
     if (_numberOfPersons < formula.minParticipants) {
-      print(
-        'BookingEditViewModel - Adjusting persons: ${_numberOfPersons} -> ${formula.minParticipants}',
-      );
       _numberOfPersons = formula.minParticipants;
     } else if (formula.maxParticipants != null &&
         _numberOfPersons > formula.maxParticipants!) {
-      print(
-        'BookingEditViewModel - Adjusting persons: ${_numberOfPersons} -> ${formula.maxParticipants}',
-      );
       _numberOfPersons = formula.maxParticipants!;
     }
 
     // Ajuster le nombre de jeux selon les limites de la formule
     if (_numberOfGames < formula.minGames) {
-      print(
-        'BookingEditViewModel - Adjusting games: ${_numberOfGames} -> ${formula.minGames}',
-      );
       _numberOfGames = formula.minGames;
     } else if (formula.maxGames != null && _numberOfGames > formula.maxGames!) {
-      print(
-        'BookingEditViewModel - Adjusting games: ${_numberOfGames} -> ${formula.maxGames}',
-      );
       _numberOfGames = formula.maxGames!;
     }
-
-    print(
-      'BookingEditViewModel - After adjustment: persons=${_numberOfPersons}, games=${_numberOfGames}',
-    );
 
     notifyListeners();
   }

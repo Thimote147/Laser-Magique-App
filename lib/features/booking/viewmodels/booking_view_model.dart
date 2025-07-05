@@ -231,12 +231,6 @@ class BookingViewModel extends ChangeNotifier {
     DateTime? date,
   }) async {
     try {
-      print('BookingViewModel.addPayment - Adding payment');
-      print('  method: ${method.toString()}');
-      print('  method name: ${method.toString().split('.').last}');
-      print('  type: ${type.toString()}');
-      print('  type name: ${type.toString().split('.').last}');
-
       await _repository.addPayment(
         bookingId: bookingId,
         amount: amount,

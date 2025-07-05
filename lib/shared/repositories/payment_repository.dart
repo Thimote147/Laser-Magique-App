@@ -13,16 +13,12 @@ class PaymentRepository {
       'payment_date': payment.date.toIso8601String(),
     };
 
-    print('PaymentRepository.createPayment - inserting data: $paymentData');
-
     try {
       final response =
           await _client.from('payments').insert(paymentData).select().single();
 
-      print('PaymentRepository.createPayment - response: $response');
       return Payment.fromJson(response);
     } catch (e) {
-      print('PaymentRepository.createPayment - error: $e');
       rethrow;
     }
   } // Get all payments for a booking
@@ -35,14 +31,8 @@ class PaymentRepository {
           .eq('booking_id', bookingId)
           .order('payment_date');
 
-      print('getPaymentsByBooking response: $response');
-      if (response.isNotEmpty) {
-        print('Payment response columns: ${response[0].keys.toList()}');
-      }
-
       return response.map<Payment>((json) => Payment.fromJson(json)).toList();
     } catch (e) {
-      print('Error in getPaymentsByBooking: $e');
       rethrow;
     }
   } // Delete a payment

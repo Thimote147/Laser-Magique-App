@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'dart:developer' as developer;
@@ -130,13 +129,13 @@ class _EmployeeWorkHoursReportScreenState
           end: Alignment.bottomRight,
           colors: [
             colorScheme.primaryContainer,
-            colorScheme.primary.withOpacity(0.7),
+            colorScheme.primary.withAlpha((255 * 0.7).round()),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.1),
+            color: colorScheme.shadow.withAlpha((255 * 0.1).round()),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -162,7 +161,7 @@ class _EmployeeWorkHoursReportScreenState
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: colorScheme.onPrimaryContainer.withOpacity(0.2),
+                  color: colorScheme.onPrimaryContainer.withAlpha((255 * 0.2).round()),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -234,7 +233,7 @@ class _EmployeeWorkHoursReportScreenState
         ),
         Text(
           subtitle,
-          style: TextStyle(fontSize: 14, color: color.withOpacity(0.8)),
+          style: TextStyle(fontSize: 14, color: color.withAlpha((255 * 0.8).round())),
         ),
       ],
     );
@@ -287,7 +286,7 @@ class _EmployeeWorkHoursReportScreenState
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: colorScheme.tertiary.withOpacity(0.2),
+                                color: colorScheme.tertiary.withAlpha((255 * 0.2).round()),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -517,7 +516,7 @@ class _EmployeeWorkHoursReportScreenState
             }
           } catch (e) {
             developer.log('Erreur lors de la récupération des workDays: $e');
-            throw e;
+            rethrow;
           }
         }
 
@@ -679,7 +678,7 @@ class _EmployeeWorkHoursReportScreenState
                                         },
                                         style: IconButton.styleFrom(
                                           backgroundColor:
-                                              colorScheme.surfaceVariant,
+                                              colorScheme.surfaceContainerHighest,
                                           foregroundColor:
                                               colorScheme.onSurfaceVariant,
                                         ),
@@ -757,7 +756,7 @@ class _EmployeeWorkHoursReportScreenState
                                               size: 64,
                                               color: colorScheme
                                                   .onSurfaceVariant
-                                                  .withOpacity(0.5),
+                                                  .withAlpha((255 * 0.5).round()),
                                             ),
                                             const SizedBox(height: 16),
                                             Text(
@@ -1296,7 +1295,7 @@ class _EmployeeWorkHoursReportScreenState
                                   color: Theme.of(context)
                                       .colorScheme
                                       .onSurfaceVariant
-                                      .withOpacity(0.7),
+                                      .withAlpha((255 * 0.7).round()),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1600,7 +1599,7 @@ class _EmployeeWorkHoursReportScreenState
                         hintText: 'Rechercher un employé...',
                         border: InputBorder.none,
                         hintStyle: TextStyle(
-                          color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
                         ),
                       ),
                       style: TextStyle(
@@ -1646,7 +1645,7 @@ class _EmployeeWorkHoursReportScreenState
                 alignment: Alignment.bottomCenter,
                 padding: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withAlpha((255 * 0.1).round()),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1805,9 +1804,7 @@ class _EmployeeWorkHoursReportScreenState
                               Icon(
                                 Icons.person_search_rounded,
                                 size: 64,
-                                color: colorScheme.onSurfaceVariant.withOpacity(
-                                  0.5,
-                                ),
+                                color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
                               ),
                               const SizedBox(height: 16),
                               Text(

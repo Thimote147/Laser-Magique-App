@@ -39,15 +39,8 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
   @override
   void initState() {
     super.initState();
-    print('==== INIT STATE ====');
-    print(
-      'initState called - widget.booking: ${widget.booking != null ? 'exists' : 'null'}',
-    );
 
     if (widget.booking != null) {
-      print(
-        'Initializing from existing booking: ${widget.booking!.firstName} - Formula: ${widget.booking!.formula.name}',
-      );
       // Vérifier que tous les champs requis sont présents
       if (widget.booking!.lastName == null ||
           widget.booking!.email == null ||
@@ -76,7 +69,6 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
 
       // Synchronisation immédiate avec le ViewModel et vérification des limites
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        print('Post frame callback - setting formula from existing booking');
         if (!mounted) return;
 
         final bookingEditViewModel = context.read<BookingEditViewModel>();
@@ -90,7 +82,6 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         _checkAndAdjustLimits(widget.booking!.formula);
       });
     } else {
-      print('Initializing new booking');
       selectedDate = DateTime.now();
       selectedTime = TimeOfDay.now();
       numberOfPersons = 1;
@@ -103,18 +94,15 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         final activityFormulaViewModel =
             context.read<ActivityFormulaViewModel>();
         final bookingEditViewModel = context.read<BookingEditViewModel>();
-        print('Post frame for new booking - checking for formulas');
 
         // Initialise la formule si nécessaire pour une nouvelle réservation
         if (bookingEditViewModel.selectedFormula == null &&
             activityFormulaViewModel.formulas.isNotEmpty) {
           final firstFormula = activityFormulaViewModel.formulas.first;
-          print('Setting first formula for new booking: ${firstFormula.name}');
           _adjustValuesToFormula(firstFormula);
         }
       });
     }
-    print('==== END INIT STATE ====');
   }
 
   @override
@@ -136,10 +124,6 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         (_lastCheckedFormula == null ||
             _lastCheckedFormula!.id !=
                 bookingEditViewModel.selectedFormula!.id)) {
-      print(
-        'DEPENDENCY - Formule changée, planification de la vérification des limites',
-      );
-
       // Utiliser addPostFrameCallback pour exécuter le code après le build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -154,70 +138,35 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
   void _checkAndAdjustLimits(Formula formula) {
     bool needsUpdate = false;
 
-    print('==== CHECK LIMITS INFO ====');
-    print('CHECK - Formula: ${formula.name} (ID: ${formula.id})');
-    print(
-      'CHECK - Min participants: ${formula.minParticipants}, Max: ${formula.maxParticipants}',
-    );
-    print('CHECK - Min games: ${formula.minGames}, Max: ${formula.maxGames}');
-    print(
-      'CHECK - Current persons: $numberOfPersons, Current games: $numberOfGames',
-    );
-    print('CHECK - Called from: ${StackTrace.current}');
-
     // Vérifier si le nombre de personnes est hors limites
     if (numberOfPersons < formula.minParticipants) {
-      print(
-        'CHECK - Ajustement du nombre de personnes: $numberOfPersons -> ${formula.minParticipants}',
-      );
       numberOfPersons = formula.minParticipants;
       needsUpdate = true;
     } else if (formula.maxParticipants != null &&
         numberOfPersons > formula.maxParticipants!) {
-      print(
-        'CHECK - Ajustement du nombre de personnes: $numberOfPersons -> ${formula.maxParticipants}',
-      );
       numberOfPersons = formula.maxParticipants!;
       needsUpdate = true;
     }
 
     // Vérifier si le nombre de parties est hors limites
     if (numberOfGames < formula.minGames) {
-      print(
-        'CHECK - Ajustement du nombre de parties: $numberOfGames -> ${formula.minGames}',
-      );
       numberOfGames = formula.minGames;
       needsUpdate = true;
     } else if (formula.maxGames != null && numberOfGames > formula.maxGames!) {
-      print(
-        'CHECK - Ajustement du nombre de parties: $numberOfGames -> ${formula.maxGames}',
-      );
       numberOfGames = formula.maxGames!;
       needsUpdate = true;
     }
 
     // N'appeler setState que si quelque chose a changé
     if (needsUpdate) {
-      setState(() {
-        // Les variables ont déjà été mises à jour
-        print(
-          'CHECK - setState called, updated persons=$numberOfPersons, games=$numberOfGames',
-        );
-      });
+      setState(() {});
 
       final bookingEditViewModel = context.read<BookingEditViewModel>();
       // Mettre à jour le ViewModel
-      print(
-        'CHECK - Updating ViewModel with persons=$numberOfPersons, games=$numberOfGames',
-      );
       bookingEditViewModel
         ..setNumberOfPersons(numberOfPersons)
         ..setNumberOfGames(numberOfGames);
-    } else {
-      print('CHECK - No updates needed, all values within limits');
     }
-
-    print('==== END CHECK LIMITS ====');
   }
 
   Future<void> _showAdaptiveDatePicker(BuildContext context) async {
@@ -319,52 +268,34 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
   void _adjustValuesToFormula(Formula formula) {
     bool needsUpdate = false;
 
-    print('==== ADJUSTMENT INFO ====');
-    print('Formula: ${formula.name} (ID: ${formula.id})');
-    print(
-      'Min participants: ${formula.minParticipants}, Max: ${formula.maxParticipants}',
-    );
-    print('Min games: ${formula.minGames}, Max: ${formula.maxGames}');
-    print('Current persons: $numberOfPersons, Current games: $numberOfGames');
-
     // Ajuster le nombre de personnes si nécessaire
     if (numberOfPersons < formula.minParticipants) {
       numberOfPersons = formula.minParticipants;
-      print('-> Adjusting persons to minimum: $numberOfPersons');
       needsUpdate = true;
     } else if (formula.maxParticipants != null &&
         numberOfPersons > formula.maxParticipants!) {
       numberOfPersons = formula.maxParticipants!;
-      print('-> Adjusting persons to maximum: $numberOfPersons');
       needsUpdate = true;
     }
 
     // Ajuster le nombre de parties si nécessaire
     if (numberOfGames < formula.minGames) {
       numberOfGames = formula.minGames;
-      print('-> Adjusting games to minimum: $numberOfGames');
       needsUpdate = true;
     } else if (formula.maxGames != null && numberOfGames > formula.maxGames!) {
       numberOfGames = formula.maxGames!;
-      print('-> Adjusting games to maximum: $numberOfGames');
       needsUpdate = true;
     }
 
     // N'appeler setState que si quelque chose a changé
     if (needsUpdate) {
-      print('-> UI update needed');
       setState(() {
         // Les valeurs ont déjà été mises à jour ci-dessus
       });
-    } else {
-      print('-> No UI update needed, values are within limits');
     }
 
     // Mettre à jour le ViewModel avec les nouvelles valeurs et mémoriser la formule pour éviter les boucles
     final bookingEditViewModel = context.read<BookingEditViewModel>();
-    print(
-      '-> Updating ViewModel: persons=$numberOfPersons, games=$numberOfGames',
-    );
 
     // Mémoriser la formule pour éviter le déclenchement infini de didChangeDependencies
     _lastCheckedFormula = formula;
@@ -373,7 +304,6 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
       ..setFormula(formula)
       ..setNumberOfPersons(numberOfPersons)
       ..setNumberOfGames(numberOfGames);
-    print('==== END ADJUSTMENT ====');
   }
 
   Widget _buildFormulaSelector(

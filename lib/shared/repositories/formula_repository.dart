@@ -19,14 +19,10 @@ class FormulaRepository {
           ''')
           .order('name', ascending: true);
 
-      print('FormulaRepository - getAllFormulas response: $response');
       return (response as List).map((json) {
-        print('FormulaRepository - Processing formula JSON: $json');
         return Formula.fromMap(json);
       }).toList();
-    } catch (e, stackTrace) {
-      print('FormulaRepository - Error in getAllFormulas: $e');
-      print('FormulaRepository - Stack trace: $stackTrace');
+    } catch (e) {
       rethrow;
     }
   }
