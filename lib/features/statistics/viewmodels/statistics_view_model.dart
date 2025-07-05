@@ -254,6 +254,10 @@ class StatisticsViewModel extends ChangeNotifier {
 
   Future<void> loadStatistics([DateTime? date]) async {
     final targetDate = date ?? _selectedDate;
+    
+    // Sauvegarder les valeurs saisies par l'utilisateur avant de rafraîchir
+    _preserveCurrentInput();
+    
     _selectedDate = targetDate;
     _isLoading = true;
     _error = null;
@@ -361,13 +365,31 @@ class StatisticsViewModel extends ChangeNotifier {
   // Méthodes utilitaires pour la mise à jour des contrôleurs
   void _updateControllers() {
     // Mettre à jour les contrôleurs de saisie manuelle uniquement pour la vue jour
-    if (_currentStatistics != null && _periodType == PeriodType.day) {
-      fondOuvertureController.text = _currentStatistics!.fondCaisseOuverture
-          .toStringAsFixed(2);
-      fondFermetureController.text = _currentStatistics!.fondCaisseFermeture
-          .toStringAsFixed(2);
-      montantCoffreController.text = _currentStatistics!.montantCoffre
-          .toStringAsFixed(2);
+    // ET seulement si l'utilisateur n'est pas en train de modifier un champ
+    if (_currentStatistics != null && _periodType == PeriodType.day && !_isUpdatingField) {
+      // Préserver les valeurs actuelles des contrôleurs si elles diffèrent des données BDD
+      // Cela indique que l'utilisateur a saisi quelque chose qui n'a pas encore été sauvegardé
+      
+      String currentFondOuverture = fondOuvertureController.text;
+      String currentFondFermeture = fondFermetureController.text;
+      String currentMontantCoffre = montantCoffreController.text;
+      
+      String dbFondOuverture = _currentStatistics!.fondCaisseOuverture.toStringAsFixed(2);
+      String dbFondFermeture = _currentStatistics!.fondCaisseFermeture.toStringAsFixed(2);
+      String dbMontantCoffre = _currentStatistics!.montantCoffre.toStringAsFixed(2);
+      
+      // Ne mettre à jour que si le contrôleur est vide ou identique aux données BDD
+      if (currentFondOuverture.isEmpty || currentFondOuverture == dbFondOuverture) {
+        fondOuvertureController.text = _lastUserInput['fond_ouverture'] ?? dbFondOuverture;
+      }
+      
+      if (currentFondFermeture.isEmpty || currentFondFermeture == dbFondFermeture) {
+        fondFermetureController.text = _lastUserInput['fond_fermeture'] ?? dbFondFermeture;
+      }
+      
+      if (currentMontantCoffre.isEmpty || currentMontantCoffre == dbMontantCoffre) {
+        montantCoffreController.text = _lastUserInput['montant_coffre'] ?? dbMontantCoffre;
+      }
     }
   }
 
@@ -375,6 +397,8 @@ class StatisticsViewModel extends ChangeNotifier {
     fondOuvertureController.text = "0.00";
     fondFermetureController.text = "0.00";
     montantCoffreController.text = "0.00";
+    // Nettoyer les valeurs saisies par l'utilisateur
+    _lastUserInput.clear();
   }
 
   // Cette méthode sera appelée avec le statut d'administrateur de l'utilisateur
@@ -392,10 +416,38 @@ class StatisticsViewModel extends ChangeNotifier {
   } // Une variable pour éviter les mises à jour multiples simultanées
 
   bool _isUpdatingField = false;
+  
+  // Map pour suivre les dernières valeurs saisies par l'utilisateur
+  final Map<String, String> _lastUserInput = {};
+  
+  // Méthode pour sauvegarder les valeurs actuelles des contrôleurs avant rafraîchissement
+  void _preserveCurrentInput() {
+    if (_periodType == PeriodType.day && _currentStatistics != null) {
+      String dbFondOuverture = _currentStatistics!.fondCaisseOuverture.toStringAsFixed(2);
+      String dbFondFermeture = _currentStatistics!.fondCaisseFermeture.toStringAsFixed(2);
+      String dbMontantCoffre = _currentStatistics!.montantCoffre.toStringAsFixed(2);
+      
+      // Sauvegarder uniquement si la valeur diffère de la BDD (= saisie utilisateur)
+      if (fondOuvertureController.text.isNotEmpty && fondOuvertureController.text != dbFondOuverture) {
+        _lastUserInput['fond_ouverture'] = fondOuvertureController.text;
+      }
+      
+      if (fondFermetureController.text.isNotEmpty && fondFermetureController.text != dbFondFermeture) {
+        _lastUserInput['fond_fermeture'] = fondFermetureController.text;
+      }
+      
+      if (montantCoffreController.text.isNotEmpty && montantCoffreController.text != dbMontantCoffre) {
+        _lastUserInput['montant_coffre'] = montantCoffreController.text;
+      }
+    }
+  }
 
   Future<void> updateManualField(String field, String value) async {
     // Ne permettre la mise à jour que pour la vue jour
     if (_currentStatistics == null || _periodType != PeriodType.day) return;
+
+    // Sauvegarder la dernière valeur saisie par l'utilisateur
+    _lastUserInput[field] = value;
 
     // Éviter les mises à jour simultanées qui peuvent causer des problèmes de cohérence
     if (_isUpdatingField) return;
@@ -459,6 +511,10 @@ class StatisticsViewModel extends ChangeNotifier {
           );
           break;
       }
+      
+      // Nettoyer la valeur saisie une fois sauvegardée avec succès
+      _lastUserInput.remove(field);
+      
       // Une notification finale pour s'assurer que l'UI est à jour
       notifyListeners();
     } catch (e) {
@@ -482,8 +538,15 @@ class StatisticsViewModel extends ChangeNotifier {
 
   void changeDate(DateTime newDate) {
     if (newDate != _selectedDate) {
+      // Nettoyer les valeurs saisies lors du changement de date
+      _lastUserInput.clear();
       loadStatistics(newDate);
     }
+  }
+  
+  // Méthode publique pour rafraîchir les données en préservant les saisies
+  Future<void> refreshStatistics() async {
+    await loadStatistics(_selectedDate);
   }
 
   String formatCurrency(double? amount) {

@@ -111,11 +111,16 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               );
             }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            return GestureDetector(
+              onTap: () {
+                // Fermer le clavier quand on tape en dehors des champs
+                FocusScope.of(context).unfocus();
+              },
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   _buildDateHeader(viewModel),
                   const SizedBox(height: 16),
                   // N'afficher la section de saisie manuelle que pour la vue jour
@@ -140,6 +145,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   ],
                 ],
               ),
+            ),
             );
           },
         ),
@@ -275,7 +281,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                           onPressed:
                               viewModel.isLoading
                                   ? null
-                                  : () => viewModel.loadStatistics(),
+                                  : () => viewModel.refreshStatistics(),
                           iconSize: 20,
                           color:
                               viewModel.isLoading
@@ -678,6 +684,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              textInputAction: TextInputAction.done,
               readOnly: readOnly,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
@@ -718,6 +725,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       : (value) {
                         // Appeler la même fonction que pour onChanged
                         onChanged(value);
+                        // Fermer le clavier après validation
+                        FocusScope.of(context).unfocus();
                       },
             ),
           ),
