@@ -61,10 +61,17 @@ class Payment {
 
     // Check for both column naming styles
     final typeStr = json['payment_type'] ?? json['type'];
+    final methodStr = json['payment_method'] ?? json['method'];
     final dateStr = json['payment_date'] ?? json['date'];
 
-    // Default payment method
+    // Parse payment method properly
     PaymentMethod method = PaymentMethod.transfer;
+    if (methodStr != null) {
+      method = PaymentMethod.values.firstWhere(
+        (e) => e.toString().split('.').last.toLowerCase() == methodStr.toString().toLowerCase(),
+        orElse: () => PaymentMethod.transfer,
+      );
+    }
 
     final payment = Payment(
       id: json['id'] ?? '',
