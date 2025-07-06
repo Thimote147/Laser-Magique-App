@@ -8,6 +8,13 @@ import '../../viewmodels/booking_view_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
 import 'add_payment_dialog.dart';
 
+// Fonction utilitaire pour vérifier si une réservation est passée
+bool _isBookingPast(Booking booking) {
+  final now = DateTime.now();
+  final bookingDate = booking.dateTimeLocal;
+  return bookingDate.isBefore(DateTime(now.year, now.month, now.day));
+}
+
 extension PaymentMethodExtension on payment_model.PaymentMethod {
   String get displayName {
     switch (this) {
@@ -86,7 +93,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
     super.initState();
     _currentBooking = widget.booking;
     // Initialiser les notifiers
-    _formulaPriceNotifier.value = _currentBooking.formulaPrice;
+    _formulaPriceNotifier.value = _currentBooking.actualTotalPrice;
 
     // Configurer l'écoute des mises à jour de prix des consommations
     _listenToConsumptionPriceUpdates();
@@ -170,7 +177,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         if (_consumptionsTotalNotifier.value != consumptionsTotal) {
           _consumptionsTotalNotifier.value = consumptionsTotal;
           _totalPriceNotifier.value =
-              _currentBooking.formulaPrice + consumptionsTotal;
+              _currentBooking.actualTotalPrice + consumptionsTotal;
           _remainingAmountNotifier.value = _getRemainingAmount(
             consumptionsTotal,
           );
@@ -218,11 +225,11 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         });
 
         // Mettre à jour les notifiers relatifs à la formule et au statut de paiement
-        _formulaPriceNotifier.value = _currentBooking.formulaPrice;
+        _formulaPriceNotifier.value = _currentBooking.actualTotalPrice;
 
         // Calculer le prix total en utilisant la valeur actuelle des consommations
         _totalPriceNotifier.value =
-            _currentBooking.formulaPrice + currentConsumptionsTotal;
+            _currentBooking.actualTotalPrice + currentConsumptionsTotal;
         _remainingAmountNotifier.value = _getRemainingAmount(
           currentConsumptionsTotal,
         );
@@ -248,7 +255,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
   }
 
   double _getRemainingAmount(double consumptionsTotal) {
-    final totalPrice = _currentBooking.formulaPrice + consumptionsTotal;
+    final totalPrice = _currentBooking.actualTotalPrice + consumptionsTotal;
     return totalPrice - _totalPaid;
   }
 
@@ -552,7 +559,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, size: 20),
-                      onPressed:
+                      onPressed: _isBookingPast(_currentBooking) ? null :
                           () => _showDeletePaymentDialog(context, payment),
                       color: Theme.of(context).colorScheme.error,
                       tooltip: 'Supprimer le paiement',
@@ -582,7 +589,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         );
         final remainingAmount = _getRemainingAmount(consumptionsTotal);
 
-        if (remainingAmount <= 0) {
+        if (remainingAmount <= 0 || _isBookingPast(_currentBooking)) {
           return const SizedBox.shrink();
         }
 

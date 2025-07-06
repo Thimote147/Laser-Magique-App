@@ -5,6 +5,13 @@ import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
 
+// Fonction utilitaire pour vérifier si une réservation est passée
+bool _isBookingPast(Booking booking) {
+  final now = DateTime.now();
+  final bookingDate = booking.dateTimeLocal;
+  return bookingDate.isBefore(DateTime(now.year, now.month, now.day));
+}
+
 class BookingListItem extends StatelessWidget {
   final Booking booking;
   final VoidCallback onTap;
@@ -78,7 +85,7 @@ class BookingListItem extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-            confirmDismiss: (direction) async {
+            confirmDismiss: _isBookingPast(booking) ? null : (direction) async {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               final navigator = Navigator.of(context);
               if (direction == DismissDirection.endToStart) {
@@ -375,21 +382,23 @@ class BookingListItem extends StatelessWidget {
                             },
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(
-                              Icons.more_vert,
-                              size: 20,
-                              color:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                          // Menu popup seulement pour les réservations non passées
+                          if (!_isBookingPast(booking))
+                            IconButton(
+                              icon: Icon(
+                                Icons.more_vert,
+                                size: 20,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                              ),
+                              onPressed: onMoreTap,
+                              visualDensity: VisualDensity.compact,
+                              style: IconButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                              ),
                             ),
-                            onPressed: onMoreTap,
-                            visualDensity: VisualDensity.compact,
-                            style: IconButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                            ),
-                          ),
                         ],
                       ),
                     ],

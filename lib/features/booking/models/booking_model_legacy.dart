@@ -1,9 +1,11 @@
+// MODÈLE LEGACY - À utiliser pour maintenir la compatibilité avec l'ancienne version
+// Ce fichier contient exactement le même modèle Booking qu'avant l'ajout des game sessions
+
 import '../../../shared/models/formula_model.dart';
 import '../../../shared/models/payment_model.dart' as payment_model;
-import '../../../shared/models/game_session_model.dart';
 import '../../../shared/utils/price_utils.dart';
 
-class Booking {
+class BookingLegacy {
   final String id;
   final String firstName;
   final String? lastName;
@@ -19,21 +21,14 @@ class Booking {
   final payment_model.PaymentMethod paymentMethod;
   final List<payment_model.Payment> payments;
   final double consumptionsTotal;
-  final List<GameSession> gameSessions;
 
   double get formulaPrice =>
       calculateTotalPrice(formula.price, numberOfGames, numberOfPersons);
   double get totalPaid =>
       payments.fold(0, (sum, payment) => sum + payment.amount);
   final double? _totalPrice;
-  double get totalPrice => _totalPrice ?? (actualTotalPrice + consumptionsTotal);
+  double get totalPrice => _totalPrice ?? (formulaPrice + consumptionsTotal);
   double get remainingBalance => totalPrice - totalPaid;
-  
-  double get actualTotalPrice => gameSessions.isNotEmpty 
-      ? gameSessions.fold(0.0, (sum, session) => sum + session.adjustedPrice)
-      : formulaPrice;
-  
-  bool get hasCustomGameSessions => gameSessions.isNotEmpty;
 
   // Always return UTC time
   DateTime get dateTimeUTC => dateTime;
@@ -41,7 +36,7 @@ class Booking {
   // Convert UTC to local for display
   DateTime get dateTimeLocal => dateTime.toLocal();
 
-  Booking({
+  BookingLegacy({
     required this.id,
     required this.firstName,
     this.lastName,
@@ -56,10 +51,10 @@ class Booking {
     this.paymentMethod = payment_model.PaymentMethod.transfer,
     this.payments = const [],
     this.consumptionsTotal = 0.0,
-    this.gameSessions = const [],
     double? totalPrice,
   }) : _totalPrice = totalPrice;
-  Booking copyWith({
+
+  BookingLegacy copyWith({
     String? id,
     String? firstName,
     String? lastName,
@@ -74,10 +69,9 @@ class Booking {
     payment_model.PaymentMethod? paymentMethod,
     List<payment_model.Payment>? payments,
     double? consumptionsTotal,
-    List<GameSession>? gameSessions,
     double? totalPrice,
   }) {
-    return Booking(
+    return BookingLegacy(
       id: id ?? this.id,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
@@ -92,7 +86,6 @@ class Booking {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       payments: payments ?? this.payments,
       consumptionsTotal: consumptionsTotal ?? this.consumptionsTotal,
-      gameSessions: gameSessions ?? this.gameSessions,
       totalPrice: totalPrice ?? _totalPrice,
     );
   }
@@ -113,11 +106,10 @@ class Booking {
       'paymentMethod': paymentMethod.toString().split('.').last,
       'payments': payments.map((x) => x.toMap()).toList(),
       'consumptionsTotal': consumptionsTotal,
-      'gameSessions': gameSessions.map((x) => x.toMap()).toList(),
     };
   }
 
-  factory Booking.fromMap(Map<String, dynamic> map) {
+  factory BookingLegacy.fromMap(Map<String, dynamic> map) {
     Map<String, dynamic> formulaMap = map['formula'] ?? {};
 
     // Si la formule est vide mais que nous avons des champs formula_id, etc.
@@ -146,7 +138,7 @@ class Booking {
     // Ensure we store as UTC
     var dateTime = DateTime.parse(map['date_time']).toUtc();
 
-    return Booking(
+    return BookingLegacy(
       id: map['id'],
       firstName: map['first_name'] ?? '',
       lastName: map['last_name'],
@@ -171,23 +163,18 @@ class Booking {
               .toList() ??
           [],
       consumptionsTotal: (map['consumptions_total'] ?? 0.0).toDouble(),
-      gameSessions: (map['game_sessions'] as List<dynamic>?)
-              ?.where((x) => x != null)
-              .map((x) => GameSession.fromMap(x as Map<String, dynamic>))
-              .toList() ??
-          [],
     );
   }
 
   @override
   String toString() {
-    return 'Booking(id: $id, firstName: $firstName, lastName: $lastName, dateTime: $dateTime, numberOfPersons: $numberOfPersons, numberOfGames: $numberOfGames, email: $email, phone: $phone, formula: $formula, isCancelled: $isCancelled, deposit: $deposit, paymentMethod: $paymentMethod, payments: $payments, consumptionsTotal: $consumptionsTotal, gameSessions: $gameSessions)';
+    return 'BookingLegacy(id: $id, firstName: $firstName, lastName: $lastName, dateTime: $dateTime, numberOfPersons: $numberOfPersons, numberOfGames: $numberOfGames, email: $email, phone: $phone, formula: $formula, isCancelled: $isCancelled, deposit: $deposit, paymentMethod: $paymentMethod, payments: $payments, consumptionsTotal: $consumptionsTotal)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is Booking &&
+    return other is BookingLegacy &&
         other.id == id &&
         other.firstName == firstName &&
         other.lastName == lastName &&
@@ -200,8 +187,7 @@ class Booking {
         other.isCancelled == isCancelled &&
         other.deposit == deposit &&
         other.paymentMethod == paymentMethod &&
-        other.consumptionsTotal == consumptionsTotal &&
-        other.gameSessions == gameSessions;
+        other.consumptionsTotal == consumptionsTotal;
   }
 
   @override
@@ -218,24 +204,6 @@ class Booking {
         isCancelled.hashCode ^
         deposit.hashCode ^
         paymentMethod.hashCode ^
-        consumptionsTotal.hashCode ^
-        gameSessions.hashCode;
+        consumptionsTotal.hashCode;
   }
 }
-
-/// Represents a booking in the system.
-/// 
-/// All datetime values are stored internally in UTC timezone.
-/// Use [dateTimeLocal] for display purposes and [dateTimeUTC] for storage.
-/// 
-/// Example:
-/// ```dart
-/// // Creating a new booking (converts local to UTC automatically)
-/// final booking = Booking(
-///   dateTime: DateTime.now().toUtc(),  // Always use UTC for storage
-///   ...
-/// );
-/// 
-/// // Displaying booking time (converts UTC to local automatically)
-/// print(booking.dateTimeLocal);  // Shows in user's timezone
-/// ```

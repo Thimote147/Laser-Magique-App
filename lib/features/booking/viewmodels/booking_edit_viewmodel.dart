@@ -201,6 +201,19 @@ class BookingEditViewModel extends ChangeNotifier {
       return 'Veuillez sélectionner une formule';
     }
 
+    // Validation de la date - empêcher les réservations dans le passé
+    final selectedDateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+    
+    if (selectedDateTime.isBefore(DateTime.now())) {
+      return 'Impossible de créer une réservation dans le passé';
+    }
+
     if (_numberOfPersons < _selectedFormula!.minParticipants) {
       return 'Le nombre de participants doit être d\'au moins ${_selectedFormula!.minParticipants} pour cette formule';
     }

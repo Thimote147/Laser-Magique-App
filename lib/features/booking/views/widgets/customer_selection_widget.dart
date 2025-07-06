@@ -130,11 +130,11 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
                   ],
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _buildSearchResults(viewModel),
             ] else
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 child: _buildNewCustomerForm(viewModel),
               ),
           ],
@@ -320,7 +320,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _emailController,
             decoration: InputDecoration(
@@ -351,7 +351,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
             keyboardType: TextInputType.emailAddress,
             onSaved: (value) => _emailController.text = value!,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _phoneController,
             decoration: InputDecoration(
@@ -382,7 +382,7 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
             keyboardType: TextInputType.phone,
             onSaved: (value) => _phoneController.text = value!,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [

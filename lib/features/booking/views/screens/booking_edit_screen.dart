@@ -9,8 +9,9 @@ import '../functions/booking_functions.dart';
 
 class BookingEditScreen extends StatelessWidget {
   final Booking? booking;
+  final DateTime? initialDate;
 
-  const BookingEditScreen({super.key, this.booking});
+  const BookingEditScreen({super.key, this.booking, this.initialDate});
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +46,10 @@ class BookingEditScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: BookingFormWidget(booking: booking),
+            body: BookingFormWidget(
+              booking: booking,
+              initialDate: initialDate,
+            ),
           );
         },
       ),

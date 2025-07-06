@@ -12,6 +12,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int selectedCategory = 0; // 0 = Clients, 1 = Réservations
+  DateTime? _selectedDate;
 
   @override
   Widget build(BuildContext context) {
@@ -34,11 +35,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: const BookingCalendarWidget(),
+      body: BookingCalendarWidget(
+        onDateSelected: (date) {
+          setState(() {
+            _selectedDate = date;
+          });
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const BookingEditScreen()),
+            MaterialPageRoute(
+              builder: (context) => BookingEditScreen(
+                initialDate: _selectedDate,
+              ),
+            ),
           );
         },
         tooltip: 'Ajouter une réservation',

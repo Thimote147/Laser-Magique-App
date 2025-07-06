@@ -16,8 +16,9 @@ import 'customer_selection_widget.dart';
 class BookingFormWidget extends StatefulWidget {
   final Booking? booking;
   final VoidCallback? onSubmit;
+  final DateTime? initialDate;
 
-  const BookingFormWidget({super.key, this.booking, this.onSubmit});
+  const BookingFormWidget({super.key, this.booking, this.onSubmit, this.initialDate});
 
   @override
   State<BookingFormWidget> createState() => _BookingFormWidgetState();
@@ -82,7 +83,19 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         _checkAndAdjustLimits(widget.booking!.formula);
       });
     } else {
-      selectedDate = DateTime.now();
+      // Pour une nouvelle réservation, vérifier si la date initiale est passée
+      DateTime initialDate = widget.initialDate ?? DateTime.now();
+      
+      // Si la date initiale est passée, utiliser aujourd'hui
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final initialDay = DateTime(initialDate.year, initialDate.month, initialDate.day);
+      
+      if (initialDay.isBefore(today)) {
+        initialDate = DateTime.now();
+      }
+      
+      selectedDate = initialDate;
       selectedTime = TimeOfDay.now();
       numberOfPersons = 1;
       numberOfGames = 1;

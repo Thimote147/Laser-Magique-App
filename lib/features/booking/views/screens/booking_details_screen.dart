@@ -10,6 +10,14 @@ import '../../viewmodels/booking_view_model.dart';
 import '../widgets/booking_consumption_widget.dart';
 import '../widgets/booking_payment_widget.dart';
 import 'booking_edit_screen.dart';
+import '../widgets/game_sessions_modal.dart';
+
+// Fonction utilitaire pour vérifier si une réservation est passée
+bool _isBookingPast(Booking booking) {
+  final now = DateTime.now();
+  final bookingDate = booking.dateTimeLocal;
+  return bookingDate.isBefore(DateTime(now.year, now.month, now.day));
+}
 
 class BookingDetailsScreen extends StatefulWidget {
   final Booking booking;
@@ -162,25 +170,26 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               '${_currentBooking.firstName} ${_currentBooking.lastName ?? ""}',
             ),
             actions: [
-              // Bouton Modifier dans la barre d'actions
-              IconButton(
-                icon: Icon(
-                  Icons.edit,
-                  color: Theme.of(context).colorScheme.primary,
+              // Bouton Modifier dans la barre d'actions (seulement si pas passé)
+              if (!_isBookingPast(_currentBooking))
+                IconButton(
+                  icon: Icon(
+                    Icons.edit,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  tooltip: 'Modifier la réservation',
+                  onPressed: () {
+                    Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    BookingEditScreen(booking: _currentBooking),
+                          ),
+                        )
+                        .then((_) => _refreshBooking());
+                  },
                 ),
-                tooltip: 'Modifier la réservation',
-                onPressed: () {
-                  Navigator.of(context)
-                      .push(
-                        MaterialPageRoute(
-                          builder:
-                              (context) =>
-                                  BookingEditScreen(booking: _currentBooking),
-                        ),
-                      )
-                      .then((_) => _refreshBooking());
-                },
-              ),
               PopupMenuButton<String>(
                 icon: Icon(
                   Icons.more_vert,
@@ -191,8 +200,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                 ),
                 elevation: 4,
                 itemBuilder:
-                    (context) => [
-                      // Options admin uniquement
+                    (context) {
+                      final isBookingPast = _isBookingPast(_currentBooking);
+                      return [
+                      // Options de contact (toujours disponibles si admin)
                       if (isAdmin) ...[
                         if (_currentBooking.email != null)
                           PopupMenuItem<String>(
@@ -231,12 +242,13 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                             ),
                           ),
                         if ((_currentBooking.email != null ||
-                            _currentBooking.phone != null))
+                            _currentBooking.phone != null) && !isBookingPast)
                           const PopupMenuDivider(),
                       ],
 
-                      // Option d'annulation/restauration (tous les utilisateurs)
-                      PopupMenuItem<String>(
+                      // Option d'annulation/restauration (tous les utilisateurs, sauf passées)
+                      if (!isBookingPast)
+                        PopupMenuItem<String>(
                         value: 'toggle_cancel',
                         child: Row(
                           children: [
@@ -270,8 +282,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                         ),
                       ),
 
-                      // Option de suppression (admin uniquement)
-                      if (isAdmin) ...[
+                      // Option de suppression (admin uniquement, sauf passées)
+                      if (isAdmin && !isBookingPast) ...[
                         const PopupMenuDivider(),
                         PopupMenuItem<String>(
                           value: 'delete',
@@ -288,7 +300,8 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                           ),
                         ),
                       ],
-                    ],
+                    ];
+                    },
                 onSelected: (String value) async {
                   switch (value) {
                     case 'email':
@@ -407,9 +420,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               ),
             ],
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
+          body: RefreshIndicator(
+            onRefresh: _refreshBooking,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (_currentBooking.isCancelled)
@@ -771,6 +786,49 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                             ],
                           ),
                         ),
+                        // Bouton Gérer les parties (si plus d'une partie et formule groupe)
+                        if (_currentBooking.numberOfGames > 1 && 
+                            _currentBooking.formula.name.toLowerCase().contains('groupe')) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _isBookingPast(_currentBooking) ? null : () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  isDismissible: true, // Permet de fermer en cliquant à l'extérieur
+                                  enableDrag: true, // Permet de fermer en glissant vers le bas
+                                  builder: (context) => GameSessionsModal(
+                                    booking: _currentBooking,
+                                    onSessionsUpdated: _refreshBooking,
+                                  ),
+                                );
+                              },
+                              icon: Icon(
+                                Icons.sports_esports,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              label: Text(
+                                'Gérer les parties individuelles',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1013,6 +1071,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );

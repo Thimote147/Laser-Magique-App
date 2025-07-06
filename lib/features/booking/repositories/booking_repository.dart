@@ -12,7 +12,7 @@ class BookingRepository {
   Future<List<Booking>> getAllBookings() async {
     try {
       final response = await _client
-          .from('booking_summaries')
+          .from('booking_summaries_v2')
           .select()
           .order('date_time');
 
@@ -28,7 +28,7 @@ class BookingRepository {
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final response = await _client
-        .from('booking_summaries')
+        .from('booking_summaries_v2')
         .select()
         .gte('date_time', startOfDay.toIso8601String())
         .lt('date_time', endOfDay.toIso8601String())
@@ -162,7 +162,7 @@ class BookingRepository {
 
       final data =
           await _client
-              .from('booking_summaries')
+              .from('booking_summaries_v2')
               .select()
               .eq('id', bookingId)
               .single();
@@ -178,7 +178,7 @@ class BookingRepository {
     // Récupère les données depuis la vue qui inclut tous les calculs
     final data =
         await _client
-            .from('booking_summaries')
+            .from('booking_summaries_v2')
             .select('''
             *,
             formula:formulas!formula_id (

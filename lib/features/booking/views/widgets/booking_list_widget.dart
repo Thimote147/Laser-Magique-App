@@ -5,6 +5,13 @@ import '../../models/booking_model.dart';
 import 'booking_list_item.dart';
 import '../../../../shared/user_provider.dart';
 
+// Fonction utilitaire pour vérifier si une réservation est passée
+bool _isBookingPast(Booking booking) {
+  final now = DateTime.now();
+  final bookingDate = booking.dateTimeLocal;
+  return bookingDate.isBefore(DateTime(now.year, now.month, now.day));
+}
+
 class BookingListWidget extends StatelessWidget {
   final BookingViewModel viewModel;
   final DateTime selectedDay;
@@ -159,44 +166,46 @@ class BookingListWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: const Icon(Icons.edit, color: Colors.blue),
-                title: const Text('Modifier la réservation'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditBookingDialog(context, booking, viewModel);
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  booking.isCancelled ? Icons.restore : Icons.cancel,
-                  color: booking.isCancelled ? Colors.green : Colors.orange,
+              if (!_isBookingPast(booking))
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.blue),
+                  title: const Text('Modifier la réservation'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditBookingDialog(context, booking, viewModel);
+                  },
                 ),
-                title: Text(
-                  booking.isCancelled
-                      ? 'Restaurer la réservation'
-                      : 'Marquer comme annulée',
-                  style: TextStyle(
+              if (!_isBookingPast(booking))
+                ListTile(
+                  leading: Icon(
+                    booking.isCancelled ? Icons.restore : Icons.cancel,
                     color: booking.isCancelled ? Colors.green : Colors.orange,
                   ),
-                ),
-                subtitle: null,
-                onTap: () {
-                  Navigator.pop(context);
-                  viewModel.toggleCancellationStatus(booking.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        booking.isCancelled
-                            ? 'La réservation a été restaurée'
-                            : 'La réservation a été marquée comme annulée',
-                      ),
-                      duration: const Duration(seconds: 2),
+                  title: Text(
+                    booking.isCancelled
+                        ? 'Restaurer la réservation'
+                        : 'Marquer comme annulée',
+                    style: TextStyle(
+                      color: booking.isCancelled ? Colors.green : Colors.orange,
                     ),
-                  );
-                },
-              ),
-              if (isAdmin)
+                  ),
+                  subtitle: null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    viewModel.toggleCancellationStatus(booking.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          booking.isCancelled
+                              ? 'La réservation a été restaurée'
+                              : 'La réservation a été marquée comme annulée',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              if (isAdmin && !_isBookingPast(booking))
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
                   title: const Text('Supprimer la réservation'),

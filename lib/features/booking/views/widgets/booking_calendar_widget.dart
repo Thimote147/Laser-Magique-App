@@ -10,7 +10,9 @@ import 'booking_list_item.dart';
 import '../../../../shared/user_provider.dart';
 
 class BookingCalendarWidget extends StatefulWidget {
-  const BookingCalendarWidget({super.key});
+  final void Function(DateTime)? onDateSelected;
+  
+  const BookingCalendarWidget({super.key, this.onDateSelected});
 
   @override
   State<BookingCalendarWidget> createState() => _BookingCalendarWidgetState();
@@ -68,6 +70,8 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                     _selectedDay = selectedD;
                     _focusedDay = focusedD;
                   });
+                  // Notifier le parent de la date sélectionnée (même si passée)
+                  widget.onDateSelected?.call(selectedD);
                   // Scroll automatique si on est en Day View
                   if (_calendarFormat == CalendarFormat.week) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {

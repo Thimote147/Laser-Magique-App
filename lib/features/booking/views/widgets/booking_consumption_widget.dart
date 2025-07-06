@@ -7,6 +7,13 @@ import '../../../inventory/viewmodels/stock_view_model.dart';
 import '../../controllers/booking_consumption_controller.dart';
 import 'consumption_selector.dart';
 
+// Fonction utilitaire pour vérifier si une réservation est passée
+bool _isBookingPast(Booking booking) {
+  final now = DateTime.now();
+  final bookingDate = booking.dateTimeLocal;
+  return bookingDate.isBefore(DateTime(now.year, now.month, now.day));
+}
+
 class BookingConsumptionWidget extends StatefulWidget {
   final Booking booking;
   final VoidCallback? onBookingUpdated;
@@ -204,6 +211,10 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
   }
 
   Widget _buildAddConsumptionButton(BuildContext context) {
+    if (_isBookingPast(widget.booking)) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       margin: const EdgeInsets.only(top: 12),
       child: OutlinedButton.icon(
@@ -354,6 +365,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
             consumption: consumption,
             stockItem: stockItem,
             controller: controller,
+            booking: widget.booking,
           );
         }),
       ],
@@ -366,12 +378,14 @@ class _ConsumptionItemStateless extends StatelessWidget {
   final Consumption consumption;
   final StockItem stockItem;
   final BookingConsumptionController controller;
+  final Booking booking;
 
   const _ConsumptionItemStateless({
     super.key,
     required this.consumption,
     required this.stockItem,
     required this.controller,
+    required this.booking,
   });
 
   IconData _getItemIcon(String category) {
@@ -447,7 +461,7 @@ class _ConsumptionItemStateless extends StatelessWidget {
                                   ? Theme.of(context).colorScheme.primary
                                   : Theme.of(context).colorScheme.error,
                         ),
-                        onPressed: () async {
+                        onPressed: _isBookingPast(booking) ? null : () async {
                           if (quantity > 1) {
                             controller.updateConsumptionQuantity(
                               context,
@@ -572,7 +586,7 @@ class _ConsumptionItemStateless extends StatelessWidget {
                           size: 24,
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                        onPressed: () {
+                        onPressed: _isBookingPast(booking) ? null : () {
                           controller.updateConsumptionQuantity(
                             context,
                             consumption.id,

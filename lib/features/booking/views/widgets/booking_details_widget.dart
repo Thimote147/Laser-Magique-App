@@ -6,6 +6,13 @@ import '../../viewmodels/booking_view_model.dart';
 import 'package:provider/provider.dart';
 import '../../../profile/viewmodels/employee_profile_view_model.dart';
 
+// Fonction utilitaire pour vérifier si une réservation est passée
+bool _isBookingPast(Booking booking) {
+  final now = DateTime.now();
+  final bookingDate = booking.dateTimeLocal;
+  return bookingDate.isBefore(DateTime(now.year, now.month, now.day));
+}
+
 class BookingDetailsWidget extends StatelessWidget {
   final Booking booking;
 
@@ -118,7 +125,7 @@ class BookingDetailsWidget extends StatelessWidget {
                         ? 'Restaurer la réservation'
                         : 'Marquer comme annulée',
                   ),
-                  onPressed: () {
+                  onPressed: _isBookingPast(booking) ? null : () {
                     final viewModel = context.read<BookingViewModel>();
                     viewModel.toggleCancellationStatus(booking.id);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -143,7 +150,7 @@ class BookingDetailsWidget extends StatelessWidget {
               ElevatedButton.icon(
                 icon: const Icon(Icons.delete, color: Colors.red),
                 label: const Text('Supprimer'),
-                onPressed: () => _confirmDelete(context),
+                onPressed: _isBookingPast(booking) ? null : () => _confirmDelete(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade50,
                 ),

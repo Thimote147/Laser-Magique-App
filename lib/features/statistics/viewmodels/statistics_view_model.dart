@@ -452,6 +452,15 @@ class StatisticsViewModel extends ChangeNotifier {
   Future<void> updateManualField(String field, String value) async {
     // Ne permettre la mise à jour que pour la vue jour
     if (_currentStatistics == null || _periodType != PeriodType.day) return;
+    
+    // Empêcher la modification des saisies manuelles dans le futur
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selectedDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    
+    if (selectedDay.isAfter(today)) {
+      return; // Pas de saisie dans le futur
+    }
 
     // Éviter les mises à jour simultanées qui peuvent causer des problèmes de cohérence
     if (_isUpdatingField) return;

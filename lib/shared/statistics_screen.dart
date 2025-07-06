@@ -501,6 +501,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       },
                       Icons.account_balance_wallet,
                       'Obligatoire',
+                      readOnly: _isDateInPast(),
                     ),
 
                     // Afficher l'alerte de différence de fond de caisse si nécessaire
@@ -581,6 +582,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       },
                       Icons.account_balance_wallet_outlined,
                       'Obligatoire',
+                      readOnly: _isDateInPast(),
                     ),
                     const SizedBox(height: 8),
                     _buildManualFieldContainer(
@@ -592,6 +594,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       },
                       Icons.lock,
                       'Obligatoire',
+                      readOnly: _isDateInPast(),
                     ),
                   ],
                 ),
@@ -620,6 +623,14 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         ],
       ),
     );
+  }
+
+  // Helper pour vérifier si la date est passée
+  bool _isDateInPast() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selectedDay = DateTime(_viewModel.selectedDate.year, _viewModel.selectedDate.month, _viewModel.selectedDate.day);
+    return selectedDay.isBefore(today);
   }
 
   Widget _buildManualFieldContainer(
@@ -1630,7 +1641,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       context: context,
       initialDate: _viewModel.selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: DateTime.now(),
     );
 
     if (date != null) {
