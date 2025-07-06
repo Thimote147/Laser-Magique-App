@@ -161,7 +161,9 @@ class _EmployeeWorkHoursReportScreenState
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: colorScheme.onPrimaryContainer.withAlpha((255 * 0.2).round()),
+                  color: colorScheme.onPrimaryContainer.withAlpha(
+                    (255 * 0.2).round(),
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -233,7 +235,10 @@ class _EmployeeWorkHoursReportScreenState
         ),
         Text(
           subtitle,
-          style: TextStyle(fontSize: 14, color: color.withAlpha((255 * 0.8).round())),
+          style: TextStyle(
+            fontSize: 14,
+            color: color.withAlpha((255 * 0.8).round()),
+          ),
         ),
       ],
     );
@@ -286,7 +291,9 @@ class _EmployeeWorkHoursReportScreenState
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: colorScheme.tertiary.withAlpha((255 * 0.2).round()),
+                                color: colorScheme.tertiary.withAlpha(
+                                  (255 * 0.2).round(),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -678,7 +685,8 @@ class _EmployeeWorkHoursReportScreenState
                                         },
                                         style: IconButton.styleFrom(
                                           backgroundColor:
-                                              colorScheme.surfaceContainerHighest,
+                                              colorScheme
+                                                  .surfaceContainerHighest,
                                           foregroundColor:
                                               colorScheme.onSurfaceVariant,
                                         ),
@@ -756,7 +764,9 @@ class _EmployeeWorkHoursReportScreenState
                                               size: 64,
                                               color: colorScheme
                                                   .onSurfaceVariant
-                                                  .withAlpha((255 * 0.5).round()),
+                                                  .withAlpha(
+                                                    (255 * 0.5).round(),
+                                                  ),
                                             ),
                                             const SizedBox(height: 16),
                                             Text(
@@ -1050,7 +1060,7 @@ class _EmployeeWorkHoursReportScreenState
       // Créer les styles avec Google Fonts pour une meilleure cohérence
       final font = await PdfGoogleFonts.openSansRegular();
       final fontBold = await PdfGoogleFonts.openSansBold();
-      
+
       final headerStyle = pw.TextStyle(font: fontBold, fontSize: 12);
       final cellStyle = pw.TextStyle(font: font, fontSize: 10);
       final totalStyle = pw.TextStyle(font: fontBold, fontSize: 12);
@@ -1066,7 +1076,8 @@ class _EmployeeWorkHoursReportScreenState
       // Générer le header standard
       final standardHeader = await PdfHeaderService.buildStandardHeader(
         title: 'Relevé des heures',
-        subtitle: 'Employé: ${employee['name']} • Période: $monthYear • Taux horaire: ${employee['hourlyRate'].toStringAsFixed(2)}€/h',
+        subtitle:
+            'Employé: ${employee['name']} • Période: $monthYear • Taux horaire: ${employee['hourlyRate'].toStringAsFixed(2)}€/h',
         font: font,
         fontBold: fontBold,
       );
@@ -1076,20 +1087,21 @@ class _EmployeeWorkHoursReportScreenState
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(32),
           header: (context) => standardHeader,
-          footer: (context) => pw.Column(
-            children: [
-              PdfHeaderService.buildStandardFooter(font: font),
-              pw.SizedBox(height: 5),
-              pw.Text(
-                'Page ${context.pageNumber} sur ${context.pagesCount}',
-                style: cellStyle.copyWith(
-                  fontSize: 8,
-                  color: PdfColors.grey,
-                ),
-                textAlign: pw.TextAlign.center,
+          footer:
+              (context) => pw.Column(
+                children: [
+                  PdfHeaderService.buildStandardFooter(font: font),
+                  pw.SizedBox(height: 5),
+                  pw.Text(
+                    'Page ${context.pageNumber} sur ${context.pagesCount}',
+                    style: cellStyle.copyWith(
+                      fontSize: 8,
+                      color: PdfColors.grey,
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ],
               ),
-            ],
-          ),
           build:
               (context) => [
                 pw.Table(
@@ -1375,7 +1387,7 @@ class _EmployeeWorkHoursReportScreenState
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
-                      icon: const Icon(Icons.preview_rounded, size: 18),
+                      icon: const Icon(Icons.save_alt_rounded, size: 18),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor:
@@ -1386,17 +1398,76 @@ class _EmployeeWorkHoursReportScreenState
                           vertical: 12,
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.of(context).pop();
-                        // Prévisualiser le PDF
-                        Printing.layoutPdf(
-                          onLayout:
-                              (PdfPageFormat format) async =>
-                                  await file.readAsBytes(),
-                          name: fileName,
-                        );
+
+                        // Afficher un indicateur de chargement
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                content: Row(
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(width: 16),
+                                    Text("Enregistrement en cours..."),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+                        }
+
+                        try {
+                          // On a déjà le fichier ici, donc on utilise directement le message de succès
+
+                          // Fermer le dialogue de chargement après un court délai
+                          await Future.delayed(Duration(milliseconds: 500));
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+
+                          if (context.mounted) {
+                            // Afficher un message de confirmation avec un bouton pour prévisualiser
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "PDF enregistré avec succès dans ${file.path}",
+                                ),
+                                duration: Duration(seconds: 4),
+                                action: SnackBarAction(
+                                  label: 'Aperçu',
+                                  onPressed: () {
+                                    Printing.layoutPdf(
+                                      onLayout:
+                                          (PdfPageFormat format) async =>
+                                              await file.readAsBytes(),
+                                      name: fileName,
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.of(
+                              context,
+                            ).pop(); // Fermer le dialogue de chargement
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "Erreur lors de l'enregistrement: $e",
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
                       },
-                      label: const Text('Aperçu'),
+                      label: const Text('Enregistrer'),
                     ),
                   ],
                 ),
@@ -1599,7 +1670,9 @@ class _EmployeeWorkHoursReportScreenState
                         hintText: 'Rechercher un employé...',
                         border: InputBorder.none,
                         hintStyle: TextStyle(
-                          color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
+                          color: colorScheme.onSurfaceVariant.withAlpha(
+                            (255 * 0.7).round(),
+                          ),
                         ),
                       ),
                       style: TextStyle(
@@ -1804,7 +1877,9 @@ class _EmployeeWorkHoursReportScreenState
                               Icon(
                                 Icons.person_search_rounded,
                                 size: 64,
-                                color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
+                                color: colorScheme.onSurfaceVariant.withAlpha(
+                                  (255 * 0.5).round(),
+                                ),
                               ),
                               const SizedBox(height: 16),
                               Text(

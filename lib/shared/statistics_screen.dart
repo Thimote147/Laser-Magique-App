@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
+import 'dart:typed_data';
+import 'dart:io';
 import '../features/statistics/viewmodels/statistics_view_model.dart';
 import '../features/statistics/models/daily_statistics_model.dart';
 import '../features/statistics/models/cash_movement_model.dart';
@@ -121,31 +123,31 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  _buildDateHeader(viewModel),
-                  const SizedBox(height: 16),
-                  // N'afficher la section de saisie manuelle que pour la vue jour
-                  if (viewModel.periodType == PeriodType.day) ...[
-                    _buildManualFieldsSection(viewModel),
+                    _buildDateHeader(viewModel),
                     const SizedBox(height: 16),
+                    // N'afficher la section de saisie manuelle que pour la vue jour
+                    if (viewModel.periodType == PeriodType.day) ...[
+                      _buildManualFieldsSection(viewModel),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildPaymentMethodsSection(statistics),
+                    const SizedBox(height: 16),
+                    _buildCategoriesSection(statistics),
+                    const SizedBox(height: 16),
+                    // N'afficher le résumé de caisse que pour la vue jour
+                    if (viewModel.periodType == PeriodType.day) ...[
+                      // Utiliser un Consumer pour s'assurer que cette section se reconstruit
+                      // lorsque le ViewModel change, indépendamment du reste de l'interface
+                      Consumer<StatisticsViewModel>(
+                        builder: (context, vm, child) {
+                          // Force la reconstruction chaque fois que le ViewModel change
+                          return _buildSummarySection(vm);
+                        },
+                      ),
+                    ],
                   ],
-                  _buildPaymentMethodsSection(statistics),
-                  const SizedBox(height: 16),
-                  _buildCategoriesSection(statistics),
-                  const SizedBox(height: 16),
-                  // N'afficher le résumé de caisse que pour la vue jour
-                  if (viewModel.periodType == PeriodType.day) ...[
-                    // Utiliser un Consumer pour s'assurer que cette section se reconstruit
-                    // lorsque le ViewModel change, indépendamment du reste de l'interface
-                    Consumer<StatisticsViewModel>(
-                      builder: (context, vm, child) {
-                        // Force la reconstruction chaque fois que le ViewModel change
-                        return _buildSummarySection(vm);
-                      },
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
             );
           },
         ),
@@ -426,7 +428,9 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               decoration: BoxDecoration(
                 color:
                     selected
-                        ? Theme.of(context).colorScheme.primary.withAlpha((255 * 0.2).round())
+                        ? Theme.of(
+                          context,
+                        ).colorScheme.primary.withAlpha((255 * 0.2).round())
                         : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -629,7 +633,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   bool _isDateInPast() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final selectedDay = DateTime(_viewModel.selectedDate.year, _viewModel.selectedDate.month, _viewModel.selectedDate.day);
+    final selectedDay = DateTime(
+      _viewModel.selectedDate.year,
+      _viewModel.selectedDate.month,
+      _viewModel.selectedDate.day,
+    );
     return selectedDay.isBefore(today);
   }
 
@@ -1250,7 +1258,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     // Calcul de l'écart de caisse en tenant compte des mouvements de caisse
     final double cashDifference =
-        statistics.fondCaisseFermeture - (theoricalCashAmount + totalCashMovements);
+        statistics.fondCaisseFermeture -
+        (theoricalCashAmount + totalCashMovements);
     final bool hasCashDiscrepancy =
         cashDifference.abs() > 0.01; // Seuil de tolérance pour les arrondis
 
@@ -1447,11 +1456,17 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         case PeriodType.day:
           return DateFormat('dd/MM').format(date);
         case PeriodType.week:
-          return DateFormat('E', 'fr_FR').format(date); // Jour de la semaine en français
+          return DateFormat(
+            'E',
+            'fr_FR',
+          ).format(date); // Jour de la semaine en français
         case PeriodType.month:
           return DateFormat('dd/MM', 'fr_FR').format(date); // Jour du mois
         case PeriodType.year:
-          return DateFormat('MMM', 'fr_FR').format(date); // Mois de l'année en français
+          return DateFormat(
+            'MMM',
+            'fr_FR',
+          ).format(date); // Mois de l'année en français
       }
     }
 
@@ -1798,348 +1813,428 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       );
 
       // Fermer le dialogue de progression
-      Navigator.of(context, rootNavigator: true).pop();
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       // Format du nom de fichier: statistiques_jj_mm_aaaa.pdf
       final fileName =
           'statistiques_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
 
       // Montrer un dialogue de succès avant le partage
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: Theme.of(
-                  context,
-                ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                ),
               ),
-            ),
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            elevation: 0,
-            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            title: Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer
-                        .withAlpha((255 * 0.5).round()),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.check_circle_outline_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Exportation réussie',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Le PDF a été généré avec succès.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest
-                        .withAlpha((255 * 0.4).round()),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withAlpha((255 * 0.2).round()),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.description_outlined,
-                        size: 22,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Nom du fichier',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              fileName,
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Que souhaitez-vous faire?',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              elevation: 0,
+              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              title: Row(
                 children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          Theme.of(context).colorScheme.onSurfaceVariant,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer
+                          .withAlpha((255 * 0.5).round()),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    label: const Text('Fermer'),
+                    child: Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 24,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.share_rounded, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          Theme.of(context).colorScheme.secondaryContainer,
-                      foregroundColor:
-                          Theme.of(context).colorScheme.onSecondaryContainer,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Exportation réussie',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      pdfExportService.sharePdf(pdfBytes, fileName);
-                    },
-                    label: const Text('Partager'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.preview_rounded, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Printing.layoutPdf(
-                        onLayout: (PdfPageFormat format) async => pdfBytes,
-                        name: fileName,
-                      );
-                    },
-                    label: const Text('Aperçu'),
                   ),
                 ],
               ),
-            ],
-            actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          );
-        },
-      );
+              contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Le PDF a été généré avec succès.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withAlpha((255 * 0.4).round()),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          size: 22,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Nom du fichier',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                      .withAlpha((255 * 0.7).round()),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                fileName,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Que souhaitez-vous faire?',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                        ),
+                        label: const Text('Fermer'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.share_rounded, size: 18),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.secondaryContainer,
+                          foregroundColor:
+                              Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          // Obtenir la position pour iOS
+                          final RenderBox? box = context.findRenderObject() as RenderBox?;
+                          final Rect? sharePositionOrigin = box != null
+                              ? box.localToGlobal(Offset.zero) & box.size
+                              : null;
+                          pdfExportService.sharePdf(pdfBytes, fileName, sharePositionOrigin: sharePositionOrigin);
+                        },
+                        label: const Text('Partager'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.save_alt_rounded, size: 18),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                        ),
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+
+                          try {
+                            // Utiliser le sélecteur de fichiers pour enregistrer
+                            bool saved = await pdfExportService.saveToDevice(pdfBytes, fileName);
+
+                            // Fermer le dialogue de chargement
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                            }
+
+                            if (context.mounted) {
+                              if (saved) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("PDF enregistré avec succès"),
+                                    duration: Duration(seconds: 3),
+                                    action: SnackBarAction(
+                                      label: 'Aperçu',
+                                      onPressed: () {
+                                        Printing.layoutPdf(
+                                          onLayout: (PdfPageFormat format) async => pdfBytes,
+                                          name: fileName,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("Enregistrement annulé"),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            // Fermer le dialogue de chargement en cas d'erreur
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                            }
+                            
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Erreur lors de l\'enregistrement: $e',
+                                  ),
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.error,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        label: const Text('Enregistrer'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            );
+          },
+        );
+      }
     } catch (e) {
       // Fermer le dialogue de progression en cas d'erreur
-      Navigator.of(context, rootNavigator: true).pop();
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       // Afficher un dialogue d'erreur plus détaillé
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: Theme.of(
-                  context,
-                ).colorScheme.error.withAlpha((255 * 0.2).round()),
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.error.withAlpha((255 * 0.2).round()),
+                ),
               ),
-            ),
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            elevation: 0,
-            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            title: Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.errorContainer.withAlpha((255 * 0.5).round()),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.error_outline_rounded,
-                    color: Theme.of(context).colorScheme.error,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Échec de l\'exportation',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Une erreur est survenue lors de la génération du PDF.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.errorContainer.withAlpha((255 * 0.3).round()),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.error.withAlpha((255 * 0.4).round()),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Détails de l\'erreur',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        e.toString(),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                          fontFamily: 'monospace',
-                          height: 1.5,
-                        ),
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-            actions: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              elevation: 0,
+              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              title: Row(
                 children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          Theme.of(context).colorScheme.onSurfaceVariant,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer
+                          .withAlpha((255 * 0.5).round()),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    label: const Text('Fermer'),
+                    child: Icon(
+                      Icons.error_outline_rounded,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 24,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Échec de l\'exportation',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      _exportStatistics(context); // Réessayer l'export
-                    },
-                    label: const Text('Réessayer'),
                   ),
                 ],
               ),
-            ],
-            actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          );
-        },
-      );
+              contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Une erreur est survenue lors de la génération du PDF.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer
+                          .withAlpha((255 * 0.3).round()),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.error.withAlpha((255 * 0.4).round()),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Détails de l\'erreur',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          e.toString(),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onErrorContainer,
+                            fontFamily: 'monospace',
+                            height: 1.5,
+                          ),
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+              actions: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      label: const Text('Fermer'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _exportStatistics(context); // Réessayer l'export
+                      },
+                      label: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ],
+              actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            );
+          },
+        );
+      }
     }
   }
 
@@ -2335,4 +2430,6 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       ),
     );
   }
+
+  // Fonction supprimée car intégrée directement dans le onPressed
 }

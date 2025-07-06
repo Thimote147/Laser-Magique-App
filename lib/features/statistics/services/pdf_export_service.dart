@@ -1,9 +1,14 @@
 import 'dart:typed_data';
+import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/daily_statistics_model.dart';
 import '../models/cash_movement_model.dart';
 import '../viewmodels/statistics_view_model.dart';
@@ -85,7 +90,14 @@ class PdfExportService {
               pw.SizedBox(height: 15),
 
               // Contrôle de caisse (uniquement pour la vue journalière)
-              _buildCashControlSection(statistics, cashDiscrepancy, theoreticalCashAmount, actualCashAmount, font, fontBold),
+              _buildCashControlSection(
+                statistics,
+                cashDiscrepancy,
+                theoreticalCashAmount,
+                actualCashAmount,
+                font,
+                fontBold,
+              ),
             ] else ...[
               // Résumé financier pour les vues de période
               pw.Header(
@@ -98,12 +110,20 @@ class PdfExportService {
             ],
 
             // Section spécifique selon le type de période
-            ..._buildPeriodSpecificContent(periodType, statistics, periodStatistics, cashMovements, font, fontBold),
+            ..._buildPeriodSpecificContent(
+              periodType,
+              statistics,
+              periodStatistics,
+              cashMovements,
+              font,
+              fontBold,
+            ),
 
             pw.SizedBox(height: 20),
             PdfHeaderService.buildStandardFooter(
               font: font,
-              additionalText: 'Laser Magique - Rapport généré le ${DateFormat('dd/MM/yyyy à HH:mm').format(DateTime.now())}',
+              additionalText:
+                  'Laser Magique - Rapport généré le ${DateFormat('dd/MM/yyyy à HH:mm').format(DateTime.now())}',
             ),
           ];
         },
@@ -417,52 +437,51 @@ class PdfExportService {
             ),
           ],
         ),
-        ...statistics
-            .map(
-              (stat) => pw.TableRow(
-                children: [
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.all(8),
-                    child: pw.Text(
-                      DateFormat('dd/MM/yyyy').format(stat.date),
-                      style: pw.TextStyle(font: font),
-                    ),
-                  ),
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.all(8),
-                    child: pw.Text(
-                      '${stat.totalBancontact.toStringAsFixed(2).replaceAll('.', ',')} €',
-                      style: pw.TextStyle(font: font),
-                      textAlign: pw.TextAlign.right,
-                    ),
-                  ),
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.all(8),
-                    child: pw.Text(
-                      '${stat.totalCash.toStringAsFixed(2).replaceAll('.', ',')} €',
-                      style: pw.TextStyle(font: font),
-                      textAlign: pw.TextAlign.right,
-                    ),
-                  ),
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.all(8),
-                    child: pw.Text(
-                      '${stat.totalVirement.toStringAsFixed(2).replaceAll('.', ',')} €',
-                      style: pw.TextStyle(font: font),
-                      textAlign: pw.TextAlign.right,
-                    ),
-                  ),
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.all(8),
-                    child: pw.Text(
-                      '${stat.total.toStringAsFixed(2).replaceAll('.', ',')} €',
-                      style: pw.TextStyle(font: font),
-                      textAlign: pw.TextAlign.right,
-                    ),
-                  ),
-                ],
+        ...statistics.map(
+          (stat) => pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  DateFormat('dd/MM/yyyy').format(stat.date),
+                  style: pw.TextStyle(font: font),
+                ),
               ),
-            ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${stat.totalBancontact.toStringAsFixed(2).replaceAll('.', ',')} €',
+                  style: pw.TextStyle(font: font),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${stat.totalCash.toStringAsFixed(2).replaceAll('.', ',')} €',
+                  style: pw.TextStyle(font: font),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${stat.totalVirement.toStringAsFixed(2).replaceAll('.', ',')} €',
+                  style: pw.TextStyle(font: font),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${stat.total.toStringAsFixed(2).replaceAll('.', ',')} €',
+                  style: pw.TextStyle(font: font),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -491,8 +510,49 @@ class PdfExportService {
     );
   }
 
-  Future<void> sharePdf(Uint8List pdfBytes, String fileName) async {
-    await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
+  Future<File> savePdf(Uint8List pdfBytes, String fileName) async {
+    // Sauvegarder dans un dossier temporaire
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsBytes(pdfBytes);
+    return file;
+  }
+
+  Future<void> sharePdf(Uint8List pdfBytes, String fileName, {Rect? sharePositionOrigin}) async {
+    // Utiliser Share.shareXFiles à la place, ce qui offre plus de contrôle
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsBytes(pdfBytes);
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      subject: 'Statistiques Laser Magique',
+      text: 'Rapport de statistiques - $fileName',
+      sharePositionOrigin: sharePositionOrigin,
+    );
+  }
+
+  Future<bool> saveToDevice(Uint8List pdfBytes, String fileName) async {
+    try {
+      // Demander à l'utilisateur de choisir l'emplacement de sauvegarde
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Enregistrer le PDF',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        bytes: pdfBytes,
+      );
+
+      if (outputFile != null) {
+        // Le fichier a été sauvegardé avec succès
+        return true;
+      } else {
+        // L'utilisateur a annulé
+        return false;
+      }
+    } catch (e) {
+      // Erreur lors de la sauvegarde
+      throw Exception('Erreur lors de la sauvegarde: $e');
+    }
   }
 
   // Section de contrôle de caisse
@@ -509,9 +569,7 @@ class PdfExportService {
       decoration: pw.BoxDecoration(
         color:
             cashDiscrepancy != 0
-                ? (cashDiscrepancy > 0
-                    ? PdfColors.green100
-                    : PdfColors.red100)
+                ? (cashDiscrepancy > 0 ? PdfColors.green100 : PdfColors.red100)
                 : PdfColors.grey200,
         borderRadius: pw.BorderRadius.circular(5),
         border: pw.Border.all(
@@ -549,10 +607,7 @@ class PdfExportService {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(
-                'Solde réel espèces:',
-                style: pw.TextStyle(font: font),
-              ),
+              pw.Text('Solde réel espèces:', style: pw.TextStyle(font: font)),
               pw.Text(
                 '${actualCashAmount.toStringAsFixed(2).replaceAll('.', ',')} €',
                 style: pw.TextStyle(font: font),
@@ -563,10 +618,7 @@ class PdfExportService {
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(
-                'Écart de caisse:',
-                style: pw.TextStyle(font: fontBold),
-              ),
+              pw.Text('Écart de caisse:', style: pw.TextStyle(font: fontBold)),
               pw.Text(
                 '${cashDiscrepancy.toStringAsFixed(2).replaceAll('.', ',')} €',
                 style: pw.TextStyle(
@@ -615,11 +667,21 @@ class PdfExportService {
   ) {
     switch (periodType) {
       case PeriodType.day:
-        return _buildDaySpecificContent(statistics, cashMovements, font, fontBold);
+        return _buildDaySpecificContent(
+          statistics,
+          cashMovements,
+          font,
+          fontBold,
+        );
       case PeriodType.week:
       case PeriodType.month:
       case PeriodType.year:
-        return _buildPeriodSpecificSections(periodType, periodStatistics, font, fontBold);
+        return _buildPeriodSpecificSections(
+          periodType,
+          periodStatistics,
+          font,
+          fontBold,
+        );
     }
   }
 
@@ -654,7 +716,11 @@ class PdfExportService {
           text: 'Détail des catégories',
           textStyle: pw.TextStyle(font: fontBold, fontSize: 18),
         ),
-        _buildDetailedCategoriesTable(statistics.categorieDetails, font, fontBold),
+        _buildDetailedCategoriesTable(
+          statistics.categorieDetails,
+          font,
+          fontBold,
+        ),
       ]);
     }
 
@@ -683,9 +749,11 @@ class PdfExportService {
       ]);
 
       // Détail jour par jour seulement si la période n'est pas trop longue
-      if (periodStatistics.length <= 31) { // Maximum 1 mois
-        final activeDays = periodStatistics.where((stat) => stat.total > 0).toList();
-        
+      if (periodStatistics.length <= 31) {
+        // Maximum 1 mois
+        final activeDays =
+            periodStatistics.where((stat) => stat.total > 0).toList();
+
         // Détail des jours avec ventes
         if (activeDays.isNotEmpty) {
           widgets.addAll([
@@ -698,7 +766,7 @@ class PdfExportService {
             _buildDailyStatsTable(activeDays, font, fontBold),
           ]);
         }
-        
+
         // Informations de caisse des jours avec vente
         if (activeDays.isNotEmpty) {
           widgets.addAll([
@@ -740,80 +808,96 @@ class PdfExportService {
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Montant', style: pw.TextStyle(font: fontBold), textAlign: pw.TextAlign.right),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Justification', style: pw.TextStyle(font: fontBold)),
-            ),
-          ],
-        ),
-        // Données
-        ...movements.map((movement) => pw.TableRow(
-          children: [
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
               child: pw.Text(
-                DateFormat('HH:mm').format(movement.date),
-                style: pw.TextStyle(font: font),
-              ),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(
-                movement.type == CashMovementType.entry ? 'Entrée' : 'Sortie',
-                style: pw.TextStyle(
-                  font: font,
-                  color: movement.type == CashMovementType.entry ? PdfColors.green800 : PdfColors.red800,
-                ),
-              ),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(
-                '${movement.type == CashMovementType.entry ? '+' : '-'}${movement.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
-                style: pw.TextStyle(
-                  font: font,
-                  color: movement.type == CashMovementType.entry ? PdfColors.green800 : PdfColors.red800,
-                ),
-                textAlign: pw.TextAlign.right,
-              ),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(
-                movement.justification,
-                style: pw.TextStyle(font: font),
-              ),
-            ),
-          ],
-        )),
-        // Total
-        if (movements.isNotEmpty) pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-          children: [
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('TOTAL', style: pw.TextStyle(font: fontBold)),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(''),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(
-                '${_calculateTotalCashMovements(movements).toStringAsFixed(2).replaceAll('.', ',')} €',
+                'Montant',
                 style: pw.TextStyle(font: fontBold),
                 textAlign: pw.TextAlign.right,
               ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(''),
+              child: pw.Text(
+                'Justification',
+                style: pw.TextStyle(font: fontBold),
+              ),
             ),
           ],
         ),
+        // Données
+        ...movements.map(
+          (movement) => pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  DateFormat('HH:mm').format(movement.date),
+                  style: pw.TextStyle(font: font),
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  movement.type == CashMovementType.entry ? 'Entrée' : 'Sortie',
+                  style: pw.TextStyle(
+                    font: font,
+                    color:
+                        movement.type == CashMovementType.entry
+                            ? PdfColors.green800
+                            : PdfColors.red800,
+                  ),
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${movement.type == CashMovementType.entry ? '+' : '-'}${movement.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
+                  style: pw.TextStyle(
+                    font: font,
+                    color:
+                        movement.type == CashMovementType.entry
+                            ? PdfColors.green800
+                            : PdfColors.red800,
+                  ),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  movement.justification,
+                  style: pw.TextStyle(font: font),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Total
+        if (movements.isNotEmpty)
+          pw.TableRow(
+            decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text('TOTAL', style: pw.TextStyle(font: fontBold)),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(''),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${_calculateTotalCashMovements(movements).toStringAsFixed(2).replaceAll('.', ',')} €',
+                  style: pw.TextStyle(font: fontBold),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(''),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -837,35 +921,52 @@ class PdfExportService {
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Nombre d\'articles', style: pw.TextStyle(font: fontBold), textAlign: pw.TextAlign.center),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Montant', style: pw.TextStyle(font: fontBold), textAlign: pw.TextAlign.right),
-            ),
-          ],
-        ),
-        // Données
-        ...categories.map((category) => pw.TableRow(
-          children: [
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(category.categoryDisplayName, style: pw.TextStyle(font: font)),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('${category.itemCount}', style: pw.TextStyle(font: font), textAlign: pw.TextAlign.center),
+              child: pw.Text(
+                'Nombre d\'articles',
+                style: pw.TextStyle(font: fontBold),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
               child: pw.Text(
-                '${category.total.toStringAsFixed(2).replaceAll('.', ',')} €',
-                style: pw.TextStyle(font: font),
+                'Montant',
+                style: pw.TextStyle(font: fontBold),
                 textAlign: pw.TextAlign.right,
               ),
             ),
           ],
-        )),
+        ),
+        // Données
+        ...categories.map(
+          (category) => pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  category.categoryDisplayName,
+                  style: pw.TextStyle(font: font),
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${category.itemCount}',
+                  style: pw.TextStyle(font: font),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(
+                  '${category.total.toStringAsFixed(2).replaceAll('.', ',')} €',
+                  style: pw.TextStyle(font: font),
+                  textAlign: pw.TextAlign.right,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -878,9 +979,12 @@ class PdfExportService {
   ) {
     // Filtrer les jours avec des ventes (éviter les jours à 0€)
     final activeDays = periodStats.where((stat) => stat.total > 0).toList();
-    
+
     if (activeDays.isEmpty) {
-      return pw.Text('Aucune vente durant cette période', style: pw.TextStyle(font: font));
+      return pw.Text(
+        'Aucune vente durant cette période',
+        style: pw.TextStyle(font: font),
+      );
     }
 
     final maxDay = activeDays.reduce((a, b) => a.total > b.total ? a : b);
@@ -894,23 +998,18 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Analyse des performances', style: pw.TextStyle(font: fontBold)),
+              child: pw.Text(
+                'Analyse des performances',
+                style: pw.TextStyle(font: fontBold),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Valeur', style: pw.TextStyle(font: fontBold), textAlign: pw.TextAlign.right),
-            ),
-          ],
-        ),
-        pw.TableRow(
-          children: [
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Jours d\'activité', style: pw.TextStyle(font: font)),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('${activeDays.length} / ${periodStats.length}', style: pw.TextStyle(font: font), textAlign: pw.TextAlign.right),
+              child: pw.Text(
+                'Valeur',
+                style: pw.TextStyle(font: fontBold),
+                textAlign: pw.TextAlign.right,
+              ),
             ),
           ],
         ),
@@ -918,7 +1017,29 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Meilleure performance', style: pw.TextStyle(font: font)),
+              child: pw.Text(
+                'Jours d\'activité',
+                style: pw.TextStyle(font: font),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                '${activeDays.length} / ${periodStats.length}',
+                style: pw.TextStyle(font: font),
+                textAlign: pw.TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+        pw.TableRow(
+          children: [
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Meilleure performance',
+                style: pw.TextStyle(font: font),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
@@ -930,12 +1051,16 @@ class PdfExportService {
             ),
           ],
         ),
-        if (activeDays.length > 1) // N'afficher que s'il y a plusieurs jours actifs
+        if (activeDays.length >
+            1) // N'afficher que s'il y a plusieurs jours actifs
           pw.TableRow(
             children: [
               pw.Padding(
                 padding: const pw.EdgeInsets.all(8),
-                child: pw.Text('Plus faible performance', style: pw.TextStyle(font: font)),
+                child: pw.Text(
+                  'Plus faible performance',
+                  style: pw.TextStyle(font: font),
+                ),
               ),
               pw.Padding(
                 padding: const pw.EdgeInsets.all(8),
@@ -954,7 +1079,10 @@ class PdfExportService {
   // Calculer le total des mouvements de caisse
   double _calculateTotalCashMovements(List<CashMovement> movements) {
     return movements.fold(0.0, (total, movement) {
-      return total + (movement.type == CashMovementType.entry ? movement.amount : -movement.amount);
+      return total +
+          (movement.type == CashMovementType.entry
+              ? movement.amount
+              : -movement.amount);
     });
   }
 
@@ -981,36 +1109,61 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
-              child: pw.Text('Date', style: pw.TextStyle(font: fontBold, fontSize: 10)),
+              child: pw.Text(
+                'Date',
+                style: pw.TextStyle(font: fontBold, fontSize: 10),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
-              child: pw.Text('Fond ouv.', style: pw.TextStyle(font: fontBold, fontSize: 10), textAlign: pw.TextAlign.center),
+              child: pw.Text(
+                'Fond ouv.',
+                style: pw.TextStyle(font: fontBold, fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
-              child: pw.Text('Fond ferm.', style: pw.TextStyle(font: fontBold, fontSize: 10), textAlign: pw.TextAlign.center),
+              child: pw.Text(
+                'Fond ferm.',
+                style: pw.TextStyle(font: fontBold, fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
-              child: pw.Text('Coffre', style: pw.TextStyle(font: fontBold, fontSize: 10), textAlign: pw.TextAlign.center),
+              child: pw.Text(
+                'Coffre',
+                style: pw.TextStyle(font: fontBold, fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
-              child: pw.Text('Vente', style: pw.TextStyle(font: fontBold, fontSize: 10), textAlign: pw.TextAlign.center),
+              child: pw.Text(
+                'Vente',
+                style: pw.TextStyle(font: fontBold, fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
-              child: pw.Text('Écart', style: pw.TextStyle(font: fontBold, fontSize: 10), textAlign: pw.TextAlign.center),
+              child: pw.Text(
+                'Écart',
+                style: pw.TextStyle(font: fontBold, fontSize: 10),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
           ],
         ),
         // Données des jours actifs
         ...activeDays.map((stat) {
-          final double theoreticalCash = stat.fondCaisseOuverture + stat.totalCash;
-          final double actualCash = stat.fondCaisseFermeture + stat.montantCoffre;
+          final double theoreticalCash =
+              stat.fondCaisseOuverture + stat.totalCash;
+          final double actualCash =
+              stat.fondCaisseFermeture + stat.montantCoffre;
           final double discrepancy = actualCash - theoreticalCash;
-          
+
           return pw.TableRow(
             children: [
               pw.Padding(
@@ -1059,9 +1212,12 @@ class PdfExportService {
                   style: pw.TextStyle(
                     font: font,
                     fontSize: 9,
-                    color: discrepancy == 0 
-                        ? PdfColors.black 
-                        : (discrepancy > 0 ? PdfColors.green800 : PdfColors.red800),
+                    color:
+                        discrepancy == 0
+                            ? PdfColors.black
+                            : (discrepancy > 0
+                                ? PdfColors.green800
+                                : PdfColors.red800),
                   ),
                   textAlign: pw.TextAlign.center,
                 ),
@@ -1080,34 +1236,57 @@ class PdfExportService {
     pw.Font fontBold,
   ) {
     if (periodStats.isEmpty) {
-      return pw.Text('Aucune donnée disponible', style: pw.TextStyle(font: font));
+      return pw.Text(
+        'Aucune donnée disponible',
+        style: pw.TextStyle(font: font),
+      );
     }
 
     // Calculs financiers pour la période
     final totalSales = periodStats.fold(0.0, (sum, stat) => sum + stat.total);
-    final totalCash = periodStats.fold(0.0, (sum, stat) => sum + stat.totalCash);
-    final totalBancontact = periodStats.fold(0.0, (sum, stat) => sum + stat.totalBancontact);
-    final totalVirement = periodStats.fold(0.0, (sum, stat) => sum + stat.totalVirement);
+    final totalCash = periodStats.fold(
+      0.0,
+      (sum, stat) => sum + stat.totalCash,
+    );
+    final totalBancontact = periodStats.fold(
+      0.0,
+      (sum, stat) => sum + stat.totalBancontact,
+    );
+    final totalVirement = periodStats.fold(
+      0.0,
+      (sum, stat) => sum + stat.totalVirement,
+    );
     final totalDays = periodStats.length;
     final averageDaily = totalSales / totalDays;
-    
+
     // Tendance (comparaison première moitié vs seconde moitié)
     final halfPoint = (periodStats.length / 2).floor();
     final firstHalf = periodStats.take(halfPoint);
     final secondHalf = periodStats.skip(halfPoint);
-    
-    final firstHalfAvg = firstHalf.isEmpty ? 0.0 : 
-        firstHalf.fold(0.0, (sum, stat) => sum + stat.total) / firstHalf.length;
-    final secondHalfAvg = secondHalf.isEmpty ? 0.0 : 
-        secondHalf.fold(0.0, (sum, stat) => sum + stat.total) / secondHalf.length;
-    
-    final trendPercentage = firstHalfAvg == 0 ? 0.0 : 
-        ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
+
+    final firstHalfAvg =
+        firstHalf.isEmpty
+            ? 0.0
+            : firstHalf.fold(0.0, (sum, stat) => sum + stat.total) /
+                firstHalf.length;
+    final secondHalfAvg =
+        secondHalf.isEmpty
+            ? 0.0
+            : secondHalf.fold(0.0, (sum, stat) => sum + stat.total) /
+                secondHalf.length;
+
+    final trendPercentage =
+        firstHalfAvg == 0
+            ? 0.0
+            : ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
 
     // Répartition des paiements en pourcentages
-    final cashPercentage = totalSales == 0 ? 0.0 : (totalCash / totalSales) * 100;
-    final bancontactPercentage = totalSales == 0 ? 0.0 : (totalBancontact / totalSales) * 100;
-    final virementPercentage = totalSales == 0 ? 0.0 : (totalVirement / totalSales) * 100;
+    final cashPercentage =
+        totalSales == 0 ? 0.0 : (totalCash / totalSales) * 100;
+    final bancontactPercentage =
+        totalSales == 0 ? 0.0 : (totalBancontact / totalSales) * 100;
+    final virementPercentage =
+        totalSales == 0 ? 0.0 : (totalVirement / totalSales) * 100;
 
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey400),
@@ -1117,11 +1296,18 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Indicateur financier', style: pw.TextStyle(font: fontBold)),
+              child: pw.Text(
+                'Indicateur financier',
+                style: pw.TextStyle(font: fontBold),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Valeur', style: pw.TextStyle(font: fontBold), textAlign: pw.TextAlign.right),
+              child: pw.Text(
+                'Valeur',
+                style: pw.TextStyle(font: fontBold),
+                textAlign: pw.TextAlign.right,
+              ),
             ),
           ],
         ),
@@ -1129,7 +1315,10 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Chiffre d\'affaires total', style: pw.TextStyle(font: font)),
+              child: pw.Text(
+                'Chiffre d\'affaires total',
+                style: pw.TextStyle(font: font),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
@@ -1145,7 +1334,10 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Moyenne journalière', style: pw.TextStyle(font: font)),
+              child: pw.Text(
+                'Moyenne journalière',
+                style: pw.TextStyle(font: font),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
@@ -1161,7 +1353,10 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Tendance période', style: pw.TextStyle(font: font)),
+              child: pw.Text(
+                'Tendance période',
+                style: pw.TextStyle(font: font),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
@@ -1169,7 +1364,10 @@ class PdfExportService {
                 '${trendPercentage >= 0 ? '+' : ''}${trendPercentage.toStringAsFixed(1).replaceAll('.', ',')}%',
                 style: pw.TextStyle(
                   font: font,
-                  color: trendPercentage >= 0 ? PdfColors.green800 : PdfColors.red800,
+                  color:
+                      trendPercentage >= 0
+                          ? PdfColors.green800
+                          : PdfColors.red800,
                 ),
                 textAlign: pw.TextAlign.right,
               ),
@@ -1180,7 +1378,10 @@ class PdfExportService {
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Répartition espèces/Bancontact', style: pw.TextStyle(font: font)),
+              child: pw.Text(
+                'Répartition espèces/Bancontact',
+                style: pw.TextStyle(font: font),
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
