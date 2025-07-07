@@ -4,6 +4,7 @@ import '../../viewmodels/booking_view_model.dart';
 import '../../models/booking_model.dart';
 import 'booking_list_item.dart';
 import '../../../../shared/user_provider.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 
 // Fonction utilitaire pour vérifier si une réservation est passée
 bool _isBookingPast(Booking booking) {
@@ -65,8 +66,9 @@ class BookingListWidget extends StatelessWidget {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: Text('${booking.firstName} ${booking.lastName ?? ""}'),
+          (context) => CustomDialog(
+            title: '${booking.firstName} ${booking.lastName ?? ""}',
+            titleIcon: Icon(Icons.person),
             content: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,15 +80,15 @@ class BookingListWidget extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.red.shade200),
+                        border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             Icons.cancel,
-                            color: Colors.red.shade400,
+                            color: Theme.of(context).colorScheme.error,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
@@ -94,11 +96,11 @@ class BookingListWidget extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Réservation annulée',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.red,
+                                    color: Theme.of(context).colorScheme.error,
                                   ),
                                 ),
                               ],
@@ -193,14 +195,15 @@ class BookingListWidget extends StatelessWidget {
                   onTap: () {
                     Navigator.pop(context);
                     viewModel.toggleCancellationStatus(booking.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          booking.isCancelled
-                              ? 'La réservation a été restaurée'
-                              : 'La réservation a été marquée comme annulée',
-                        ),
-                        duration: const Duration(seconds: 2),
+                    showDialog(
+                      context: context,
+                      builder: (context) => CustomSuccessDialog(
+                        title: 'Succès',
+                        content: booking.isCancelled
+                            ? 'La réservation a été restaurée'
+                            : 'La réservation a été marquée comme annulée',
+                        autoClose: true,
+                        autoCloseDuration: const Duration(seconds: 2),
                       ),
                     );
                   },
@@ -222,8 +225,14 @@ class BookingListWidget extends StatelessWidget {
                   onTap: () {
                     Navigator.pop(context);
                     // Implémenter l'envoi d'email ici
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Email à ${booking.email}')),
+                    showDialog(
+                      context: context,
+                      builder: (context) => CustomSuccessDialog(
+                        title: 'Email',
+                        content: 'Email à ${booking.email}',
+                        autoClose: true,
+                        autoCloseDuration: const Duration(seconds: 2),
+                      ),
                     );
                   },
                 ),
@@ -232,11 +241,17 @@ class BookingListWidget extends StatelessWidget {
                   leading: const Icon(Icons.phone, color: Colors.green),
                   title: const Text('Appeler'),
                   subtitle: Text(booking.phone!),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
                     // Implémenter l'appel téléphonique ici
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Appel à ${booking.phone}')),
+                    await showDialog(
+                      context: context,
+                      builder: (context) => CustomSuccessDialog(
+                        title: 'Appel initié',
+                        content: 'Appel vers ${booking.phone}',
+                        autoClose: true,
+                        autoCloseDuration: const Duration(seconds: 2),
+                      ),
                     );
                   },
                 ),
@@ -255,31 +270,31 @@ class BookingListWidget extends StatelessWidget {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: Text(
-              'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('ANNULER'),
-              ),
-              TextButton(
-                onPressed: () {
-                  viewModel.removeBooking(booking.id);
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Réservation supprimée définitivement'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('SUPPRIMER'),
-              ),
-            ],
+          (context) => CustomConfirmDialog(
+            title: 'Confirmer la suppression',
+            content: 'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
+            confirmText: 'SUPPRIMER',
+            cancelText: 'ANNULER',
+            icon: Icons.delete_forever,
+            iconColor: Colors.red,
+            confirmColor: Colors.red,
+            onConfirm: () async {
+              viewModel.removeBooking(booking.id);
+              Navigator.pop(context);
+              
+              // Afficher le dialog de succès au lieu du SnackBar
+              await showDialog(
+                context: context,
+                barrierDismissible: true,
+                builder: (context) => CustomSuccessDialog(
+                  title: 'Suppression réussie',
+                  content: 'La réservation de ${booking.firstName} ${booking.lastName ?? ""} a été supprimée avec succès',
+                  autoClose: true,
+                  autoCloseDuration: const Duration(seconds: 3),
+                ),
+              );
+            },
+            onCancel: () => Navigator.pop(context),
           ),
     );
   }

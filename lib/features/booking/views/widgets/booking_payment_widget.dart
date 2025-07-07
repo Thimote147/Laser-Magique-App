@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../models/booking_model.dart';
 import '../../../../shared/models/payment_model.dart' as payment_model;
 import '../../../../shared/services/consumption_price_service.dart';
+import '../../../../shared/utils/price_utils.dart';
+import '../../../../shared/widgets/dialogs.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
 import 'add_payment_dialog.dart';
@@ -93,7 +95,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
     super.initState();
     _currentBooking = widget.booking;
     // Initialiser les notifiers
-    _formulaPriceNotifier.value = _currentBooking.actualTotalPrice;
+    _formulaPriceNotifier.value = _correctFormulaPrice;
 
     // Configurer l'écoute des mises à jour de prix des consommations
     _listenToConsumptionPriceUpdates();
@@ -177,7 +179,7 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         if (_consumptionsTotalNotifier.value != consumptionsTotal) {
           _consumptionsTotalNotifier.value = consumptionsTotal;
           _totalPriceNotifier.value =
-              _currentBooking.actualTotalPrice + consumptionsTotal;
+              _correctFormulaPrice + consumptionsTotal;
           _remainingAmountNotifier.value = _getRemainingAmount(
             consumptionsTotal,
           );
@@ -195,7 +197,11 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
   @override
   void didUpdateWidget(BookingPaymentWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.booking.id != widget.booking.id) {
+    // Mettre à jour si l'ID change OU si d'autres propriétés changent
+    if (oldWidget.booking.id != widget.booking.id ||
+        oldWidget.booking.numberOfPersons != widget.booking.numberOfPersons ||
+        oldWidget.booking.numberOfGames != widget.booking.numberOfGames ||
+        oldWidget.booking.formula.price != widget.booking.formula.price) {
       _currentBooking = widget.booking;
       _refreshBookingData();
     }
@@ -225,11 +231,11 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
         });
 
         // Mettre à jour les notifiers relatifs à la formule et au statut de paiement
-        _formulaPriceNotifier.value = _currentBooking.actualTotalPrice;
+        _formulaPriceNotifier.value = _correctFormulaPrice;
 
         // Calculer le prix total en utilisant la valeur actuelle des consommations
         _totalPriceNotifier.value =
-            _currentBooking.actualTotalPrice + currentConsumptionsTotal;
+            _correctFormulaPrice + currentConsumptionsTotal;
         _remainingAmountNotifier.value = _getRemainingAmount(
           currentConsumptionsTotal,
         );
@@ -254,8 +260,19 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
     );
   }
 
+  double get _correctFormulaPrice {
+    // Forcer l'utilisation de calculateTotalPrice pour éviter les problèmes de cache
+    // Utiliser widget.booking pour avoir les données les plus à jour
+    final booking = widget.booking;
+    return calculateTotalPrice(
+      booking.formula.price, 
+      booking.numberOfGames, 
+      booking.numberOfPersons
+    );
+  }
+
   double _getRemainingAmount(double consumptionsTotal) {
-    final totalPrice = _currentBooking.actualTotalPrice + consumptionsTotal;
+    final totalPrice = _correctFormulaPrice + consumptionsTotal;
     return totalPrice - _totalPaid;
   }
 
@@ -668,26 +685,17 @@ class _BookingPaymentWidgetState extends State<BookingPaymentWidget> {
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Supprimer le paiement ?'),
-            content: Text(
-              'Voulez-vous vraiment supprimer ce paiement de ${payment.amount.toStringAsFixed(2)}€ ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(
-                  'Supprimer',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              ),
-            ],
-          ),
+      builder: (context) => CustomConfirmDialog(
+        title: 'Supprimer le paiement ?',
+        content: 'Voulez-vous vraiment supprimer ce paiement de ${payment.amount.toStringAsFixed(2)}€ ?',
+        confirmText: 'Supprimer',
+        cancelText: 'Annuler',
+        icon: Icons.delete_outline_rounded,
+        iconColor: Theme.of(context).colorScheme.error,
+        confirmColor: Theme.of(context).colorScheme.error,
+        onConfirm: () => Navigator.of(context).pop(true),
+        onCancel: () => Navigator.of(context).pop(false),
+      ),
     );
 
     if (confirmed == true && context.mounted) {

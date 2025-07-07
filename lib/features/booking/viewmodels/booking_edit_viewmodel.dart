@@ -201,7 +201,8 @@ class BookingEditViewModel extends ChangeNotifier {
       return 'Veuillez sélectionner une formule';
     }
 
-    // Validation de la date - empêcher les réservations dans le passé
+    // Validation de la date - empêcher les réservations dans le passé, 
+    // sauf pour aujourd'hui (permettre de mettre à 11h00 même s'il est 11h10)
     final selectedDateTime = DateTime(
       _selectedDate.year,
       _selectedDate.month,
@@ -210,8 +211,13 @@ class BookingEditViewModel extends ChangeNotifier {
       _selectedTime.minute,
     );
     
-    if (selectedDateTime.isBefore(DateTime.now())) {
-      return 'Impossible de créer une réservation dans le passé';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selectedDay = DateTime(selectedDateTime.year, selectedDateTime.month, selectedDateTime.day);
+    
+    // Interdire seulement les jours précédents, pas les heures passées d'aujourd'hui
+    if (selectedDay.isBefore(today)) {
+      return 'Impossible de créer une réservation pour un jour passé';
     }
 
     if (_numberOfPersons < _selectedFormula!.minParticipants) {

@@ -37,6 +37,12 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
 
   final _depositController = TextEditingController(text: '0');
 
+  /// Retourne le début de la journée actuelle (00:00:00)
+  DateTime get _todayStart {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -200,7 +206,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               top: false,
               child: CupertinoDatePicker(
                 initialDateTime: selectedDate,
-                minimumDate: DateTime.now(),
+                minimumDate: _todayStart, // Permet de sélectionner aujourd'hui même dans le passé
                 maximumDate: DateTime.now().add(const Duration(days: 365)),
                 mode: CupertinoDatePickerMode.date,
                 onDateTimeChanged: (DateTime newDate) {
@@ -217,7 +223,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         context: context,
         locale: const Locale('fr', 'FR'),
         initialDate: selectedDate,
-        firstDate: DateTime.now(),
+        firstDate: _todayStart, // Permet de sélectionner aujourd'hui même dans le passé
         lastDate: DateTime.now().add(const Duration(days: 365)),
       );
       if (pickedDate != null) {

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../inventory/viewmodels/stock_view_model.dart';
 import '../../../../shared/user_provider.dart';
+import '../../../../shared/widgets/dialogs.dart';
 import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../widgets/booking_consumption_widget.dart';
@@ -90,26 +91,22 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Impossible d\'ouvrir l\'application téléphone'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+          await showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur d\'appel',
+              content: 'Impossible d\'ouvrir l\'application téléphone',
             ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'appel: $e'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+        await showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur d\'appel',
+            content: 'Erreur lors de l\'appel: $e',
           ),
         );
       }
@@ -132,26 +129,22 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Impossible d\'ouvrir l\'application email'),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+          await showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur d\'email',
+              content: 'Impossible d\'ouvrir l\'application email',
             ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'envoi d\'email: $e'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+        await showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur d\'email',
+            content: 'Erreur lors de l\'envoi d\'email: $e',
           ),
         );
       }
@@ -321,18 +314,15 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                       ).toggleCancellationStatus(_currentBooking.id);
                       await _refreshBooking();
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              _currentBooking.isCancelled
-                                  ? 'La réservation a été restaurée'
-                                  : 'La réservation a été marquée comme annulée',
-                            ),
-                            duration: const Duration(seconds: 2),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                        await showDialog(
+                          context: context,
+                          builder: (context) => CustomSuccessDialog(
+                            title: _currentBooking.isCancelled ? 'Réservation restaurée' : 'Réservation annulée',
+                            content: _currentBooking.isCancelled
+                                ? 'La réservation a été restaurée avec succès'
+                                : 'La réservation a été marquée comme annulée',
+                            autoClose: true,
+                            autoCloseDuration: const Duration(seconds: 2),
                           ),
                         );
                       }
@@ -349,70 +339,37 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
 
                       final confirmed = await showDialog<bool>(
                         context: context,
-                        builder:
-                            (dialogContext) => AlertDialog(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              title: Row(
-                                children: [
-                                  Icon(
-                                    Icons.warning_rounded,
-                                    color: Theme.of(context).colorScheme.error,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text('Confirmer la suppression'),
-                                ],
-                              ),
-                              content: Text(
-                                'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} ?',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed:
-                                      () => Navigator.of(
-                                        dialogContext,
-                                      ).pop(false),
-                                  style: TextButton.styleFrom(
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Annuler',
-                                    style: TextStyle(
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ),
-                                FilledButton(
-                                  onPressed:
-                                      () =>
-                                          Navigator.of(dialogContext).pop(true),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor:
-                                        Theme.of(context).colorScheme.error,
-                                    foregroundColor:
-                                        Theme.of(context).colorScheme.onError,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: const Text('Supprimer'),
-                                ),
-                              ],
-                            ),
+                        builder: (dialogContext) => CustomConfirmDialog(
+                          title: 'Confirmer la suppression',
+                          content: 'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} ?',
+                          confirmText: 'Supprimer',
+                          cancelText: 'Annuler',
+                          icon: Icons.warning_rounded,
+                          iconColor: Theme.of(context).colorScheme.error,
+                          confirmColor: Theme.of(context).colorScheme.error,
+                          onConfirm: () => Navigator.of(dialogContext).pop(true),
+                          onCancel: () => Navigator.of(dialogContext).pop(false),
+                        ),
                       );
 
                       if (!mounted) return;
                       if (confirmed == true) {
                         bookingViewModel.removeBooking(_currentBooking.id);
                         navigator.pop();
+                        
+                        // Afficher le dialog de succès
+                        if (mounted) {
+                          await showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => CustomSuccessDialog(
+                              title: 'Suppression réussie',
+                              content: 'La réservation de ${_currentBooking.firstName} ${_currentBooking.lastName ?? ""} a été supprimée avec succès',
+                              autoClose: true,
+                              autoCloseDuration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
                       }
                       break;
                   }

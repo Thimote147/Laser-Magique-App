@@ -8,6 +8,7 @@ import '../screens/booking_details_screen.dart';
 import '../screens/booking_edit_screen.dart';
 import 'booking_list_item.dart';
 import '../../../../shared/user_provider.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 
 class BookingCalendarWidget extends StatefulWidget {
   final void Function(DateTime)? onDateSelected;
@@ -297,14 +298,15 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                 onTap: () {
                   Navigator.pop(context);
                   viewModel.toggleCancellationStatus(booking.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        booking.isCancelled
-                            ? 'La réservation a été restaurée'
-                            : 'La réservation a été marquée comme annulée',
-                      ),
-                      duration: const Duration(seconds: 2),
+                  showDialog(
+                    context: context,
+                    builder: (context) => CustomSuccessDialog(
+                      title: 'Succès',
+                      content: booking.isCancelled
+                          ? 'La réservation a été restaurée'
+                          : 'La réservation a été marquée comme annulée',
+                      autoClose: true,
+                      autoCloseDuration: const Duration(seconds: 2),
                     ),
                   );
                 },
@@ -334,27 +336,31 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: Text(
-              'Êtes-vous sûr de vouloir supprimer la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () {
-                  viewModel.removeBooking(booking.id);
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Supprimer',
-                  style: TextStyle(color: Colors.red),
+          (context) => CustomConfirmDialog(
+            title: 'Confirmer la suppression',
+            content: 'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
+            confirmText: 'SUPPRIMER',
+            cancelText: 'ANNULER',
+            icon: Icons.delete_forever,
+            iconColor: Colors.red,
+            confirmColor: Colors.red,
+            onConfirm: () async {
+              viewModel.removeBooking(booking.id);
+              Navigator.pop(context);
+              
+              // Afficher le dialog de succès
+              await showDialog(
+                context: context,
+                barrierDismissible: true,
+                builder: (context) => CustomSuccessDialog(
+                  title: 'Suppression réussie',
+                  content: 'La réservation de ${booking.firstName} ${booking.lastName ?? ""} a été supprimée avec succès',
+                  autoClose: true,
+                  autoCloseDuration: const Duration(seconds: 3),
                 ),
-              ),
-            ],
+              );
+            },
+            onCancel: () => Navigator.pop(context),
           ),
     );
   }

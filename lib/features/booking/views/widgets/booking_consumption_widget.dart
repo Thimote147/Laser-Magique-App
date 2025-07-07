@@ -6,6 +6,7 @@ import '../../../inventory/models/stock_item_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
 import '../../controllers/booking_consumption_controller.dart';
 import 'consumption_selector.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 
 // Fonction utilitaire pour vérifier si une réservation est passée
 bool _isBookingPast(Booking booking) {
@@ -267,10 +268,11 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors du chargement des articles: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur lors du chargement des articles: $e',
           ),
         );
       }
@@ -315,22 +317,22 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
         // Notifier le parent que la réservation a été mise à jour
         widget.onBookingUpdated?.call();
       } else if (!success && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Erreur lors de l\'ajout de la consommation'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            duration: const Duration(seconds: 3),
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur lors de l\'ajout de la consommation',
           ),
         );
       }
     } catch (e) {
       debugPrint('Erreur lors de l\'ajout: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'ajout: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            duration: const Duration(seconds: 3),
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur lors de l\'ajout: $e',
           ),
         );
       }
@@ -473,34 +475,16 @@ class _ConsumptionItemStateless extends StatelessWidget {
                             final confirmed = await showDialog<bool>(
                               context: context,
                               builder:
-                                  (context) => AlertDialog(
-                                    title: const Text(
-                                      'Supprimer la consommation ?',
-                                    ),
-                                    content: Text(
-                                      'Voulez-vous vraiment supprimer "${stockItem.name}" de cette réservation ?',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.of(
-                                              context,
-                                            ).pop(false),
-                                        child: const Text('Annuler'),
-                                      ),
-                                      TextButton(
-                                        onPressed:
-                                            () =>
-                                                Navigator.of(context).pop(true),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor:
-                                              Theme.of(
-                                                context,
-                                              ).colorScheme.error,
-                                        ),
-                                        child: const Text('Supprimer'),
-                                      ),
-                                    ],
+                                  (context) => CustomConfirmDialog(
+                                    title: 'Supprimer la consommation ?',
+                                    content: 'Voulez-vous vraiment supprimer "${stockItem.name}" de cette réservation ?',
+                                    confirmText: 'SUPPRIMER',
+                                    cancelText: 'ANNULER',
+                                    icon: Icons.delete_forever,
+                                    iconColor: Colors.red,
+                                    confirmColor: Colors.red,
+                                    onConfirm: () => Navigator.of(context).pop(true),
+                                    onCancel: () => Navigator.of(context).pop(false),
                                   ),
                             );
 
@@ -517,30 +501,27 @@ class _ConsumptionItemStateless extends StatelessWidget {
                                   await controller.reset(context);
                                 }
 
-                                // Afficher un message de succès
+                                // Afficher le dialog de succès
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${stockItem.name} supprimé',
-                                      ),
-                                      backgroundColor:
-                                          Theme.of(context).colorScheme.primary,
-                                      duration: const Duration(seconds: 2),
+                                  await showDialog(
+                                    context: context,
+                                    barrierDismissible: true,
+                                    builder: (context) => CustomSuccessDialog(
+                                      title: 'Suppression réussie',
+                                      content: '${stockItem.name} a été supprimé de la réservation',
+                                      autoClose: true,
+                                      autoCloseDuration: const Duration(seconds: 2),
                                     ),
                                   );
                                 }
                               } catch (e) {
-                                // Afficher un message d'erreur
+                                // Afficher un dialog d'erreur
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Erreur lors de la suppression: $e',
-                                      ),
-                                      backgroundColor:
-                                          Theme.of(context).colorScheme.error,
-                                      duration: const Duration(seconds: 3),
+                                  await showDialog(
+                                    context: context,
+                                    builder: (context) => CustomErrorDialog(
+                                      title: 'Erreur de suppression',
+                                      content: 'Erreur lors de la suppression: $e',
                                     ),
                                   );
                                 }

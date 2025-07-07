@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import '../../../inventory/viewmodels/stock_view_model.dart';
+import '../../../../shared/widgets/dialogs.dart';
 
 // Fonction utilitaire pour vérifier si une réservation est passée
 bool _isBookingPast(Booking booking) {
@@ -86,7 +87,6 @@ class BookingListItem extends StatelessWidget {
               ),
             ),
             confirmDismiss: _isBookingPast(booking) ? null : (direction) async {
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
               final navigator = Navigator.of(context);
               if (direction == DismissDirection.endToStart) {
                 // Confirmer l'annulation ou la restauration
@@ -111,38 +111,35 @@ class BookingListItem extends StatelessWidget {
                 final result = await showDialog<bool>(
                   context: context,
                   builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: Text(title),
-                      content: Text(content),
-                      actions: [
-                        TextButton(
-                          onPressed: () => navigator.pop(false),
-                          child: const Text('RETOUR'),
-                        ),
-                        TextButton(
-                          onPressed: () => navigator.pop(true),
-                          style: TextButton.styleFrom(
-                            foregroundColor: confirmColor,
-                          ),
-                          child: Text(confirmText),
-                        ),
-                      ],
+                    return CustomConfirmDialog(
+                      title: title,
+                      content: content,
+                      confirmText: confirmText,
+                      cancelText: 'RETOUR',
+                      icon: booking.isCancelled ? Icons.restore : Icons.cancel,
+                      iconColor: confirmColor,
+                      confirmColor: confirmColor,
+                      onConfirm: () => navigator.pop(true),
+                      onCancel: () => navigator.pop(false),
                     );
                   },
                 );
 
                 if (result == true) {
                   viewModel.toggleCancellationStatus(booking.id);
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        booking.isCancelled
-                            ? 'La réservation a été restaurée'
+                  if (context.mounted) {
+                    await showDialog(
+                      context: context,
+                      builder: (context) => CustomSuccessDialog(
+                        title: booking.isCancelled ? 'Réservation restaurée' : 'Réservation annulée',
+                        content: booking.isCancelled
+                            ? 'La réservation a été restaurée avec succès'
                             : 'La réservation a été marquée comme annulée',
+                        autoClose: true,
+                        autoCloseDuration: const Duration(seconds: 2),
                       ),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
+                    );
+                  }
                 }
                 return false; // Ne pas supprimer l'élément
               } else if (direction == DismissDirection.startToEnd) {
@@ -154,36 +151,37 @@ class BookingListItem extends StatelessWidget {
                 final result = await showDialog<bool>(
                   context: context,
                   builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: const Text('Confirmer la suppression'),
-                      content: Text(
-                        'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => navigator.pop(false),
-                          child: const Text('ANNULER'),
-                        ),
-                        TextButton(
-                          onPressed: () => navigator.pop(true),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                          child: const Text('SUPPRIMER'),
-                        ),
-                      ],
+                    return CustomConfirmDialog(
+                      title: 'Confirmer la suppression',
+                      content: 'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
+                      confirmText: 'SUPPRIMER',
+                      cancelText: 'ANNULER',
+                      icon: Icons.delete_forever,
+                      iconColor: Colors.red,
+                      confirmColor: Colors.red,
+                      onConfirm: () => navigator.pop(true),
+                      onCancel: () => navigator.pop(false),
                     );
                   },
                 );
 
                 if (result == true) {
                   viewModel.removeBooking(booking.id);
-                  scaffoldMessenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Réservation supprimée définitivement'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                  
+                  // Afficher le dialog de succès au lieu du SnackBar
+                  if (context.mounted) {
+                    await showDialog(
+                      context: context,
+                      barrierDismissible: true,
+                      builder: (context) => CustomSuccessDialog(
+                        title: 'Suppression réussie',
+                        content: 'La réservation de ${booking.firstName} ${booking.lastName ?? ""} a été supprimée avec succès',
+                        autoClose: true,
+                        autoCloseDuration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                  
                   return true; // Permettre la suppression de l'élément de la liste
                 }
                 return false; // Ne pas supprimer si l'utilisateur annule

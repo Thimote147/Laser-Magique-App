@@ -3,10 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
-import 'dart:typed_data';
-import 'dart:io';
 import '../features/statistics/viewmodels/statistics_view_model.dart';
 import '../features/statistics/models/daily_statistics_model.dart';
 import '../features/statistics/models/cash_movement_model.dart';
@@ -24,6 +20,7 @@ class StatisticsScreen extends StatefulWidget {
 class _StatisticsScreenState extends State<StatisticsScreen>
     with AutomaticKeepAliveClientMixin {
   late StatisticsViewModel _viewModel;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Permet de conserver l'état lorsqu'on navigue entre les onglets
   @override
@@ -48,6 +45,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     return ChangeNotifierProvider.value(
       value: _viewModel,
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
           title: const Text('Statistiques'),
@@ -1950,10 +1948,12 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               ),
               actions: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: 70,
                       child: TextButton.icon(
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(Icons.close, size: 14),
                         onPressed: () {
                           Navigator.of(context).pop();
                         },
@@ -1961,17 +1961,17 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                           foregroundColor:
                               Theme.of(context).colorScheme.onSurfaceVariant,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
+                            horizontal: 2,
+                            vertical: 8,
                           ),
                         ),
-                        label: const Text('Fermer'),
+                        label: const Text('Fermer', style: TextStyle(fontSize: 10)),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    SizedBox(
+                      width: 90,
                       child: ElevatedButton.icon(
-                        icon: const Icon(Icons.share_rounded, size: 18),
+                        icon: const Icon(Icons.share_rounded, size: 14),
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               Theme.of(context).colorScheme.secondaryContainer,
@@ -1981,8 +1981,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                               ).colorScheme.onSecondaryContainer,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
+                            horizontal: 2,
+                            vertical: 8,
                           ),
                         ),
                         onPressed: () {
@@ -1994,13 +1994,13 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                               : null;
                           pdfExportService.sharePdf(pdfBytes, fileName, sharePositionOrigin: sharePositionOrigin);
                         },
-                        label: const Text('Partager'),
+                        label: const Text('Partager', style: TextStyle(fontSize: 10)),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    SizedBox(
+                      width: 100,
                       child: ElevatedButton.icon(
-                        icon: Icon(Icons.save_alt_rounded, size: 18),
+                        icon: Icon(Icons.save_alt_rounded, size: 14),
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
                               Theme.of(context).colorScheme.primary,
@@ -2008,68 +2008,139 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                               Theme.of(context).colorScheme.onPrimary,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
+                            horizontal: 2,
+                            vertical: 8,
                           ),
                         ),
                         onPressed: () async {
+                          // Fermer le dialogue de succès
                           Navigator.of(context).pop();
 
                           try {
                             // Utiliser le sélecteur de fichiers pour enregistrer
                             bool saved = await pdfExportService.saveToDevice(pdfBytes, fileName);
 
-                            // Fermer le dialogue de chargement
-                            if (context.mounted) {
-                              Navigator.of(context).pop();
-                            }
+                            // Attendre un peu pour s'assurer que le dialogue est fermé
+                            await Future.delayed(Duration(milliseconds: 300));
 
-                            if (context.mounted) {
+                            // Utiliser le contexte du scaffold qui est plus stable
+                            final scaffoldContext = _scaffoldKey.currentContext;
+                            if (scaffoldContext != null && mounted) {
                               if (saved) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text("PDF enregistré avec succès"),
-                                    duration: Duration(seconds: 3),
-                                    action: SnackBarAction(
-                                      label: 'Aperçu',
-                                      onPressed: () {
-                                        Printing.layoutPdf(
-                                          onLayout: (PdfPageFormat format) async => pdfBytes,
-                                          name: fileName,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text("Enregistrement annulé"),
-                                    duration: Duration(seconds: 2),
-                                  ),
+                                // Afficher le dialogue de succès
+                                showDialog(
+                                  context: scaffoldContext,
+                                  barrierDismissible: false,
+                                  builder: (BuildContext dialogContext) {
+                                    // Fermer automatiquement après 2 secondes
+                                    Future.delayed(Duration(seconds: 2), () {
+                                      if (Navigator.canPop(dialogContext)) {
+                                        Navigator.of(dialogContext).pop();
+                                      }
+                                    });
+
+                                    return Dialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        side: BorderSide(
+                                          color: Theme.of(
+                                            scaffoldContext,
+                                          ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                                        ),
+                                      ),
+                                      backgroundColor: Theme.of(scaffoldContext).colorScheme.surface,
+                                      elevation: 0,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24.0,
+                                          vertical: 24.0,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Icône de succès avec animation
+                                            TweenAnimationBuilder<double>(
+                                              tween: Tween<double>(begin: 0.0, end: 1.0),
+                                              duration: const Duration(milliseconds: 500),
+                                              curve: Curves.elasticOut,
+                                              builder: (context, value, child) {
+                                                return Transform.scale(scale: value, child: child);
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green.withAlpha((255 * 0.1).round()),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  Icons.check_circle_outline_rounded,
+                                                  color: Colors.green,
+                                                  size: 48,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 24),
+                                            Text(
+                                              'Enregistrement réussi',
+                                              style: Theme.of(scaffoldContext).textTheme.titleLarge?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: Theme.of(scaffoldContext).colorScheme.onSurface,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'Le PDF a été enregistré avec succès.',
+                                              style: Theme.of(scaffoldContext).textTheme.bodyMedium?.copyWith(
+                                                color: Theme.of(scaffoldContext).colorScheme.onSurfaceVariant,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 );
                               }
+                              // Pas de message pour l'annulation
                             }
                           } catch (e) {
-                            // Fermer le dialogue de chargement en cas d'erreur
                             if (context.mounted) {
-                              Navigator.of(context).pop();
-                            }
-                            
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Erreur lors de l\'enregistrement: $e',
-                                  ),
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.error,
-                                ),
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error,
+                                          color: Colors.red,
+                                          size: 28,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text("Erreur"),
+                                      ],
+                                    ),
+                                    content: Text("Erreur lors de l'enregistrement : $e"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                        child: Text("OK"),
+                                      ),
+                                    ],
+                                  );
+                                },
                               );
                             }
                           }
                         },
-                        label: const Text('Enregistrer'),
+                        label: const Text('Enregistrer', style: TextStyle(fontSize: 10)),
                       ),
                     ),
                   ],

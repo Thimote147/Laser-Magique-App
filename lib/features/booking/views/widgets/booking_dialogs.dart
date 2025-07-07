@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 import '../widgets/booking_form_widget.dart';
 
 class AddBookingDialog extends StatelessWidget {
@@ -6,12 +7,11 @@ class AddBookingDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: BookingFormWidget(
-          onSubmit: () => Navigator.of(context).pop(),
-        ),
+    return CustomDialog(
+      title: 'Nouvelle réservation',
+      titleIcon: Icon(Icons.add_circle_outline),
+      content: BookingFormWidget(
+        onSubmit: () => Navigator.of(context).pop(),
       ),
     );
   }

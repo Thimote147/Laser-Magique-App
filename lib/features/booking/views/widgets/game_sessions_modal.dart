@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../shared/models/game_session_model.dart';
 import '../../../../shared/repositories/game_session_repository.dart';
+import '../../../../shared/utils/price_utils.dart';
 import '../../models/booking_model.dart';
 
 String formatPrice(double price) {
@@ -78,7 +79,7 @@ class _GameSessionsModalState extends State<GameSessionsModal>
 
   Future<void> _updateParticipatingPersons(GameSession session, int newParticipants) async {
     try {
-      final adjustedPrice = widget.booking.formula.price * newParticipants;
+      final adjustedPrice = calculateTotalPrice(widget.booking.formula.price, 1, newParticipants);
       
       await _gameSessionRepository.updateParticipatingPersons(
         session.id,

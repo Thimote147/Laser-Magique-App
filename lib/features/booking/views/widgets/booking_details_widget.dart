@@ -5,6 +5,7 @@ import '../../models/booking_model.dart';
 import '../../viewmodels/booking_view_model.dart';
 import 'package:provider/provider.dart';
 import '../../../profile/viewmodels/employee_profile_view_model.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 
 // Fonction utilitaire pour vérifier si une réservation est passée
 bool _isBookingPast(Booking booking) {
@@ -128,13 +129,15 @@ class BookingDetailsWidget extends StatelessWidget {
                   onPressed: _isBookingPast(booking) ? null : () {
                     final viewModel = context.read<BookingViewModel>();
                     viewModel.toggleCancellationStatus(booking.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          booking.isCancelled
-                              ? 'La réservation a été restaurée'
-                              : 'La réservation a été marquée comme annulée',
-                        ),
+                    showDialog(
+                      context: context,
+                      builder: (context) => CustomSuccessDialog(
+                        title: 'Succès',
+                        content: booking.isCancelled
+                            ? 'La réservation a été restaurée'
+                            : 'La réservation a été marquée comme annulée',
+                        autoClose: true,
+                        autoCloseDuration: const Duration(seconds: 2),
                       ),
                     );
                   },
@@ -170,18 +173,22 @@ class BookingDetailsWidget extends StatelessWidget {
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Impossible d\'ouvrir l\'application téléphone'),
+          showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur',
+              content: 'Impossible d\'ouvrir l\'application téléphone',
             ),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'appel: $e'),
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur lors de l\'appel: $e',
           ),
         );
       }
@@ -198,18 +205,22 @@ class BookingDetailsWidget extends StatelessWidget {
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
       } else {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Impossible d\'ouvrir l\'application email'),
+          showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur',
+              content: 'Impossible d\'ouvrir l\'application email',
             ),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de l\'envoi d\'email: $e'),
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur lors de l\'envoi d\'email: $e',
           ),
         );
       }
@@ -220,29 +231,33 @@ class BookingDetailsWidget extends StatelessWidget {
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Confirmer la suppression'),
-            content: Text(
-              'Êtes-vous sûr de vouloir supprimer la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () {
-                  final viewModel = context.read<BookingViewModel>();
-                  viewModel.removeBooking(booking.id);
-                  Navigator.pop(context); // Ferme le dialogue
-                  Navigator.pop(context); // Retourne à l'écran précédent
-                },
-                child: const Text(
-                  'Supprimer',
-                  style: TextStyle(color: Colors.red),
+          (context) => CustomConfirmDialog(
+            title: 'Confirmer la suppression',
+            content: 'Êtes-vous sûr de vouloir supprimer définitivement la réservation de ${booking.firstName} ${booking.lastName ?? ""} ?',
+            confirmText: 'SUPPRIMER',
+            cancelText: 'ANNULER',
+            icon: Icons.delete_forever,
+            iconColor: Colors.red,
+            confirmColor: Colors.red,
+            onConfirm: () async {
+              final viewModel = context.read<BookingViewModel>();
+              viewModel.removeBooking(booking.id);
+              Navigator.pop(context); // Ferme le dialogue
+              Navigator.pop(context); // Retourne à l'écran précédent
+              
+              // Afficher le dialog de succès
+              await showDialog(
+                context: context,
+                barrierDismissible: true,
+                builder: (context) => CustomSuccessDialog(
+                  title: 'Suppression réussie',
+                  content: 'La réservation de ${booking.firstName} ${booking.lastName ?? ""} a été supprimée avec succès',
+                  autoClose: true,
+                  autoCloseDuration: const Duration(seconds: 3),
                 ),
-              ),
-            ],
+              );
+            },
+            onCancel: () => Navigator.pop(context),
           ),
     );
   }
