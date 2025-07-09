@@ -1,3 +1,0 @@
-// TODO :
-//   - pour la formule 'Social Deal', il y a une boisson et un chips compris par personne, donc lors de l'ajout de consommation, il faut prendre en compte qu'ils ne doivent pas payer ces consommation mais bien les consommations supplémentaires, et donc il faut aussi faire attention que dans les statistiques, il ne faut pas compter ces consommations dans le total des consommations mais ces boissons doivent bien être retirées du stock, et dans la feuille de statistiques, il faut bien compter ces boissons dans le total des boissons consommées
-//   - remplacer toutes les snackbar (scaffoldMessenger) par des dialog

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../shared/widgets/custom_dialog.dart';
 import '../../../profile/viewmodels/employee_profile_view_model.dart';
 import '../../models/work_day_model.dart';
 import 'employee_work_hours_report_screen.dart';
@@ -809,25 +810,13 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
       if (!context.mounted) return;
 
       // Afficher une animation de succès
-      final scaffold = ScaffoldMessenger.of(context);
-      final theme = Theme.of(context);
-      scaffold.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                Icons.check_circle_outline,
-                color: theme.colorScheme.onPrimary,
-              ),
-              const SizedBox(width: 12),
-              const Text('Enregistré avec succès !'),
-            ],
-          ),
-          backgroundColor: theme.colorScheme.primary,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-          margin: const EdgeInsets.all(8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      showDialog(
+        context: context,
+        builder: (context) => CustomSuccessDialog(
+          title: 'Succès',
+          content: 'Enregistré avec succès !',
+          autoClose: true,
+          autoCloseDuration: const Duration(seconds: 2),
         ),
       );
 
@@ -839,10 +828,11 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
       if (!context.mounted) return;
 
       // Afficher une erreur si quelque chose ne va pas
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
+      showDialog(
+        context: context,
+        builder: (context) => CustomErrorDialog(
+          title: 'Erreur',
+          content: 'Erreur: $e',
         ),
       );
     }
@@ -955,22 +945,6 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 40),
-            FilledButton.icon(
-              onPressed: () => _showAddWorkDayDialog(context, profileVM),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Ajouter une journée'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
           ],
         ),
       ),

@@ -246,8 +246,9 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
       debugPrint('StockViewModel - drinks: ${stockVM.drinks.length}, food: ${stockVM.food.length}, others: ${stockVM.others.length}');
 
       // Afficher le sélecteur de consommation
-      showModalBottomSheet(
-        context: context,
+      if (context.mounted) {
+        showModalBottomSheet(
+          context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (buildContext) {
@@ -266,6 +267,7 @@ class _BookingConsumptionWidgetState extends State<BookingConsumptionWidget> {
           );
         },
       );
+      }
     } catch (e) {
       if (context.mounted) {
         showDialog(

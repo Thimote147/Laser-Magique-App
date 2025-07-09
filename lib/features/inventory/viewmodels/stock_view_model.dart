@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../models/stock_item_model.dart';
 import '../../../shared/models/consumption_model.dart';
 import '../../../shared/services/consumption_price_service.dart';
+import '../../../shared/services/social_deal_service.dart';
+import '../../../shared/services/notification_service.dart';
 import '../repositories/stock_repository.dart';
 import '../../booking/viewmodels/booking_view_model.dart';
 
@@ -47,6 +49,8 @@ class ConsumptionCacheEntry {
 class StockViewModel extends ChangeNotifier {
   final StockRepository _repository = StockRepository();
   final BookingViewModel bookingViewModel;
+  final SocialDealService _socialDealService = SocialDealService();
+  final NotificationService _notificationService = NotificationService();
 
   // Cache pour les articles en stock avec expiration
   CacheEntry<List<StockItem>>? _stockCache;
@@ -227,9 +231,33 @@ class StockViewModel extends ChangeNotifier {
 
   Future<void> updateItem(StockItem item) async {
     try {
+      // Get the current item to compare quantities
+      final currentItem = items.firstWhere(
+        (i) => i.id == item.id,
+        orElse: () => item, // If not found, use the new item
+      );
+      
       await _repository.updateStockItem(item);
       await refreshStock();
       await refreshAllStock();
+      
+      // Send stock update notification only if quantity changed
+      if (currentItem.quantity != item.quantity) {
+        _notificationService.notifyStockUpdated(
+          item.name,
+          item.quantity,
+          isLowStock: item.isLowStock,
+        );
+        
+        // Send low stock alert if item becomes low stock
+        if (item.isLowStock && !currentItem.isLowStock) {
+          _notificationService.notifyStockAlert(
+            item.name,
+            item.quantity,
+            item.alertThreshold,
+          );
+        }
+      }
     } catch (e) {
       _error = 'Error updating item: $e';
       notifyListeners();
@@ -270,8 +298,25 @@ class StockViewModel extends ChangeNotifier {
         throw Exception('La quantité ne peut pas être négative');
       }
 
-      final updatedItem = item.copyWith(quantity: item.quantity + delta);
+      final newQuantity = item.quantity + delta;
+      final updatedItem = item.copyWith(quantity: newQuantity);
       await updateItem(updatedItem);
+      
+      // Send stock update notification
+      _notificationService.notifyStockUpdated(
+        item.name,
+        newQuantity,
+        isLowStock: updatedItem.isLowStock,
+      );
+      
+      // Send low stock alert if item becomes low stock
+      if (updatedItem.isLowStock && !item.isLowStock) {
+        _notificationService.notifyStockAlert(
+          item.name,
+          newQuantity,
+          item.alertThreshold,
+        );
+      }
     } catch (e) {
       _error = 'Error adjusting quantity: $e';
       notifyListeners();
@@ -448,14 +493,23 @@ class StockViewModel extends ChangeNotifier {
         'StockViewModel: Found stock item: ${stockItem.name} (ID: ${stockItem.id})',
       );
 
-      // Créer une consommation temporaire locale avec un ID unique temporaire
-      final tempConsumption = Consumption(
+      // Get the booking to access its formula
+      final booking = await bookingViewModel.getBooking(bookingId);
+
+      // Get existing consumptions for this booking
+      final existingConsumptions = await getConsumptionsWithStockItems(bookingId);
+
+      // Create consumption with Social Deal logic
+      final tempConsumption = _socialDealService.createConsumption(
         id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
         bookingId: bookingId,
         stockItemId: stockItemId,
         quantity: quantity,
         timestamp: DateTime.now(),
-        unitPrice: stockItem.price,
+        formula: booking.formula,
+        stockItem: stockItem,
+        bookingPersons: booking.numberOfPersons,
+        existingConsumptions: existingConsumptions.map((pair) => pair.$1).toList(),
       );
 
       // Mettre à jour le cache local immédiatement pour une UI réactive
@@ -492,6 +546,23 @@ class StockViewModel extends ChangeNotifier {
       await refreshStock(silent: true);
 
       debugPrint('StockViewModel: Consumption added successfully');
+      
+      // Send notification for consumption added
+      _notificationService.notifyConsumptionAdded(
+        bookingId,
+        stockItem.name,
+        quantity,
+      );
+      
+      // Check if stock became low after consumption and send alert
+      final updatedStockItem = findStockItemById(stockItemId);
+      if (updatedStockItem != null && updatedStockItem.isLowStock) {
+        _notificationService.notifyStockAlert(
+          updatedStockItem.name,
+          updatedStockItem.quantity,
+          updatedStockItem.alertThreshold,
+        );
+      }
       
       // Notifier tous les listeners pour déclencher la mise à jour des UI
       Future.microtask(() {
@@ -948,9 +1019,26 @@ class StockViewModel extends ChangeNotifier {
   }
 
   Future<void> _updateItemQuantity(StockItem item, int newQuantity) async {
+    final oldQuantity = item.quantity;
     final updatedItem = item.copyWith(quantity: newQuantity);
     await _repository.updateStockItem(updatedItem);
     await refreshStock();
+    
+    // Send stock update notification
+    _notificationService.notifyStockUpdated(
+      item.name,
+      newQuantity,
+      isLowStock: updatedItem.isLowStock,
+    );
+    
+    // Send low stock alert if item becomes low stock
+    if (updatedItem.isLowStock && oldQuantity > item.alertThreshold) {
+      _notificationService.notifyStockAlert(
+        item.name,
+        newQuantity,
+        item.alertThreshold,
+      );
+    }
   }
 
   // Helper pour éviter trop de notifications rapprochées

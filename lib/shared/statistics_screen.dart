@@ -8,6 +8,7 @@ import '../features/statistics/models/daily_statistics_model.dart';
 import '../features/statistics/models/cash_movement_model.dart';
 import '../features/statistics/widgets/cash_movement_dialog.dart';
 import '../features/statistics/services/pdf_export_service.dart';
+import './widgets/custom_dialog.dart';
 import './user_provider.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -1697,11 +1698,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     final bool isAdmin = userProvider.isAdmin;
 
     if (!isAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Vous n\'avez pas les droits pour exporter les statistiques',
-          ),
+      showDialog(
+        context: context,
+        builder: (context) => CustomErrorDialog(
+          title: 'Accès refusé',
+          content: 'Vous n\'avez pas les droits pour exporter les statistiques',
         ),
       );
       return;
@@ -1714,9 +1715,13 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             : _viewModel.periodAggregateStatistics;
 
     if (statistics == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Aucune donnée à exporter')));
+      await showDialog(
+        context: context,
+        builder: (context) => CustomErrorDialog(
+          title: 'Exportation impossible',
+          content: 'Aucune donnée à exporter',
+        ),
+      );
       return;
     }
 

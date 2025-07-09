@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.3",
+    "axios": "^1.10.0",
+    "google-auth-library": "^10.1.0",
+    "googleapis": "^150.0.1",
+    "supabase": "^2.30.4"
+  }
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
+import '../../../../shared/widgets/custom_dialog.dart';
 import '../../models/customer_model.dart';
 import '../../viewmodels/customer_view_model.dart';
 
@@ -51,10 +52,11 @@ class _CustomerSelectionWidgetState extends State<CustomerSelectionWidget> {
   }
 
   void _handleError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.error,
+    showDialog(
+      context: context,
+      builder: (context) => CustomErrorDialog(
+        title: 'Erreur',
+        content: message,
       ),
     );
   }

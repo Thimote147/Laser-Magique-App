@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../../shared/models/game_session_model.dart';
 import '../../../../shared/repositories/game_session_repository.dart';
 import '../../../../shared/utils/price_utils.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 import '../../models/booking_model.dart';
 
 String formatPrice(double price) {
@@ -91,27 +92,23 @@ class _GameSessionsModalState extends State<GameSessionsModal>
       widget.onSessionsUpdated?.call();
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Partie ${session.gameNumber} mise à jour: $newParticipants participants'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+        showDialog(
+          context: context,
+          builder: (context) => CustomSuccessDialog(
+            title: 'Mise à jour réussie',
+            content: 'Partie ${session.gameNumber} mise à jour: $newParticipants participants',
+            autoClose: true,
+            autoCloseDuration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur: $e',
           ),
         );
       }
@@ -268,11 +265,11 @@ class _GameSessionsModalState extends State<GameSessionsModal>
                           Navigator.pop(context);
                           _updateParticipatingPersons(session, newParticipants);
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Nombre invalide (minimum 1)'),
-                              backgroundColor: Theme.of(context).colorScheme.error,
-                              behavior: SnackBarBehavior.floating,
+                          showDialog(
+                            context: context,
+                            builder: (context) => CustomErrorDialog(
+                              title: 'Nombre invalide',
+                              content: 'Le nombre de participants doit être au minimum 1',
                             ),
                           );
                         }

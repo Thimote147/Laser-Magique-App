@@ -8,6 +8,7 @@ import '../../../auth/services/auth_service.dart';
 import '../../../auth/views/screens/auth_view.dart';
 import '../../../equipment/views/screens/equipment_management_screen.dart';
 import '../widgets/settings_profile_preview.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 import '../widgets/settings_section_header.dart';
 import '../widgets/settings_item.dart';
 import '../widgets/settings_toggle_item.dart';
@@ -60,14 +61,15 @@ class SettingsScreen extends StatelessWidget {
               value: settingsVM.notificationsEnabled,
               onChanged: (value) {
                 settingsVM.toggleNotifications(value);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      value
-                          ? 'Notifications activées'
-                          : 'Notifications désactivées',
-                    ),
-                    duration: const Duration(seconds: 1),
+                showDialog(
+                  context: context,
+                  builder: (context) => CustomSuccessDialog(
+                    title: 'Notifications',
+                    content: value
+                        ? 'Notifications activées'
+                        : 'Notifications désactivées',
+                    autoClose: true,
+                    autoCloseDuration: Duration(seconds: 1),
                   ),
                 );
               },
@@ -134,8 +136,19 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Consulter l\'aide et les guides',
             onTap: () {
               // Implémentation future
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fonctionnalité à venir')),
+              showDialog(
+                context: context,
+                builder: (context) => CustomDialog(
+                  title: 'Information',
+                  titleIcon: Icon(Icons.info, color: Colors.blue),
+                  content: Text('Fonctionnalité à venir'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('OK'),
+                    ),
+                  ],
+                ),
               );
             },
           ),
@@ -147,8 +160,19 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Informations sur l\'application',
             onTap: () {
               // Implémentation future
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fonctionnalité à venir')),
+              showDialog(
+                context: context,
+                builder: (context) => CustomDialog(
+                  title: 'Information',
+                  titleIcon: Icon(Icons.info, color: Colors.blue),
+                  content: Text('Fonctionnalité à venir'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('OK'),
+                    ),
+                  ],
+                ),
               );
             },
           ),

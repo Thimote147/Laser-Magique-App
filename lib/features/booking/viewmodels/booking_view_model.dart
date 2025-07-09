@@ -172,6 +172,7 @@ class BookingViewModel extends ChangeNotifier {
         ..sort((a, b) => a.dateTimeLocal.compareTo(b.dateTimeLocal));
       notifyListeners();
 
+
       // Refresh différé pour s'assurer que les données sont à jour
       await _triggerImmediateRefresh();
     } catch (e) {
@@ -326,6 +327,7 @@ class BookingViewModel extends ChangeNotifier {
 
       // Envoyer au serveur
       await updateBooking(updatedBooking);
+
 
       // Refresh différé
       await _triggerImmediateRefresh();

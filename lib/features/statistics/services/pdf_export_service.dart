@@ -1,6 +1,4 @@
-import 'dart:typed_data';
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -248,6 +246,14 @@ class PdfExportService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
               child: pw.Text(
+                'Quantité',
+                style: pw.TextStyle(font: fontBold),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
                 'Montant',
                 style: pw.TextStyle(font: fontBold),
                 textAlign: pw.TextAlign.right,
@@ -260,6 +266,14 @@ class PdfExportService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
               child: pw.Text('Boissons', style: pw.TextStyle(font: font)),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                '${statistics.totalBoissonsCount}',
+                style: pw.TextStyle(font: font),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
@@ -280,6 +294,14 @@ class PdfExportService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
               child: pw.Text(
+                '${statistics.totalNourrituresCount}',
+                style: pw.TextStyle(font: font),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
                 '${statistics.totalNourritures.toStringAsFixed(2).replaceAll('.', ',')} €',
                 style: pw.TextStyle(font: font),
                 textAlign: pw.TextAlign.right,
@@ -293,6 +315,14 @@ class PdfExportService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
               child: pw.Text('TOTAL', style: pw.TextStyle(font: fontBold)),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                '${statistics.totalItemsCount}',
+                style: pw.TextStyle(font: fontBold),
+                textAlign: pw.TextAlign.center,
+              ),
             ),
             pw.Padding(
               padding: const pw.EdgeInsets.all(8),
@@ -518,7 +548,11 @@ class PdfExportService {
     return file;
   }
 
-  Future<void> sharePdf(Uint8List pdfBytes, String fileName, {Rect? sharePositionOrigin}) async {
+  Future<void> sharePdf(
+    Uint8List pdfBytes,
+    String fileName, {
+    Rect? sharePositionOrigin,
+  }) async {
     // Utiliser Share.shareXFiles à la place, ce qui offre plus de contrôle
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/$fileName');
@@ -707,23 +741,6 @@ class PdfExportService {
       ]);
     }
 
-    // Section détails des catégories si disponible
-    if (statistics.categorieDetails.isNotEmpty) {
-      widgets.addAll([
-        pw.SizedBox(height: 20),
-        pw.Header(
-          level: 1,
-          text: 'Détail des catégories',
-          textStyle: pw.TextStyle(font: fontBold, fontSize: 18),
-        ),
-        _buildDetailedCategoriesTable(
-          statistics.categorieDetails,
-          font,
-          fontBold,
-        ),
-      ]);
-    }
-
     return widgets;
   }
 
@@ -898,75 +915,6 @@ class PdfExportService {
               ),
             ],
           ),
-      ],
-    );
-  }
-
-  // Table détaillée des catégories
-  pw.Widget _buildDetailedCategoriesTable(
-    List<CategoryTotal> categories,
-    pw.Font font,
-    pw.Font fontBold,
-  ) {
-    return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.grey400),
-      children: [
-        // En-tête
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-          children: [
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text('Catégorie', style: pw.TextStyle(font: fontBold)),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(
-                'Nombre d\'articles',
-                style: pw.TextStyle(font: fontBold),
-                textAlign: pw.TextAlign.center,
-              ),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(8),
-              child: pw.Text(
-                'Montant',
-                style: pw.TextStyle(font: fontBold),
-                textAlign: pw.TextAlign.right,
-              ),
-            ),
-          ],
-        ),
-        // Données
-        ...categories.map(
-          (category) => pw.TableRow(
-            children: [
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(
-                  category.categoryDisplayName,
-                  style: pw.TextStyle(font: font),
-                ),
-              ),
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(
-                  '${category.itemCount}',
-                  style: pw.TextStyle(font: font),
-                  textAlign: pw.TextAlign.center,
-                ),
-              ),
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(
-                  '${category.total.toStringAsFixed(2).replaceAll('.', ',')} €',
-                  style: pw.TextStyle(font: font),
-                  textAlign: pw.TextAlign.right,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }

@@ -12,6 +12,7 @@ import 'dart:io';
 import '../../viewmodels/employee_work_hours_viewmodel.dart';
 import '../../models/work_day_model.dart';
 import '../../../../shared/services/pdf_header_service.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 
 class EmployeeWorkHoursReportScreen extends StatefulWidget {
   const EmployeeWorkHoursReportScreen({super.key});
@@ -90,6 +91,16 @@ class _EmployeeWorkHoursReportScreenState
     _animationController.dispose();
     _viewModel.removeListener(_onViewModelChanged);
     super.dispose();
+  }
+
+  // Obtenir les initiales d'un nom
+  String _getInitials(String name) {
+    if (name.isEmpty) return '';
+    List<String> words = name.trim().split(' ');
+    if (words.length == 1) {
+      return words[0].isNotEmpty ? words[0][0].toUpperCase() : '';
+    }
+    return words.take(2).map((word) => word.isNotEmpty ? word[0].toUpperCase() : '').join();
   }
 
   // Convertir les heures décimales en format heures et minutes (Xh30)
@@ -265,8 +276,14 @@ class _EmployeeWorkHoursReportScreenState
                   // Avatar
                   CircleAvatar(
                     radius: 24,
-                    backgroundImage: NetworkImage(
-                      employee['avatarUrl'] as String,
+                    backgroundColor: Colors.blue[100],
+                    child: Text(
+                      _getInitials(employee['name'] as String),
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -652,7 +669,7 @@ class _EmployeeWorkHoursReportScreenState
                                       (context) => IconButton(
                                         icon: const Icon(Icons.picture_as_pdf),
                                         tooltip: 'Exporter en PDF',
-                                        onPressed: () {
+                                        onPressed: () async {
                                           // Générer un PDF avec les logs
                                           if (logs.isNotEmpty) {
                                             final RenderBox box =
@@ -671,14 +688,11 @@ class _EmployeeWorkHoursReportScreenState
                                               ),
                                             );
                                           } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Aucune donnée à exporter',
-                                                ),
-                                                backgroundColor: Colors.orange,
+                                            await showDialog(
+                                              context: context,
+                                              builder: (context) => CustomErrorDialog(
+                                                title: 'Exportation impossible',
+                                                content: 'Aucune donnée à exporter',
                                               ),
                                             );
                                           }
@@ -1431,23 +1445,32 @@ class _EmployeeWorkHoursReportScreenState
 
                           if (context.mounted) {
                             // Afficher un message de confirmation avec un bouton pour prévisualiser
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  "PDF enregistré avec succès dans ${file.path}",
+                            await showDialog(
+                              context: context,
+                              builder: (context) => CustomDialog(
+                                title: 'PDF enregistré',
+                                titleIcon: Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
                                 ),
-                                duration: Duration(seconds: 4),
-                                action: SnackBarAction(
-                                  label: 'Aperçu',
-                                  onPressed: () {
-                                    Printing.layoutPdf(
-                                      onLayout:
-                                          (PdfPageFormat format) async =>
-                                              await file.readAsBytes(),
-                                      name: fileName,
-                                    );
-                                  },
-                                ),
+                                content: Text('PDF enregistré avec succès dans ${file.path}'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text('Fermer'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      Printing.layoutPdf(
+                                        onLayout: (PdfPageFormat format) async =>
+                                            await file.readAsBytes(),
+                                        name: fileName,
+                                      );
+                                    },
+                                    child: const Text('Aperçu'),
+                                  ),
+                                ],
                               ),
                             );
                           }
@@ -1456,12 +1479,11 @@ class _EmployeeWorkHoursReportScreenState
                             Navigator.of(
                               context,
                             ).pop(); // Fermer le dialogue de chargement
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  "Erreur lors de l'enregistrement: $e",
-                                ),
-                                backgroundColor: Colors.red,
+                            await showDialog(
+                              context: context,
+                              builder: (context) => CustomErrorDialog(
+                                title: 'Erreur d\'enregistrement',
+                                content: 'Erreur lors de l\'enregistrement: $e',
                               ),
                             );
                           }

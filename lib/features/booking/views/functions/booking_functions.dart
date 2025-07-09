@@ -23,28 +23,32 @@ class BookingFunctions {
           deposit: updatedBooking.deposit,
           paymentMethod: updatedBooking.paymentMethod,
         );
-        Navigator.of(context).pop();
-        await showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder:
-              (context) => CustomSuccessDialog(
-                title: 'Réservation créée',
-                content: updatedBooking.deposit > 0
-                    ? 'Réservation créée avec succès avec un acompte de ${updatedBooking.deposit.toStringAsFixed(2)}€'
-                    : 'Réservation créée avec succès',
-                autoClose: true,
-                autoCloseDuration: const Duration(seconds: 3),
-              ),
-        );
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          await showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder:
+                (context) => CustomSuccessDialog(
+                  title: 'Réservation créée',
+                  content: updatedBooking.deposit > 0
+                      ? 'Réservation créée avec succès avec un acompte de ${updatedBooking.deposit.toStringAsFixed(2)}€'
+                      : 'Réservation créée avec succès',
+                  autoClose: true,
+                  autoCloseDuration: const Duration(seconds: 3),
+                ),
+          );
+        }
       } catch (e) {
-        await showDialog(
-          context: context,
-          builder: (context) => CustomErrorDialog(
-            title: 'Erreur de création',
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur de création',
             content: 'Erreur lors de la création de la réservation : ${e is Exception ? e.toString() : 'Erreur inconnue'}',
           ),
         );
+        }
       }
     };
   }
@@ -72,28 +76,32 @@ class BookingFunctions {
             paymentMethod: updatedBooking.paymentMethod,
           );
         }
-        Navigator.of(context).pop();
-        await showDialog(
-          context: context,
-          barrierDismissible: true,
-          builder:
-              (context) => CustomSuccessDialog(
-                title: 'Réservation créée',
-                content: updatedBooking.deposit > 0
-                    ? 'Réservation créée avec succès avec un acompte de ${updatedBooking.deposit.toStringAsFixed(2)}€'
-                    : 'Réservation créée avec succès',
-                autoClose: true,
-                autoCloseDuration: const Duration(seconds: 3),
-              ),
-        );
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          await showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder:
+                (context) => CustomSuccessDialog(
+                  title: 'Réservation créée',
+                  content: updatedBooking.deposit > 0
+                      ? 'Réservation créée avec succès avec un acompte de ${updatedBooking.deposit.toStringAsFixed(2)}€'
+                      : 'Réservation créée avec succès',
+                  autoClose: true,
+                  autoCloseDuration: const Duration(seconds: 3),
+                ),
+          );
+        }
       } catch (e) {
-        await showDialog(
-          context: context,
-          builder: (context) => CustomErrorDialog(
-            title: 'Erreur de sauvegarde',
-            content: 'Erreur lors de la sauvegarde de la réservation : ${e is Exception ? e.toString() : 'Erreur inconnue'}',
-          ),
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur de sauvegarde',
+              content: 'Erreur lors de la sauvegarde de la réservation : ${e is Exception ? e.toString() : 'Erreur inconnue'}',
+            ),
         );
+        }
       }
     };
   }

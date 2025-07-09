@@ -28,6 +28,17 @@ class DailyStatistics {
   double get total => totalBancontact + totalCash + totalVirement;
   double get totalParCategorie => totalBoissons + totalNourritures;
   
+  // Getters for count statistics
+  int get totalBoissonsCount => categorieDetails
+      .where((category) => category.category.toUpperCase() == 'DRINK')
+      .fold(0, (sum, category) => sum + category.itemCount);
+      
+  int get totalNourrituresCount => categorieDetails
+      .where((category) => category.category.toUpperCase() == 'FOOD')
+      .fold(0, (sum, category) => sum + category.itemCount);
+  
+  int get totalItemsCount => categorieDetails.fold(0, (sum, category) => sum + category.itemCount);
+  
   DailyStatistics copyWith({
     DateTime? date,
     double? fondCaisseOuverture,

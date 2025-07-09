@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../shared/models/game_session_model.dart';
 import '../../../shared/repositories/game_session_repository.dart';
 import '../../../shared/utils/price_utils.dart';
+import '../../../shared/widgets/custom_dialog.dart';
 import '../models/booking_model.dart';
 
 String formatPrice(double price) {
@@ -67,19 +68,23 @@ class _GameSessionsScreenState extends State<GameSessionsScreen> {
       await _loadGameSessions();
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Partie ${session.gameNumber} mise à jour: $newParticipants participants'),
-            backgroundColor: Colors.green,
+        showDialog(
+          context: context,
+          builder: (context) => CustomSuccessDialog(
+            title: 'Mise à jour réussie',
+            content: 'Partie ${session.gameNumber} mise à jour: $newParticipants participants',
+            autoClose: true,
+            autoCloseDuration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur: $e',
           ),
         );
       }
@@ -92,19 +97,23 @@ class _GameSessionsScreenState extends State<GameSessionsScreen> {
       await _loadGameSessions();
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Partie ${session.gameNumber} démarrée'),
-            backgroundColor: Colors.blue,
+        showDialog(
+          context: context,
+          builder: (context) => CustomSuccessDialog(
+            title: 'Partie démarrée',
+            content: 'Partie ${session.gameNumber} démarrée',
+            autoClose: true,
+            autoCloseDuration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur: $e',
           ),
         );
       }
@@ -117,19 +126,23 @@ class _GameSessionsScreenState extends State<GameSessionsScreen> {
       await _loadGameSessions();
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Partie ${session.gameNumber} terminée'),
-            backgroundColor: Colors.green,
+        showDialog(
+          context: context,
+          builder: (context) => CustomSuccessDialog(
+            title: 'Partie terminée',
+            content: 'Partie ${session.gameNumber} terminée',
+            autoClose: true,
+            autoCloseDuration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
+        showDialog(
+          context: context,
+          builder: (context) => CustomErrorDialog(
+            title: 'Erreur',
+            content: 'Erreur: $e',
           ),
         );
       }
@@ -175,10 +188,11 @@ class _GameSessionsScreenState extends State<GameSessionsScreen> {
                 Navigator.pop(context);
                 _updateParticipatingPersons(session, newParticipants);
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Nombre invalide (1-${widget.booking.numberOfPersons})'),
-                    backgroundColor: Colors.red,
+                showDialog(
+                  context: context,
+                  builder: (context) => CustomErrorDialog(
+                    title: 'Nombre invalide',
+                    content: 'Le nombre de participants doit être compris entre 1 et ${widget.booking.numberOfPersons}',
                   ),
                 );
               }
