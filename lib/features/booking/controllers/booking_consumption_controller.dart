@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../../shared/models/consumption_model.dart';
 import '../../inventory/models/stock_item_model.dart';
 import '../../../shared/services/consumption_price_service.dart';
+import '../../../shared/services/social_deal_service.dart';
 import '../../inventory/viewmodels/stock_view_model.dart';
+import '../viewmodels/booking_view_model.dart';
 
 /// Controller externe pour gérer l'état des consommations
 /// sans provoquer de rebuilds du widget
@@ -12,6 +14,7 @@ class BookingConsumptionController {
 
   final String bookingId;
   final ConsumptionPriceService _priceService = ConsumptionPriceService();
+  final SocialDealService _socialDealService = SocialDealService();
 
   // État interne
   final ValueNotifier<double> totalAmountNotifier = ValueNotifier<double>(0.0);
@@ -155,17 +158,33 @@ class BookingConsumptionController {
       );
       quantityNotifier.value = newQuantity;
 
-      // Créer une nouvelle liste avec la quantité mise à jour
-      final updatedConsumptions = List<(Consumption, StockItem)>.from(
-        currentConsumptions,
-      );
-      final updatedConsumption = Consumption(
+      // Recalculer le prix avec la logique Social Deal
+      final bookingVM = Provider.of<BookingViewModel>(context, listen: false);
+      final booking = await bookingVM.getBooking(bookingId);
+      
+      // Créer une liste des consommations existantes (sans celle qu'on modifie)
+      final existingConsumptions = currentConsumptions
+          .where((pair) => pair.$1.id != consumptionId)
+          .map((pair) => pair.$1)
+          .toList();
+
+      // Recréer la consommation avec le service Social Deal
+      final updatedConsumption = _socialDealService.createConsumption(
         id: consumption.id,
         bookingId: consumption.bookingId,
         stockItemId: consumption.stockItemId,
         quantity: newQuantity,
-        unitPrice: consumption.unitPrice,
         timestamp: consumption.timestamp,
+        formula: booking.formula,
+        stockItem: stockItem,
+        bookingPersons: booking.numberOfPersons,
+        existingConsumptions: existingConsumptions,
+        allStockItems: stockVM.items, // Pass all stock items for proper Social Deal quota calculation
+      );
+
+      // Créer une nouvelle liste avec la quantité mise à jour
+      final updatedConsumptions = List<(Consumption, StockItem)>.from(
+        currentConsumptions,
       );
       updatedConsumptions[consumptionIndex] = (updatedConsumption, stockItem);
 

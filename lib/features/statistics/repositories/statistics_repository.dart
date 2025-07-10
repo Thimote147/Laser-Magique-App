@@ -218,7 +218,8 @@ class StatisticsRepository {
       final dateKey = _getCacheKey(timestamp);
       final quantity = consumptionJson['quantity'] ?? 0;
       final unitPrice = (consumptionJson['unit_price'] ?? 0.0).toDouble();
-      final totalPrice = quantity * unitPrice; // Calculate total price
+      final isIncluded = consumptionJson['is_included'] ?? false;
+      final totalPrice = isIncluded ? 0.0 : quantity * unitPrice;
       final stockItemData = consumptionJson['stock_items'];
 
       if (dailyData.containsKey(dateKey) && stockItemData != null) {
@@ -392,7 +393,7 @@ class StatisticsRepository {
 
       if (stockItemData != null) {
         final stockItem = StockItem.fromMap(stockItemData);
-        final consumptionTotal = consumption.quantity * consumption.unitPrice;
+        final consumptionTotal = consumption.totalPrice;
 
         if (stockItem.category == 'DRINK') {
           totalBoissons += consumptionTotal;

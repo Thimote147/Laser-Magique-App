@@ -648,14 +648,14 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                   ).colorScheme.outline.withAlpha((255 * 0.2).round()),
                 ),
               ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => _showAdaptiveDatePicker(context),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Container(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _showAdaptiveDatePicker(context),
+                      child: Container(
                         decoration: BoxDecoration(
                           color: Theme.of(context)
                               .colorScheme
@@ -702,8 +702,12 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Container(
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _showAdaptiveTimePicker(context),
+                      child: Container(
                         decoration: BoxDecoration(
                           color: Theme.of(context)
                               .colorScheme
@@ -715,47 +719,43 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => _showAdaptiveTimePicker(context),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.access_time_rounded,
-                                size: 20,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Heure',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium?.copyWith(
-                                      color:
-                                          Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                    ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Heure',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodyMedium?.copyWith(
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    selectedTime.format(context),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  selectedTime.format(context),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -473,7 +473,7 @@ class _ConsumptionItemStateless extends StatelessWidget {
                         valueListenable: quantityNotifier,
                         builder: (context, quantity, _) {
                           return Text(
-                            '${(quantity * consumption.unitPrice).toStringAsFixed(2)}€',
+                            '${consumption.copyWith(quantity: quantity).totalPrice.toStringAsFixed(2)}€',
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w500,
                             ),
@@ -624,7 +624,7 @@ class _ConsumptionItemStateless extends StatelessWidget {
                         valueListenable: quantityNotifier,
                         builder: (context, quantity, _) {
                           return Text(
-                            '${(quantity * consumption.unitPrice).toStringAsFixed(2)}€',
+                            '${consumption.copyWith(quantity: quantity).totalPrice.toStringAsFixed(2)}€',
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w500,
                             ),

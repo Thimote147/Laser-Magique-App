@@ -11,6 +11,7 @@ class FormulaRepository {
           .from('formulas')
           .select('''
             *,
+            type,
             activity:activities (
               id,
               name,
@@ -32,6 +33,7 @@ class FormulaRepository {
         .from('formulas')
         .select('''
           *,
+          type,
           activity:activities (
             id,
             name,
@@ -71,6 +73,7 @@ class FormulaRepository {
             })
             .select('''
           *,
+          type,
           activity:activities (
             id,
             name,
@@ -95,10 +98,12 @@ class FormulaRepository {
               'duration_minutes': formula.durationMinutes,
               'min_games': formula.minGames,
               'max_games': formula.maxGames,
+              'type': formula.type.name,
             })
             .eq('id', formula.id)
             .select('''
           *,
+          type,
           activities (
             id,
             name,

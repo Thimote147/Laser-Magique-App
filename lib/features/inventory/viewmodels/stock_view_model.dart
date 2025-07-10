@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/stock_item_model.dart';
 import '../../../shared/models/consumption_model.dart';
+import '../../../shared/models/formula_model.dart';
 import '../../../shared/services/consumption_price_service.dart';
 import '../../../shared/services/social_deal_service.dart';
 import '../../../shared/services/notification_service.dart';
@@ -644,8 +645,23 @@ class StockViewModel extends ChangeNotifier {
       // Get the booking to access its formula
       final booking = await bookingViewModel.getBooking(bookingId);
 
-      // Get existing consumptions for this booking
-      final existingConsumptions = await getConsumptionsWithStockItems(bookingId);
+      // Get existing consumptions for this booking from local cache + persistent cache
+      List<(Consumption, StockItem)> existingConsumptions = [];
+      
+      // Fast lookup from cache (debug prints removed for performance)
+      
+      // Priorité 1: Cache local (contient les ajouts récents)
+      if (_localConsumptionsCache.containsKey(bookingId)) {
+        existingConsumptions = List.from(_localConsumptionsCache[bookingId]!);
+      } 
+      // Priorité 2: Cache persistant
+      else if (_consumptionsCache.containsKey(bookingId)) {
+        existingConsumptions = List.from(_consumptionsCache[bookingId]!.data.consumptions);
+      }
+      // Priorité 3: Base de données (si aucun cache disponible)
+      else {
+        existingConsumptions = await getConsumptionsWithStockItems(bookingId);
+      }
 
       // Create consumption with Social Deal logic
       final tempConsumption = _socialDealService.createConsumption(
@@ -658,7 +674,10 @@ class StockViewModel extends ChangeNotifier {
         stockItem: stockItem,
         bookingPersons: booking.numberOfPersons,
         existingConsumptions: existingConsumptions.map((pair) => pair.$1).toList(),
+        allStockItems: items, // Pass all stock items for proper Social Deal quota calculation
       );
+      
+      // Social Deal pricing calculated (debug logs removed for performance)
 
       // Mettre à jour le cache local immédiatement pour une UI réactive
       _updateLocalConsumptionsCache(
@@ -676,8 +695,13 @@ class StockViewModel extends ChangeNotifier {
         bookingId: bookingId,
         stockItemId: stockItemId,
         quantity: quantity,
+        unitPrice: tempConsumption.unitPrice,
+        isIncluded: tempConsumption.isIncluded,
       );
 
+      // Debug: vérifier que la consommation de la DB a les bonnes valeurs
+      debugPrint('🔍 DB Result: unitPrice=${result.unitPrice}, isIncluded=${result.isIncluded}, totalPrice=${result.totalPrice}');
+      
       // Remplacer la consommation temporaire par la vraie dans le cache local
       _replaceLocalConsumption(
         bookingId,
@@ -753,9 +777,8 @@ class StockViewModel extends ChangeNotifier {
       throw Exception('La quantité ne peut pas être inférieure à 1');
     }
 
-    final updatedConsumption = consumption.copyWith(quantity: newQuantity);
-    final previousConsumption = consumption;
     final bookingId = consumption.bookingId;
+    final previousConsumption = consumption;
 
     // Trouver l'article de stock correspondant
     final stockItem = items.firstWhere(
@@ -764,40 +787,116 @@ class StockViewModel extends ChangeNotifier {
     );
 
     try {
-      // Mettre à jour immédiatement le cache local pour un affichage instantané
+      // 1. Mettre à jour immédiatement la quantité pour la réactivité UI
+      final tempConsumption = consumption.copyWith(quantity: newQuantity);
       _updateLocalConsumptionsCache(
         bookingId,
-        updatedConsumption,
+        tempConsumption,
         stockItem,
         false,
       );
+      
+      // Notifier immédiatement pour la réactivité UI
+      notifyLocalUpdate(bookingId);
 
-      // Envoyer la mise à jour à la base de données en arrière-plan
-      await _repository.updateConsumption(updatedConsumption);
-
-      // Mise à jour du cache permanent une fois la mise à jour confirmée
-      Future.microtask(() {
-        _updateConsumptionInCache(consumption.bookingId, updatedConsumption);
-      });
-
-      // Rafraîchir les données du stock de manière asynchrone
-      await refreshStock(silent: true);
+      // 2. Effectuer les calculs complexes en arrière-plan
+      _performAsyncPricingUpdate(
+        bookingId,
+        consumption,
+        newQuantity,
+        stockItem,
+        previousConsumption,
+      );
     } catch (e) {
-      // Restaurer l'ancienne valeur dans les caches en cas d'erreur
-      if (_localConsumptionsCache.containsKey(bookingId)) {
-        _updateLocalConsumptionsCache(
-          bookingId,
-          previousConsumption,
-          stockItem,
-          false,
-        );
-      }
-
-      Future.microtask(() {
-        _updateConsumptionInCache(consumption.bookingId, previousConsumption);
-      });
+      // Restaurer l'ancienne valeur en cas d'erreur
+      _updateLocalConsumptionsCache(
+        bookingId,
+        previousConsumption,
+        stockItem,
+        false,
+      );
+      notifyLocalUpdate(bookingId);
       _error = e.toString();
       rethrow;
+    }
+  }
+
+  // Méthode asynchrone pour les calculs de pricing complexes sans bloquer l'UI
+  Future<void> _performAsyncPricingUpdate(
+    String bookingId,
+    Consumption originalConsumption,
+    int newQuantity,
+    StockItem stockItem,
+    Consumption previousConsumption,
+  ) async {
+    try {
+      // Get booking info (peut être mis en cache)
+      final booking = await bookingViewModel.getBooking(bookingId);
+      
+      Consumption finalConsumption;
+      
+      // Vérifier si c'est un Social Deal qui nécessite un recalcul
+      if (booking.formula.type == FormulaType.socialDeal && stockItem.includedInSocialDeal) {
+        // Utiliser les données du cache local plutôt que la DB pour être plus rapide
+        final localConsumptions = _localConsumptionsCache[bookingId] ?? [];
+        final otherConsumptions = localConsumptions
+            .where((pair) => pair.$1.id != originalConsumption.id)
+            .map((pair) => pair.$1)
+            .toList();
+        
+        // Calculs Social Deal en arrière-plan
+        final pricing = _socialDealService.calculateConsumptionPricing(
+          formula: booking.formula,
+          stockItem: stockItem,
+          quantity: newQuantity,
+          bookingPersons: booking.numberOfPersons,
+          existingConsumptions: otherConsumptions,
+          allStockItems: items, // Pass all stock items for proper Social Deal quota calculation
+        );
+        
+        finalConsumption = originalConsumption.copyWith(
+          quantity: newQuantity,
+          unitPrice: pricing['unitPrice'] as double,
+          isIncluded: pricing['isIncluded'] as bool,
+          // totalPrice is calculated dynamically based on unitPrice and isIncluded
+        );
+        
+        // Background pricing completed
+      } else {
+        // Non-Social Deal, simple mise à jour
+        finalConsumption = originalConsumption.copyWith(quantity: newQuantity);
+      }
+
+      // Mettre à jour le cache local avec les vrais prix
+      _updateLocalConsumptionsCache(
+        bookingId,
+        finalConsumption,
+        stockItem,
+        false,
+      );
+      
+      // Notifier de la mise à jour des prix
+      notifyLocalUpdate(bookingId);
+
+      // Sauvegarder en DB en arrière-plan
+      await _repository.updateConsumption(finalConsumption);
+      
+      // Mettre à jour le cache persistant
+      _updateConsumptionInCache(bookingId, finalConsumption);
+      
+      // Rafraîchir le stock silencieusement
+      await refreshStock(silent: true);
+      
+    } catch (e) {
+      debugPrint('Erreur dans les calculs de pricing en arrière-plan: $e');
+      // En cas d'erreur, restaurer la consommation précédente
+      _updateLocalConsumptionsCache(
+        bookingId,
+        previousConsumption,
+        stockItem,
+        false,
+      );
+      notifyLocalUpdate(bookingId);
     }
   }
 
@@ -1019,6 +1118,7 @@ class StockViewModel extends ChangeNotifier {
     StockItem stockItem,
     bool isNew,
   ) {
+    // Fast local cache update (debug logs removed for performance)
     if (!_localConsumptionsCache.containsKey(bookingId)) {
       _localConsumptionsCache[bookingId] = [];
     }
@@ -1137,7 +1237,7 @@ class StockViewModel extends ChangeNotifier {
   ) {
     return consumptions.fold(
       0,
-      (total, pair) => total + (pair.$1.quantity * pair.$1.unitPrice),
+      (total, pair) => total + pair.$1.totalPrice,
     );
   }
 

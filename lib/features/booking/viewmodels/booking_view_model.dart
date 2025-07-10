@@ -392,14 +392,19 @@ class BookingViewModel extends ChangeNotifier {
 
       final booking = await _repository.getBooking(bookingId);
 
+      // Mettre à jour la formule avec la version la plus récente du cache
+      final updatedBooking = booking.copyWith(
+        formula: _activityFormulaViewModel.getFormulaById(booking.formula.id) ?? booking.formula,
+      );
+
       // Mettre à jour la réservation dans la liste locale si elle existe
       final index = _bookings.indexWhere((b) => b.id == bookingId);
       if (index != -1) {
-        _bookings[index] = booking;
+        _bookings[index] = updatedBooking;
         notifyListeners();
       }
 
-      return booking;
+      return updatedBooking;
     } catch (e) {
       _error = 'Error fetching booking: $e';
       notifyListeners();
@@ -489,17 +494,22 @@ class BookingViewModel extends ChangeNotifier {
     try {
       final booking = await _repository.getBookingDetails(bookingId);
 
+      // Mettre à jour la formule avec la version la plus récente du cache
+      final updatedBooking = booking.copyWith(
+        formula: _activityFormulaViewModel.getFormulaById(booking.formula.id) ?? booking.formula,
+      );
+
       // Mettre à jour le cache local
-      _bookingCache[bookingId] = booking;
+      _bookingCache[bookingId] = updatedBooking;
 
       // Mettre à jour la réservation dans la liste locale
       final index = _bookings.indexWhere((b) => b.id == bookingId);
       if (index != -1) {
-        _bookings[index] = booking;
+        _bookings[index] = updatedBooking;
       }
 
       notifyListeners();
-      return booking;
+      return updatedBooking;
     } catch (e) {
       _error = 'Error fetching booking: $e';
       notifyListeners();

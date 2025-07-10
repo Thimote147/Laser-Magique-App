@@ -5,30 +5,6 @@ enum FormulaType {
   socialDeal,
 }
 
-class IncludedItem {
-  final String stockItemId;
-  final int quantityPerPerson;
-  
-  const IncludedItem({
-    required this.stockItemId,
-    required this.quantityPerPerson,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'stock_item_id': stockItemId,
-      'quantity_per_person': quantityPerPerson,
-    };
-  }
-
-  factory IncludedItem.fromMap(Map<String, dynamic> map) {
-    return IncludedItem(
-      stockItemId: map['stock_item_id'],
-      quantityPerPerson: map['quantity_per_person'],
-    );
-  }
-}
-
 class Formula {
   final String id;
   final String name;
@@ -41,7 +17,6 @@ class Formula {
   final int minGames;
   final int? maxGames;
   final FormulaType type;
-  final List<IncludedItem> includedItems;
 
   Formula({
     required this.id,
@@ -55,7 +30,6 @@ class Formula {
     required this.minGames,
     this.maxGames,
     this.type = FormulaType.standard,
-    this.includedItems = const [],
   });
 
   // Méthode pour créer une copie de Formula avec des champs modifiés
@@ -71,7 +45,6 @@ class Formula {
     int? minGames,
     int? maxGames,
     FormulaType? type,
-    List<IncludedItem>? includedItems,
   }) {
     return Formula(
       id: id ?? this.id,
@@ -85,7 +58,6 @@ class Formula {
       minGames: minGames ?? this.minGames,
       maxGames: maxGames ?? this.maxGames,
       type: type ?? this.type,
-      includedItems: includedItems ?? this.includedItems,
     );
   }
 
@@ -103,7 +75,6 @@ class Formula {
       'min_games': minGames,
       'max_games': maxGames,
       'type': type.name,
-      'included_items': includedItems.map((item) => item.toMap()).toList(),
     };
   }
 
@@ -126,13 +97,7 @@ class Formula {
       }
     }
 
-    // Parse included items
-    List<IncludedItem> includedItems = [];
-    if (map['included_items'] != null && map['included_items'] is List) {
-      includedItems = (map['included_items'] as List)
-          .map((item) => IncludedItem.fromMap(item))
-          .toList();
-    }
+    // Note: includedItems logic moved to stock_items.included_in_social_deal
 
     return Formula(
       id: map['id'],
@@ -166,7 +131,6 @@ class Formula {
               ? map['max_games']
               : int.tryParse(map['max_games']?.toString() ?? ''),
       type: formulaType,
-      includedItems: includedItems,
     );
   }
 
@@ -176,7 +140,7 @@ class Formula {
 
   @override
   String toString() {
-    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, durationMinutes: $durationMinutes, minGames: $minGames, maxGames: $maxGames, type: $type, includedItems: $includedItems)';
+    return 'Formula(id: $id, name: $name, description: $description, activity: $activity, price: $price, minParticipants: $minParticipants, maxParticipants: $maxParticipants, durationMinutes: $durationMinutes, minGames: $minGames, maxGames: $maxGames, type: $type)';
   }
 
   @override
@@ -194,8 +158,7 @@ class Formula {
         other.durationMinutes == durationMinutes &&
         other.minGames == minGames &&
         other.maxGames == maxGames &&
-        other.type == type &&
-        other.includedItems.length == includedItems.length;
+        other.type == type;
   }
 
   @override
@@ -210,6 +173,5 @@ class Formula {
       durationMinutes.hashCode ^
       minGames.hashCode ^
       maxGames.hashCode ^
-      type.hashCode ^
-      includedItems.hashCode;
+      type.hashCode;
 }

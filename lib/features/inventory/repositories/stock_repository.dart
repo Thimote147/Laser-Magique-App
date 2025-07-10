@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../models/stock_item_model.dart';
 import '../../../shared/models/consumption_model.dart';
@@ -276,6 +277,8 @@ class StockRepository {
     required String bookingId,
     required String stockItemId,
     required int quantity,
+    double? unitPrice,
+    bool? isIncluded,
   }) async {
     try {
       final stockItem =
@@ -301,18 +304,48 @@ class StockRepository {
           .eq('stock_item_id', stockItemId);
 
       if (existingConsumptions.isNotEmpty) {
-        // Si une consommation existe déjà, mettre à jour la quantité
+        // Si une consommation existe déjà, mettre à jour la quantité ET les prix
+        // Merging with existing consumption (logs removed for performance)
         final existingConsumption = existingConsumptions[0];
         final currentQuantity = existingConsumption['quantity'] as int;
         final newQuantity = currentQuantity + quantity;
+        
+        // Calculer le nouveau prix unitaire et le statut isIncluded
+        final currentUnitPrice = (existingConsumption['unit_price'] ?? 0.0).toDouble();
+        final currentIsIncluded = existingConsumption['is_included'] ?? false;
+        final newUnitPrice = unitPrice ?? stockItem['price'];
+        final newIsIncluded = isIncluded ?? false;
+        
+        // Pour les formules Social Deal, nous devons calculer le prix unitaire pondéré
+        double finalUnitPrice;
+        bool finalIsIncluded;
+        
+        // Calculate weighted pricing (logs removed for performance)
+        if (newIsIncluded && currentIsIncluded) {
+          // Les deux sont inclus - garde 0.0
+          finalUnitPrice = 0.0;
+          finalIsIncluded = true;
+        } else if (!newIsIncluded && !currentIsIncluded) {
+          // Aucun n'est inclus - prix unitaire normal
+          finalUnitPrice = stockItem['price'];
+          finalIsIncluded = false;
+        } else {
+          // Mélange inclus/payant - calculer la moyenne pondérée
+          final currentTotal = currentQuantity * currentUnitPrice;
+          final newTotal = quantity * newUnitPrice;
+          final totalAmount = currentTotal + newTotal;
+          finalUnitPrice = totalAmount / newQuantity;
+          finalIsIncluded = false; // Pas entièrement inclus si mélange
+        }
 
-        // Mettre à jour uniquement la consommation existante
-        // Le trigger SQL s'occupera de la mise à jour du stock
+        // Mettre à jour la consommation existante avec les nouveaux prix
         final response =
             await _client
                 .from('consumptions')
                 .update({
                   'quantity': newQuantity,
+                  'unit_price': finalUnitPrice,
+                  'is_included': finalIsIncluded,
                   'timestamp': DateTime.now().toIso8601String(),
                 })
                 .eq('id', existingConsumption['id'])
@@ -322,6 +355,11 @@ class StockRepository {
         return Consumption.fromMap(response);
       } else {
         // Pour une nouvelle consommation
+        final finalUnitPrice = unitPrice ?? stockItem['price'];
+        final finalIsIncluded = isIncluded ?? false;
+        
+        // Creating new consumption (logs removed for performance)
+        
         final response =
             await _client
                 .from('consumptions')
@@ -329,7 +367,8 @@ class StockRepository {
                   'booking_id': bookingId,
                   'stock_item_id': stockItemId,
                   'quantity': quantity,
-                  'unit_price': stockItem['price'],
+                  'unit_price': finalUnitPrice,
+                  'is_included': finalIsIncluded,
                   'timestamp': DateTime.now().toIso8601String(),
                 })
                 .select('*, stock_items(*)')
@@ -345,13 +384,26 @@ class StockRepository {
   }
 
   Future<void> updateConsumption(Consumption consumption) async {
+    // Fast DB update (debug logs removed for performance)
+    
+    final updateData = {
+      'quantity': consumption.quantity,
+      'unit_price': consumption.unitPrice,
+      'is_included': consumption.isIncluded,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    
+    // Debug: Saving to DB
+    
+    // Note: total_price is calculated dynamically via the totalPrice getter
+    // We don't store it in the database to avoid schema complications
+    
     await _client
         .from('consumptions')
-        .update({
-          'quantity': consumption.quantity,
-          'timestamp': DateTime.now().toIso8601String(),
-        })
+        .update(updateData)
         .eq('id', consumption.id);
+        
+    // Update completed
   }
 
   Future<void> deleteConsumption(String id) async {
