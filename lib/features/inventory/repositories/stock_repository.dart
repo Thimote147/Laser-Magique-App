@@ -2,9 +2,148 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../models/stock_item_model.dart';
 import '../../../shared/models/consumption_model.dart';
+import 'dart:async';
 
 class StockRepository {
   final SupabaseClient _client = SupabaseConfig.client;
+
+  // Realtime subscriptions
+  RealtimeChannel? _stockItemsChannel;
+  RealtimeChannel? _consumptionsChannel;
+
+  // Stream controllers for real-time updates
+  final StreamController<List<StockItem>> _stockItemsController =
+      StreamController<List<StockItem>>.broadcast();
+  final StreamController<List<Consumption>> _consumptionsController =
+      StreamController<List<Consumption>>.broadcast();
+
+  // Stream getters
+  Stream<List<StockItem>> get stockItemsStream => _stockItemsController.stream;
+  Stream<List<Consumption>> get consumptionsStream =>
+      _consumptionsController.stream;
+
+  // Cache for current data
+  List<StockItem> _currentStockItems = [];
+  final Map<String, List<Consumption>> _currentConsumptions = {};
+
+  // Initialize realtime subscriptions
+  void initializeRealtimeSubscriptions() {
+    _subscribeToStockItems();
+    _subscribeToConsumptions();
+  }
+
+  // Subscribe to stock_items table changes
+  void _subscribeToStockItems() {
+    _stockItemsChannel = _client.channel('stock_items_channel');
+
+    _stockItemsChannel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'stock_items',
+          callback: (payload) {
+            _handleStockItemsChange(payload);
+          },
+        )
+        .subscribe();
+  }
+
+  // Subscribe to consumptions table changes
+  void _subscribeToConsumptions() {
+    _consumptionsChannel = _client.channel('consumptions_channel');
+
+    _consumptionsChannel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'consumptions',
+          callback: (payload) {
+            _handleConsumptionsChange(payload);
+          },
+        )
+        .subscribe();
+  }
+
+  // Handle stock items changes
+  void _handleStockItemsChange(PostgresChangePayload payload) {
+    switch (payload.eventType) {
+      case PostgresChangeEvent.insert:
+        final newItem = StockItem.fromMap(payload.newRecord);
+        _currentStockItems.add(newItem);
+        _stockItemsController.add(_currentStockItems);
+        break;
+      case PostgresChangeEvent.update:
+        final updatedItem = StockItem.fromMap(payload.newRecord);
+        final index = _currentStockItems.indexWhere(
+          (item) => item.id == updatedItem.id,
+        );
+        if (index != -1) {
+          _currentStockItems[index] = updatedItem;
+          _stockItemsController.add(_currentStockItems);
+        }
+        break;
+      case PostgresChangeEvent.delete:
+        final deletedId = payload.oldRecord['id'];
+        _currentStockItems.removeWhere((item) => item.id == deletedId);
+        _stockItemsController.add(_currentStockItems);
+        break;
+      case PostgresChangeEvent.all:
+        // Handle all event type if needed
+        break;
+    }
+  }
+
+  // Handle consumptions changes
+  void _handleConsumptionsChange(PostgresChangePayload payload) {
+    switch (payload.eventType) {
+      case PostgresChangeEvent.insert:
+        final newConsumption = Consumption.fromMap(payload.newRecord);
+        final bookingId = newConsumption.bookingId;
+
+        if (!_currentConsumptions.containsKey(bookingId)) {
+          _currentConsumptions[bookingId] = [];
+        }
+        _currentConsumptions[bookingId]!.add(newConsumption);
+        _consumptionsController.add(_currentConsumptions[bookingId]!);
+        break;
+      case PostgresChangeEvent.update:
+        final updatedConsumption = Consumption.fromMap(payload.newRecord);
+        final bookingId = updatedConsumption.bookingId;
+
+        if (_currentConsumptions.containsKey(bookingId)) {
+          final index = _currentConsumptions[bookingId]!.indexWhere(
+            (c) => c.id == updatedConsumption.id,
+          );
+          if (index != -1) {
+            _currentConsumptions[bookingId]![index] = updatedConsumption;
+            _consumptionsController.add(_currentConsumptions[bookingId]!);
+          }
+        }
+        break;
+      case PostgresChangeEvent.delete:
+        final deletedId = payload.oldRecord['id'];
+        final bookingId = payload.oldRecord['booking_id'];
+
+        if (_currentConsumptions.containsKey(bookingId)) {
+          _currentConsumptions[bookingId]!.removeWhere(
+            (c) => c.id == deletedId,
+          );
+          _consumptionsController.add(_currentConsumptions[bookingId]!);
+        }
+        break;
+      case PostgresChangeEvent.all:
+        // Handle all event type if needed
+        break;
+    }
+  }
+
+  // Dispose method to clean up subscriptions
+  void dispose() {
+    _stockItemsChannel?.unsubscribe();
+    _consumptionsChannel?.unsubscribe();
+    _stockItemsController.close();
+    _consumptionsController.close();
+  }
 
   // Stock Items
   Future<List<StockItem>> getAllStockItems({
@@ -21,6 +160,10 @@ class StockRepository {
         (response as List).map((json) => StockItem.fromMap(json)).toList();
     // Tri des items par nom pour assurer la cohérence de l'affichage
     items.sort((a, b) => a.name.compareTo(b.name));
+
+    // Update cache for realtime
+    _currentStockItems = items;
+
     return items;
   }
 
@@ -109,7 +252,24 @@ class StockRepository {
         .eq('booking_id', bookingId)
         .order('timestamp');
 
-    return (response as List).map((json) => Consumption.fromMap(json)).toList();
+    final consumptions =
+        (response as List).map((json) => Consumption.fromMap(json)).toList();
+
+    // Update cache for realtime
+    _currentConsumptions[bookingId] = consumptions;
+
+    return consumptions;
+  }
+
+  // Get stream of consumptions for a specific booking
+  Stream<List<Consumption>> getConsumptionsStreamForBooking(String bookingId) {
+    return _consumptionsController.stream
+        .where((consumptions) {
+          return consumptions.any((c) => c.bookingId == bookingId);
+        })
+        .map((consumptions) {
+          return consumptions.where((c) => c.bookingId == bookingId).toList();
+        });
   }
 
   Future<Consumption> addConsumption({

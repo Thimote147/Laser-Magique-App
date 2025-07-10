@@ -23,51 +23,88 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   
   // Cache pour les noms d'utilisateurs
   final Map<String, String> _userNamesCache = {};
+  
+  // Listener Realtime
+  RealtimeNotificationService? _realtimeService;
 
   @override
   void initState() {
     super.initState();
     _loadNotifications();
+    
+    // Écouter les changements du service Realtime (exactement comme le badge)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
+      _realtimeService?.addListener(_onRealtimeNotification);
+    });
+  }
+  
+  void _onRealtimeNotification() {
+    if (mounted) {
+      _loadNotifications(showLoading: false); // Pas de spinner pour les mises à jour Realtime
+    }
+  }
+  
+  @override
+  void dispose() {
+    _realtimeService?.removeListener(_onRealtimeNotification);
+    super.dispose();
   }
 
-  Future<void> _loadNotifications() async {
+  Future<void> _loadNotifications({bool showLoading = true}) async {
+    if (!mounted) return;
+    
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+      if (showLoading && mounted) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+        });
+      }
       
-      // Charger toutes les notifications puis filtrer selon le toggle
-      final allNotifications = await _notificationRepository.getNotificationsForCurrentUser(
+      // Charger directement depuis la base de données avec Realtime
+      final dbNotifications = await _notificationRepository.getNotificationsForCurrentUser(
         limit: 100,
       );
+      
+      if (!mounted) return;
       
       // Filtrer selon le toggle
       List<AppNotification> filteredNotifications;
       if (_showUnreadOnly) {
         // Afficher seulement les non-lues
-        filteredNotifications = allNotifications.where((n) => !n.isRead).toList();
+        filteredNotifications = dbNotifications.where((n) => !n.isRead).toList();
       } else {
         // Afficher seulement les lues
-        filteredNotifications = allNotifications.where((n) => n.isRead).toList();
+        filteredNotifications = dbNotifications.where((n) => n.isRead).toList();
       }
       
-      setState(() {
-        _notifications = filteredNotifications;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _notifications = filteredNotifications;
+          if (showLoading) {
+            _isLoading = false;
+          }
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          if (showLoading) {
+            _isLoading = false;
+          }
+        });
+      }
     }
   }
 
   Future<void> _toggleReadFilter() async {
-    setState(() {
-      _showUnreadOnly = !_showUnreadOnly;
-    });
+    if (mounted) {
+      setState(() {
+        _showUnreadOnly = !_showUnreadOnly;
+      });
+    }
     await _loadNotifications();
   }
 
@@ -102,11 +139,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _markAsUnread(String notificationId) async {
+    try {
+      await _notificationRepository.markAsUnread(notificationId);
+      await _loadNotifications();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Notification marquée comme non lue')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<RealtimeNotificationService>(
-      builder: (context, notificationService, child) {
-        return Scaffold(
+    return Scaffold(
           appBar: AppBar(
             title: const Text('Notifications'),
             actions: [
@@ -169,8 +222,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ],
           ),
         );
-      },
-    );
   }
 
   Widget _buildNotificationsList() {
@@ -262,6 +313,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             notification: notification,
             onTap: () => _handleNotificationTap(context, notification),
             onMarkAsRead: () => _markAsRead(notification.id),
+            onMarkAsUnread: () => _markAsUnread(notification.id),
           );
         },
       ),
@@ -269,10 +321,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _handleNotificationTap(BuildContext context, AppNotification notification) {
-    // Marquer comme lu si pas encore lu
-    if (!notification.isRead) {
-      _markAsRead(notification.id);
-    }
+    // Ne plus marquer automatiquement comme lu à l'ouverture
+    // L'utilisateur peut maintenant choisir manuellement
 
     // Naviguer selon le type de notification
     switch (notification.type) {
@@ -401,6 +451,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               },
               icon: Icon(Icons.mark_email_read, size: 16),
               label: const Text('Marquer comme lu'),
+            ),
+          if (notification.isRead)
+            TextButton.icon(
+              onPressed: () {
+                _markAsUnread(notification.id);
+                Navigator.of(context).pop();
+              },
+              icon: Icon(Icons.mark_email_unread, size: 16),
+              label: const Text('Marquer comme non lu'),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
             ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -654,12 +716,14 @@ class NotificationCard extends StatelessWidget {
   final AppNotification notification;
   final VoidCallback? onTap;
   final VoidCallback? onMarkAsRead;
+  final VoidCallback? onMarkAsUnread;
 
   const NotificationCard({
     super.key,
     required this.notification,
     this.onTap,
     this.onMarkAsRead,
+    this.onMarkAsUnread,
   });
 
   @override
@@ -803,6 +867,22 @@ class NotificationCard extends StatelessWidget {
                                   Icons.mark_email_read,
                                   size: 16,
                                   color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          if (notification.isRead)
+                            GestureDetector(
+                              onTap: onMarkAsUnread,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondary.withAlpha((255 * 0.1).round()),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Icon(
+                                  Icons.mark_email_unread,
+                                  size: 16,
+                                  color: theme.colorScheme.secondary,
                                 ),
                               ),
                             ),

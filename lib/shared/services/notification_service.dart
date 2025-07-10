@@ -42,6 +42,14 @@ class NotificationService extends ChangeNotifier {
     }
   }
 
+  void markAsUnread(String notificationId) {
+    final index = _notifications.indexWhere((n) => n.id == notificationId);
+    if (index != -1) {
+      _notifications[index] = _notifications[index].copyWith(isRead: false);
+      notifyListeners();
+    }
+  }
+
   void markAllAsRead() {
     for (int i = 0; i < _notifications.length; i++) {
       if (!_notifications[i].isRead) {

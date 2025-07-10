@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_statistics_model.dart';
@@ -8,6 +9,10 @@ enum PeriodType { day, week, month, year }
 
 class StatisticsViewModel extends ChangeNotifier {
   final StatisticsRepository _repository = StatisticsRepository();
+  
+  // Realtime subscriptions
+  StreamSubscription<List<CashMovement>>? _cashMovementsSubscription;
+  StreamSubscription<List<DailyStatistics>>? _dailyStatisticsSubscription;
 
   DailyStatistics? _currentStatistics;
   List<DailyStatistics> _periodStatistics = [];
@@ -32,6 +37,55 @@ class StatisticsViewModel extends ChangeNotifier {
   // Variables pour les mouvements de caisse
   List<CashMovement> _cashMovements = [];
   bool _isLoadingMovements = false;
+  
+  StatisticsViewModel() {
+    _initializeRealtimeSubscriptions();
+  }
+  
+  void _initializeRealtimeSubscriptions() {
+    // Subscribe to daily statistics changes
+    _dailyStatisticsSubscription = _repository.dailyStatisticsStream.listen(
+      (statisticsList) {
+        if (statisticsList.isNotEmpty && _periodType == PeriodType.day) {
+          final stats = statisticsList.first;
+          if (stats.date.day == _selectedDate.day && 
+              stats.date.month == _selectedDate.month && 
+              stats.date.year == _selectedDate.year) {
+            _handleRealtimeDailyStatisticsUpdate(stats);
+          }
+        }
+      },
+      onError: (error) {
+        _error = 'Erreur dans le stream des statistiques: $error';
+        notifyListeners();
+      },
+    );
+  }
+  
+  void _handleRealtimeDailyStatisticsUpdate(DailyStatistics stats) {
+    if (_currentStatistics != null) {
+      _currentStatistics = stats;
+      _periodStatistics = [_currentStatistics!];
+      _updateControllers();
+      notifyListeners();
+    }
+  }
+  
+  void _initializeCashMovementsSubscription() {
+    _cashMovementsSubscription?.cancel();
+    _cashMovementsSubscription = _repository.getCashMovementsStream(_selectedDate).listen(
+      (movements) {
+        _cashMovements = movements;
+        _isLoadingMovements = false;
+        notifyListeners();
+      },
+      onError: (error) {
+        _error = 'Erreur dans le stream des mouvements de caisse: $error';
+        _isLoadingMovements = false;
+        notifyListeners();
+      },
+    );
+  }
 
   DailyStatistics? get currentStatistics => _currentStatistics;
   List<DailyStatistics> get periodStatistics => _periodStatistics;
@@ -378,7 +432,7 @@ class StatisticsViewModel extends ChangeNotifier {
 
       // Charger les mouvements de caisse pour la vue jour
       if (_periodType == PeriodType.day) {
-        await _loadCashMovements();
+        _initializeCashMovementsSubscription();
       }
     } catch (e) {
       _error = _formatErrorMessage(e);
@@ -541,6 +595,11 @@ class StatisticsViewModel extends ChangeNotifier {
       // Réinitialiser le flag de mise à jour pour éviter les blocages
       _isUpdatingField = false;
       loadStatistics(newDate);
+      
+      // Réinitialiser l'abonnement aux mouvements de caisse pour la nouvelle date
+      if (_periodType == PeriodType.day) {
+        _initializeCashMovementsSubscription();
+      }
     }
   }
   
@@ -561,11 +620,6 @@ class StatisticsViewModel extends ChangeNotifier {
         final statistics = await _repository.getDailyStatistics(_selectedDate);
         final manualFields = await _repository.forceRefreshManualFields(_selectedDate);
         
-        // Debug: vérifier les valeurs récupérées
-        print('Refresh - Valeurs récupérées de la BDD:');
-        print('  fond_ouverture: ${manualFields['fond_caisse_ouverture']}');
-        print('  fond_fermeture: ${manualFields['fond_caisse_fermeture']}');
-        print('  montant_coffre: ${manualFields['montant_coffre']}');
         
         // Récupérer le fond de caisse de fermeture de la veille
         _previousDayClosingBalance = await _repository
@@ -648,25 +702,10 @@ class StatisticsViewModel extends ChangeNotifier {
     }
   }
 
-  // Méthodes pour les mouvements de caisse
-  Future<void> _loadCashMovements() async {
-    _isLoadingMovements = true;
-    notifyListeners();
-
-    try {
-      _cashMovements = await _repository.getCashMovements(_selectedDate);
-    } catch (e) {
-      _error = _formatErrorMessage(e);
-    } finally {
-      _isLoadingMovements = false;
-      notifyListeners();
-    }
-  }
-
   Future<void> addCashMovement(CashMovement movement) async {
     try {
       await _repository.addCashMovement(movement);
-      await _loadCashMovements();
+      // Le stream Realtime se chargera automatiquement de mettre à jour _cashMovements
     } catch (e) {
       _error = _formatErrorMessage(e);
       notifyListeners();
@@ -676,8 +715,7 @@ class StatisticsViewModel extends ChangeNotifier {
   Future<void> deleteCashMovement(String id) async {
     try {
       await _repository.deleteCashMovement(id);
-      await _loadCashMovements();
-      notifyListeners();
+      // Le stream Realtime se chargera automatiquement de mettre à jour _cashMovements
     } catch (e) {
       _error = _formatErrorMessage(e);
       notifyListeners();
@@ -699,6 +737,9 @@ class StatisticsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _cashMovementsSubscription?.cancel();
+    _dailyStatisticsSubscription?.cancel();
+    _repository.dispose();
     fondOuvertureController.dispose();
     fondFermetureController.dispose();
     montantCoffreController.dispose();

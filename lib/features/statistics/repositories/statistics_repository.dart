@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_statistics_model.dart';
 import '../models/cash_movement_model.dart';
@@ -7,6 +8,74 @@ import '../../inventory/models/stock_item_model.dart';
 
 class StatisticsRepository {
   final SupabaseClient _supabase = Supabase.instance.client;
+  
+  // Realtime subscriptions
+  RealtimeChannel? _cashMovementsChannel;
+  RealtimeChannel? _dailyStatisticsChannel;
+  
+  // Stream controllers for real-time updates
+  final StreamController<List<CashMovement>> _cashMovementsController = StreamController<List<CashMovement>>.broadcast();
+  final StreamController<List<DailyStatistics>> _dailyStatisticsController = StreamController<List<DailyStatistics>>.broadcast();
+  
+  // Stream getters
+  Stream<List<CashMovement>> get cashMovementsStream => _cashMovementsController.stream;
+  Stream<List<DailyStatistics>> get dailyStatisticsStream => _dailyStatisticsController.stream;
+  
+  StatisticsRepository() {
+    _initializeRealtimeSubscriptions();
+  }
+  
+  void _initializeRealtimeSubscriptions() {
+    // Subscribe to cash_movements table
+    _cashMovementsChannel = _supabase.channel('cash_movements_channel');
+    _cashMovementsChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'cash_movements',
+      callback: (payload) {
+        _refreshCashMovements();
+      },
+    );
+    _cashMovementsChannel!.subscribe();
+    
+    // Subscribe to daily_statistics table
+    _dailyStatisticsChannel = _supabase.channel('daily_statistics_channel');
+    _dailyStatisticsChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'daily_statistics',
+      callback: (payload) {
+        _refreshDailyStatistics();
+      },
+    );
+    _dailyStatisticsChannel!.subscribe();
+  }
+  
+  Future<void> _refreshCashMovements() async {
+    try {
+      final today = DateTime.now();
+      final response = await _supabase
+          .from('cash_movements')
+          .select()
+          .eq('date', today.toIso8601String().substring(0, 10))
+          .order('created_at', ascending: false);
+      
+      final movements = response.map((json) => CashMovement.fromJson(json)).toList();
+      _cashMovementsController.add(movements);
+    } catch (e) {
+      _cashMovementsController.addError(e);
+    }
+  }
+  
+  Future<void> _refreshDailyStatistics() async {
+    try {
+      final today = DateTime.now();
+      final stats = await getDailyStatistics(today);
+      _dailyStatisticsController.add([stats]);
+    } catch (e) {
+      _dailyStatisticsController.addError(e);
+    }
+  }
 
   // Cache des statistiques
   final Map<String, DailyStatistics> _statisticsCache = {};
@@ -553,5 +622,21 @@ class StatisticsRepository {
   Future<void> deleteCashMovement(String id) async {
     // Supprimer le mouvement
     await _supabase.from('cash_movements').delete().eq('id', id);
+  }
+  
+  Stream<List<CashMovement>> getCashMovementsStream(DateTime date) {
+    return cashMovementsStream.map((allMovements) => 
+      allMovements.where((movement) => 
+        movement.date.toIso8601String().substring(0, 10) == 
+        date.toIso8601String().substring(0, 10)
+      ).toList()
+    );
+  }
+  
+  void dispose() {
+    _cashMovementsChannel?.unsubscribe();
+    _dailyStatisticsChannel?.unsubscribe();
+    _cashMovementsController.close();
+    _dailyStatisticsController.close();
   }
 }

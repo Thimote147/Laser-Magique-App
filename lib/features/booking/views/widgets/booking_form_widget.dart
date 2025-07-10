@@ -105,6 +105,14 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
       selectedTime = TimeOfDay.now();
       numberOfPersons = 1;
       numberOfGames = 1;
+      
+      // Synchroniser la date sélectionnée avec le ViewModel
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final bookingEditViewModel = context.read<BookingEditViewModel>();
+        bookingEditViewModel.setDate(selectedDate);
+        bookingEditViewModel.setTime(selectedTime);
+      });
     }
 
     // Planifier l'initialisation de la formule après la construction (uniquement pour les nouvelles réservations)

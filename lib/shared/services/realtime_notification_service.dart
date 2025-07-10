@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/notification_model.dart';
 import 'notification_service.dart';
-import '../screens/notifications_screen.dart';
-import '../../main.dart';
 
 /// Service pour gérer les notifications en temps réel via Supabase
 /// 
@@ -38,8 +36,6 @@ class RealtimeNotificationService extends ChangeNotifier {
     if (_isInitialized) return;
 
     try {
-      debugPrint('RealtimeNotificationService: Initializing...');
-      
       // Écouter les changements d'authentification
       _authSubscription = _supabase.auth.onAuthStateChange.listen((data) {
         final session = data.session;
@@ -56,10 +52,8 @@ class RealtimeNotificationService extends ChangeNotifier {
       }
 
       _isInitialized = true;
-      debugPrint('RealtimeNotificationService: Initialized successfully');
       
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to initialize: $e');
       rethrow;
     }
   }
@@ -69,8 +63,6 @@ class RealtimeNotificationService extends ChangeNotifier {
     if (_isSubscribed || currentUserId == null) return;
 
     try {
-      debugPrint('RealtimeNotificationService: Subscribing to notifications for user $currentUserId');
-      
       // Se désabonner d'abord si déjà abonné
       await _unsubscribeFromNotifications();
 
@@ -82,32 +74,41 @@ class RealtimeNotificationService extends ChangeNotifier {
             event: PostgresChangeEvent.insert,
             schema: 'public',
             table: 'notifications',
-            callback: _handleNotificationInsert,
+            callback: (payload) {
+              _handleNotificationInsert(payload);
+            },
           )
           .onPostgresChanges(
             event: PostgresChangeEvent.update,
             schema: 'public',
             table: 'notifications',
-            callback: _handleNotificationUpdate,
+            callback: (payload) {
+              _handleNotificationUpdate(payload);
+            },
           )
           .onPostgresChanges(
             event: PostgresChangeEvent.delete,
             schema: 'public',
             table: 'notifications',
-            callback: _handleNotificationDelete,
+            callback: (payload) {
+              _handleNotificationDelete(payload);
+            },
+          )
+          // Écouter aussi les changements de statuts de lecture pour les badges
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'notification_read_status',
+            callback: (payload) {
+              _handleNotificationReadStatusChange(payload);
+            },
           );
 
       // S'abonner au channel
       _notificationChannel!.subscribe();
       _isSubscribed = true;
       
-      debugPrint('RealtimeNotificationService: Successfully subscribed to notifications');
-      
-      // NOTE: Ne plus charger les notifications existantes car nous utilisons maintenant la base de données directement
-      // await _loadExistingNotifications();
-      
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to subscribe: $e');
       _isSubscribed = false;
     }
   }
@@ -117,121 +118,59 @@ class RealtimeNotificationService extends ChangeNotifier {
     if (!_isSubscribed) return;
 
     try {
-      debugPrint('RealtimeNotificationService: Unsubscribing from notifications');
-      
       if (_notificationChannel != null) {
         await _notificationChannel!.unsubscribe();
         _notificationChannel = null;
       }
       
       _isSubscribed = false;
-      debugPrint('RealtimeNotificationService: Successfully unsubscribed');
       
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to unsubscribe: $e');
+      // Ignorer les erreurs de désouscription
     }
   }
 
-  /// Charger les notifications existantes depuis la base de données
-  Future<void> _loadExistingNotifications() async {
-    if (currentUserId == null) return;
-
-    try {
-      debugPrint('RealtimeNotificationService: Loading existing notifications');
-      
-      final response = await _supabase
-          .from('notifications')
-          .select()
-          .order('created_at', ascending: false)
-          .limit(50); // Limite pour éviter de surcharger
-
-      final List<dynamic> data = response as List<dynamic>;
-      
-      // Convertir et ajouter chaque notification au service local
-      for (final item in data) {
-        try {
-          final notification = _convertFromDatabase(item);
-          // Ajouter sans déclencher de notification (pour éviter le spam)
-          _localNotificationService.addNotification(notification);
-        } catch (e) {
-          debugPrint('RealtimeNotificationService: Failed to convert notification: $e');
-        }
-      }
-      
-      debugPrint('RealtimeNotificationService: Loaded ${data.length} existing notifications');
-      
-    } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to load existing notifications: $e');
-    }
-  }
 
   /// Gérer l'insertion d'une nouvelle notification
   void _handleNotificationInsert(PostgresChangePayload payload) {
     try {
-      debugPrint('RealtimeNotificationService: Received new notification: ${payload.newRecord}');
-      
-      final notification = _convertFromDatabase(payload.newRecord);
-      
-      // NOTE: Ne plus ajouter au service local car nous utilisons maintenant la base de données directement
-      // _localNotificationService.addNotification(notification);
-      
-      debugPrint('RealtimeNotificationService: Processing notification: ${notification.title}');
-      
-      // Afficher seulement la notification visuelle en temps réel
-      _showInAppNotification(notification);
-      
+      // Notifier les listeners pour mettre à jour les badges et la page des notifications
+      notifyListeners();
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to handle notification insert: $e');
+      // Ignorer les erreurs de traitement
     }
   }
 
   /// Gérer la mise à jour d'une notification
   void _handleNotificationUpdate(PostgresChangePayload payload) {
     try {
-      debugPrint('RealtimeNotificationService: Received notification update: ${payload.newRecord}');
-      
-      // Mettre à jour dans le service local
-      // Pour l'instant, on recharge toutes les notifications (à optimiser si nécessaire)
-      _loadExistingNotifications();
-      
+      // Notifier les listeners pour mettre à jour les badges et la page des notifications
+      notifyListeners();
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to handle notification update: $e');
+      // Ignorer les erreurs de traitement
     }
   }
 
   /// Gérer la suppression d'une notification
   void _handleNotificationDelete(PostgresChangePayload payload) {
     try {
-      debugPrint('RealtimeNotificationService: Received notification delete: ${payload.oldRecord}');
-      
-      final notificationId = payload.oldRecord['id'] as String;
-      _localNotificationService.removeNotification(notificationId);
-      
+      // Notifier les listeners pour mettre à jour les badges et la page des notifications
+      notifyListeners();
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to handle notification delete: $e');
+      // Ignorer les erreurs de traitement
+    }
+  }
+  
+  /// Gérer les changements de statut de lecture
+  void _handleNotificationReadStatusChange(PostgresChangePayload payload) {
+    try {
+      // Notifier immédiatement les listeners pour mettre à jour les badges
+      notifyListeners();
+    } catch (e) {
+      // Ignorer les erreurs de traitement
     }
   }
 
-  /// Convertir une notification de la base de données vers le modèle local
-  AppNotification _convertFromDatabase(Map<String, dynamic> data) {
-    return AppNotification(
-      id: data['id'] as String,
-      title: data['title'] as String,
-      message: data['message'] as String,
-      type: NotificationType.values.firstWhere(
-        (type) => type.name == data['type'],
-        orElse: () => NotificationType.systemUpdate,
-      ),
-      priority: NotificationPriority.values.firstWhere(
-        (priority) => priority.name == data['priority'],
-        orElse: () => NotificationPriority.medium,
-      ),
-      timestamp: DateTime.parse(data['created_at'] as String),
-      data: data['data'] != null ? Map<String, dynamic>.from(data['data']) : null,
-      isRead: data['is_read'] as bool? ?? false,
-      createdBy: data['created_by'] as String?,
-    );
-  }
 
 
   /// Envoyer une notification globale
@@ -243,8 +182,6 @@ class RealtimeNotificationService extends ChangeNotifier {
     Map<String, dynamic>? data,
   }) async {
     try {
-      debugPrint('RealtimeNotificationService: Sending global notification: $title');
-      
       final notificationData = {
         'title': title,
         'message': message,
@@ -256,10 +193,7 @@ class RealtimeNotificationService extends ChangeNotifier {
 
       await _supabase.from('notifications').insert(notificationData);
       
-      debugPrint('RealtimeNotificationService: Successfully sent notification');
-      
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to send notification: $e');
       rethrow;
     }
   }
@@ -274,40 +208,7 @@ class RealtimeNotificationService extends ChangeNotifier {
     Map<String, dynamic>? data,
     Duration? expireAfter,
   }) async {
-    debugPrint('RealtimeNotificationService: broadcastNotification called but disabled (using database triggers instead)');
-    debugPrint('RealtimeNotificationService: Would have sent: $title - $message');
-    
     // Désactivé pour éviter les notifications en double
-    /*
-    try {
-      debugPrint('RealtimeNotificationService: Broadcasting notification: $title');
-      
-      // Créer une notification globale avec l'utilisateur actuel comme créateur
-      final notificationData = {
-        'title': title,
-        'message': message,
-        'type': type.name,
-        'priority': priority.name,
-        'user_id': null, // null = notification globale visible par tous
-        'created_by': currentUserId, // Tracer qui a créé la notification
-        'data': data ?? {},
-        'is_read': false,
-      };
-
-      // Ajouter expiration si spécifiée
-      if (expireAfter != null) {
-        notificationData['expires_at'] = DateTime.now().add(expireAfter).toIso8601String();
-      }
-
-      await _supabase.from('notifications').insert(notificationData);
-      
-      debugPrint('RealtimeNotificationService: Successfully broadcasted notification');
-      
-    } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to broadcast notification: $e');
-      rethrow;
-    }
-    */
   }
 
   /// Marquer une notification comme lue
@@ -327,7 +228,6 @@ class RealtimeNotificationService extends ChangeNotifier {
       _localNotificationService.markAsRead(notificationId);
       
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to mark as read in DB: $e');
       // Si échec, marquer seulement localement
       _localNotificationService.markAsRead(notificationId);
     }
@@ -345,13 +245,36 @@ class RealtimeNotificationService extends ChangeNotifier {
       // La suppression locale sera gérée par le callback Realtime
       
     } catch (e) {
-      debugPrint('RealtimeNotificationService: Failed to delete notification: $e');
       // Si échec, supprimer seulement localement
       _localNotificationService.removeNotification(notificationId);
     }
   }
 
   /// Méthodes de convenance pour les événements métier
+  
+  /// Méthode de test pour les notifications visuelles
+  Future<void> testNotification() async {
+    try {
+      await sendGlobalNotification(
+        title: 'Test notification ${DateTime.now().millisecondsSinceEpoch}',
+        message: 'Ceci est une notification de test',
+        type: NotificationType.systemUpdate,
+        priority: NotificationPriority.medium,
+      );
+      
+      // Attendre un peu pour laisser le temps au Realtime de réagir
+      await Future.delayed(const Duration(seconds: 2));
+      
+    } catch (e) {
+      // Ignorer les erreurs de test
+    }
+  }
+  
+  
+  /// Diagnostiquer l'état du service Realtime
+  void debugRealtimeStatus() {
+    // Debug supprimé pour une console propre
+  }
   
   /// Notifier tous les utilisateurs qu'une nouvelle réservation a été créée
   /// NOTE: Désactivé car les notifications sont maintenant gérées par les triggers de base de données
@@ -360,19 +283,7 @@ class RealtimeNotificationService extends ChangeNotifier {
     required DateTime bookingDateTime,
     required String bookingId,
   }) async {
-    debugPrint('RealtimeNotificationService: notifyBookingCreated called but disabled (using database triggers instead)');
-    // await broadcastNotification(
-    //   title: 'Nouvelle réservation',
-    //   message: 'Réservation créée pour $customerName',
-    //   type: NotificationType.bookingAdded,
-    //   priority: NotificationPriority.medium,
-    //   data: {
-    //     'customer_name': customerName,
-    //     'booking_date_time': bookingDateTime.toIso8601String(),
-    //     'booking_id': bookingId,
-    //   },
-    //   expireAfter: const Duration(days: 7), // Expire après 7 jours
-    // );
+    // Désactivé - géré par les triggers de base de données
   }
 
   /// Notifier tous les utilisateurs qu'une réservation a été annulée
@@ -382,19 +293,7 @@ class RealtimeNotificationService extends ChangeNotifier {
     required DateTime bookingDateTime,
     required String bookingId,
   }) async {
-    debugPrint('RealtimeNotificationService: notifyBookingCancelled called but disabled (using database triggers instead)');
-    // await broadcastNotification(
-    //   title: 'Réservation annulée',
-    //   message: 'Réservation annulée pour $customerName',
-    //   type: NotificationType.bookingCancelled,
-    //   priority: NotificationPriority.medium,
-    //   data: {
-    //     'customer_name': customerName,
-    //     'booking_date_time': bookingDateTime.toIso8601String(),
-    //     'booking_id': bookingId,
-    //   },
-    //   expireAfter: const Duration(days: 3),
-    // );
+    // Désactivé - géré par les triggers de base de données
   }
 
   /// Notifier tous les utilisateurs qu'une réservation a été supprimée
@@ -404,19 +303,7 @@ class RealtimeNotificationService extends ChangeNotifier {
     required DateTime bookingDateTime,
     required String bookingId,
   }) async {
-    debugPrint('RealtimeNotificationService: notifyBookingDeleted called but disabled (using database triggers instead)');
-    // await broadcastNotification(
-    //   title: 'Réservation supprimée',
-    //   message: 'Réservation supprimée pour $customerName',
-    //   type: NotificationType.bookingDeleted,
-    //   priority: NotificationPriority.medium,
-    //   data: {
-    //     'customer_name': customerName,
-    //     'booking_date_time': bookingDateTime.toIso8601String(),
-    //     'booking_id': bookingId,
-    //   },
-    //   expireAfter: const Duration(days: 3),
-    // );
+    // Désactivé - géré par les triggers de base de données
   }
 
   /// Notifier les alertes de stock à tous les utilisateurs
@@ -442,8 +329,6 @@ class RealtimeNotificationService extends ChangeNotifier {
   /// Nettoyer et fermer le service
   @override
   void dispose() {
-    debugPrint('RealtimeNotificationService: Disposing...');
-    
     _unsubscribeFromNotifications();
     _authSubscription?.cancel();
     _isInitialized = false;
@@ -453,8 +338,6 @@ class RealtimeNotificationService extends ChangeNotifier {
 
   /// Forcer une reconnexion (utile pour le debug)
   Future<void> reconnect() async {
-    debugPrint('RealtimeNotificationService: Reconnecting...');
-    
     await _unsubscribeFromNotifications();
     await _subscribeToNotifications();
   }
@@ -470,175 +353,4 @@ class RealtimeNotificationService extends ChangeNotifier {
     };
   }
 
-  /// Afficher une notification visuelle dans l'app
-  void _showInAppNotification(AppNotification notification) {
-    final context = navigatorKey.currentContext;
-    if (context != null && context.mounted) {
-      _showTopNotification(context, notification);
-    }
-  }
-
-  /// Afficher une notification en haut de l'écran avec animation
-  void _showTopNotification(BuildContext context, AppNotification notification) {
-    // Créer une clé simple basée sur le titre et le type pour éviter les doublons
-    final visualKey = '${notification.title}:${notification.type.name}';
-    
-    // Vérifier si cette notification visuelle n'a pas déjà été affichée
-    if (_localNotificationService.hasRecentVisualNotification(visualKey)) {
-      debugPrint('RealtimeNotificationService: Visual notification already shown: ${notification.title}');
-      return;
-    }
-    
-    _localNotificationService.markVisualNotificationShown(visualKey);
-
-    showGeneralDialog(
-      context: context,
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: Material(
-            color: Colors.transparent,
-            child: GestureDetector(
-              onPanUpdate: (details) {
-                // Détecter le glissement vers le haut
-                if (details.delta.dy < -5) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: Container(
-                margin: EdgeInsets.only(top: 50, left: 16, right: 16),
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _getNotificationColor(notification.priority),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _getNotificationIcon(notification.type),
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            notification.title,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            notification.message,
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const NotificationsScreen(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Voir',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-      barrierDismissible: false, // Empêche la fermeture en tapant à côté
-      barrierLabel: 'Fermer notification',
-      barrierColor: Colors.transparent,
-      transitionDuration: Duration(milliseconds: 300),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: Offset(0.0, -1.0),
-            end: Offset(0.0, 0.0),
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-          )),
-          child: child,
-        );
-      },
-    );
-  }
-
-  /// Obtenir l'icône selon le type de notification
-  IconData _getNotificationIcon(NotificationType type) {
-    switch (type) {
-      case NotificationType.bookingAdded:
-        return Icons.event_available;
-      case NotificationType.bookingCancelled:
-        return Icons.event_busy;
-      case NotificationType.bookingDeleted:
-        return Icons.event_busy;
-      case NotificationType.paymentReceived:
-        return Icons.payment;
-      case NotificationType.stockUpdate:
-        return Icons.inventory;
-      case NotificationType.stockAlert:
-        return Icons.warning;
-      case NotificationType.systemUpdate:
-        return Icons.settings;
-      case NotificationType.consumption:
-        return Icons.local_bar;
-    }
-  }
-
-  /// Obtenir la couleur selon la priorité
-  Color _getNotificationColor(NotificationPriority priority) {
-    switch (priority) {
-      case NotificationPriority.high:
-        return Colors.red[600]!;
-      case NotificationPriority.medium:
-        return Colors.blue[600]!;
-      case NotificationPriority.low:
-        return Colors.green[600]!;
-      default:
-        return Colors.blue[600]!;
-    }
-  }
 }

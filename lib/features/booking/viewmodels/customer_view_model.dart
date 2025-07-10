@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/customer_model.dart';
 import '../repositories/customer_repository.dart';
@@ -9,6 +10,7 @@ class CustomerViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   String _searchQuery = '';
+  StreamSubscription? _customersSubscription;
 
   List<Customer> get customers => _customers;
   List<Customer> get searchResults => _searchResults;
@@ -17,22 +19,35 @@ class CustomerViewModel extends ChangeNotifier {
   String get searchQuery => _searchQuery;
 
   CustomerViewModel() {
-    loadCustomers();
+    _initializeRealtimeSubscription();
+  }
+  
+  void _initializeRealtimeSubscription() {
+    _customersSubscription = _repository.customersStream.listen(
+      (customers) {
+        _customers = customers;
+        _isLoading = false;
+        _error = null;
+        notifyListeners();
+      },
+      onError: (error) {
+        _error = 'Erreur lors du chargement des clients: $error';
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+  
+  @override
+  void dispose() {
+    _customersSubscription?.cancel();
+    _repository.dispose();
+    super.dispose();
   }
 
   Future<void> loadCustomers() async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      _customers = await _repository.getAllCustomers();
-    } catch (e) {
-      _error = 'Erreur lors du chargement des clients: $e';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    // Cette méthode est maintenant gérée par le stream Realtime
+    // Elle est conservée pour compatibilité mais ne fait plus rien
   }
 
   Future<void> searchCustomers(String query) async {
@@ -63,7 +78,7 @@ class CustomerViewModel extends ChangeNotifier {
       notifyListeners();
 
       final newCustomer = await _repository.createCustomer(customer);
-      _customers.add(newCustomer);
+      // Le stream Realtime se chargera automatiquement de mettre à jour _customers
       return newCustomer;
     } on CustomerException catch (e) {
       _error = e.toString();
@@ -85,11 +100,8 @@ class CustomerViewModel extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      final updatedCustomer = await _repository.updateCustomer(customer);
-      final index = _customers.indexWhere((c) => c.id == customer.id);
-      if (index != -1) {
-        _customers[index] = updatedCustomer;
-      }
+      await _repository.updateCustomer(customer);
+      // Le stream Realtime se chargera automatiquement de mettre à jour _customers
     } on CustomerException catch (e) {
       _error = e.toString();
       notifyListeners();

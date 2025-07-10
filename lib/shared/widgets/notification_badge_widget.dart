@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../repositories/notification_repository.dart';
+import '../services/realtime_notification_service.dart';
+import 'dart:async';
 
 class NotificationBadge extends StatefulWidget {
   final VoidCallback? onTap;
@@ -21,22 +24,43 @@ class _NotificationBadgeState extends State<NotificationBadge> {
   final NotificationRepository _notificationRepository = NotificationRepository();
   int _unreadCount = 0;
   bool _isLoading = true;
+  StreamSubscription? _notificationSubscription;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUnreadCount();
-    // Actualiser le compte toutes les 30 secondes
-    _startPeriodicRefresh();
+    _setupRealtimeSubscription();
   }
 
-  void _startPeriodicRefresh() {
-    Future.delayed(const Duration(seconds: 30), () {
+  void _setupRealtimeSubscription() {
+    // Écouter les changements de notifications via le service realtime
+    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
+    
+    // Actualiser le badge quand le service change
+    realtimeService.addListener(_onNotificationServiceChanged);
+    
+    // Écouter les changements de notifications et statuts de lecture pour mise à jour instantanée
+    _subscribeToNotificationChanges();
+    
+    // Fallback: actualiser toutes les 5 minutes au cas où
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       if (mounted) {
         _loadUnreadCount();
-        _startPeriodicRefresh();
       }
     });
+  }
+  
+  void _subscribeToNotificationChanges() {
+    // Pour le moment, on utilise juste l'écoute du service realtime
+    // qui déclenchera automatiquement la mise à jour
+  }
+  
+  void _onNotificationServiceChanged() {
+    if (mounted) {
+      _loadUnreadCount();
+    }
   }
 
   Future<void> _loadUnreadCount() async {
@@ -67,45 +91,65 @@ class _NotificationBadgeState extends State<NotificationBadge> {
   }
 
   @override
+  void dispose() {
+    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
+    realtimeService.removeListener(_onNotificationServiceChanged);
+    _notificationSubscription?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        IconButton(
-          icon: Icon(
-            Icons.notifications,
-            color: widget.iconColor,
-            size: widget.iconSize,
-          ),
-          onPressed: widget.onTap ?? () => _navigateToNotifications(context),
-          tooltip: 'Notifications',
-        ),
-        if (!_isLoading && _unreadCount > 0)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white, width: 1),
+    return Consumer<RealtimeNotificationService>(
+      builder: (context, realtimeService, child) {
+        // Quand le service change, recharger le count
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _loadUnreadCount();
+          }
+        });
+        
+        return Stack(
+          children: [
+            IconButton(
+              icon: Icon(
+                Icons.notifications,
+                color: widget.iconColor,
+                size: widget.iconSize,
               ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                _unreadCount > 99 ? '99+' : _unreadCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              onPressed: widget.onTap ?? () => _navigateToNotifications(context),
+              tooltip: 'Notifications',
             ),
-          ),
-      ],
+            if (!_isLoading && _unreadCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white, width: 1),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    _unreadCount > 99 ? '99+' : _unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -129,22 +173,43 @@ class _NotificationBadgeIconState extends State<NotificationBadgeIcon> {
   final NotificationRepository _notificationRepository = NotificationRepository();
   int _unreadCount = 0;
   bool _isLoading = true;
+  StreamSubscription? _notificationSubscription;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadUnreadCount();
-    // Actualiser le compte toutes les 30 secondes
-    _startPeriodicRefresh();
+    _setupRealtimeSubscription();
   }
 
-  void _startPeriodicRefresh() {
-    Future.delayed(const Duration(seconds: 30), () {
+  void _setupRealtimeSubscription() {
+    // Écouter les changements de notifications via le service realtime
+    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
+    
+    // Actualiser le badge quand le service change
+    realtimeService.addListener(_onNotificationServiceChanged);
+    
+    // Écouter les changements de notifications et statuts de lecture pour mise à jour instantanée
+    _subscribeToNotificationChanges();
+    
+    // Fallback: actualiser toutes les 5 minutes au cas où
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
       if (mounted) {
         _loadUnreadCount();
-        _startPeriodicRefresh();
       }
     });
+  }
+  
+  void _subscribeToNotificationChanges() {
+    // Pour le moment, on utilise juste l'écoute du service realtime
+    // qui déclenchera automatiquement la mise à jour
+  }
+  
+  void _onNotificationServiceChanged() {
+    if (mounted) {
+      _loadUnreadCount();
+    }
   }
 
   Future<void> _loadUnreadCount() async {
@@ -167,41 +232,61 @@ class _NotificationBadgeIconState extends State<NotificationBadgeIcon> {
   }
 
   @override
+  void dispose() {
+    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
+    realtimeService.removeListener(_onNotificationServiceChanged);
+    _notificationSubscription?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Icon(
-          Icons.notifications,
-          color: widget.iconColor ?? Theme.of(context).iconTheme.color,
-          size: widget.iconSize,
-        ),
-        if (!_isLoading && _unreadCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white, width: 1),
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 14,
-                minHeight: 14,
-              ),
-              child: Text(
-                _unreadCount > 99 ? '99+' : _unreadCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
+    return Consumer<RealtimeNotificationService>(
+      builder: (context, realtimeService, child) {
+        // Quand le service change, recharger le count
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _loadUnreadCount();
+          }
+        });
+        
+        return Stack(
+          children: [
+            Icon(
+              Icons.notifications,
+              color: widget.iconColor ?? Theme.of(context).iconTheme.color,
+              size: widget.iconSize,
             ),
-          ),
-      ],
+            if (!_isLoading && _unreadCount > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white, width: 1),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 14,
+                    minHeight: 14,
+                  ),
+                  child: Text(
+                    _unreadCount > 99 ? '99+' : _unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

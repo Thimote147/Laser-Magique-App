@@ -68,9 +68,11 @@ class NotificationRepository {
 
     try {
       // Récupérer toutes les notifications (visibles par tous les utilisateurs)
+      // sauf celles créées par l'utilisateur actuel
       var query = _supabase
           .from('notifications')
           .select()
+          .neq('created_by', currentUserId!) // Exclure les notifications créées par l'utilisateur actuel
           .order('created_at', ascending: false);
 
       if (limit != null) {
@@ -145,17 +147,79 @@ class NotificationRepository {
     }
 
     try {
-      // Utiliser la table notification_read_status pour marquer comme lu
-      await _supabase
+      // Vérifier si un enregistrement existe déjà
+      final existingRecord = await _supabase
           .from('notification_read_status')
-          .upsert({
-            'notification_id': notificationId,
-            'user_id': currentUserId!,
-            'is_read': true,
-            'read_at': DateTime.now().toIso8601String(),
-          });
+          .select('id')
+          .eq('notification_id', notificationId)
+          .eq('user_id', currentUserId!)
+          .maybeSingle();
+
+      if (existingRecord != null) {
+        // Mettre à jour l'enregistrement existant
+        await _supabase
+            .from('notification_read_status')
+            .update({
+              'is_read': true,
+              'read_at': DateTime.now().toIso8601String(),
+            })
+            .eq('notification_id', notificationId)
+            .eq('user_id', currentUserId!);
+      } else {
+        // Créer un nouvel enregistrement
+        await _supabase
+            .from('notification_read_status')
+            .insert({
+              'notification_id': notificationId,
+              'user_id': currentUserId!,
+              'is_read': true,
+              'read_at': DateTime.now().toIso8601String(),
+            });
+      }
     } catch (e) {
       throw Exception('Failed to mark notification as read: $e');
+    }
+  }
+
+  /// Marquer une notification comme non lue pour l'utilisateur actuel
+  /// Utilise la table notification_read_status pour le statut individuel
+  Future<void> markAsUnread(String notificationId) async {
+    if (currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    try {
+      // Vérifier si un enregistrement existe déjà
+      final existingRecord = await _supabase
+          .from('notification_read_status')
+          .select('id')
+          .eq('notification_id', notificationId)
+          .eq('user_id', currentUserId!)
+          .maybeSingle();
+
+      if (existingRecord != null) {
+        // Mettre à jour l'enregistrement existant
+        await _supabase
+            .from('notification_read_status')
+            .update({
+              'is_read': false,
+              'read_at': null, // Pas de date de lecture puisque non lu
+            })
+            .eq('notification_id', notificationId)
+            .eq('user_id', currentUserId!);
+      } else {
+        // Créer un nouvel enregistrement
+        await _supabase
+            .from('notification_read_status')
+            .insert({
+              'notification_id': notificationId,
+              'user_id': currentUserId!,
+              'is_read': false,
+              'read_at': null,
+            });
+      }
+    } catch (e) {
+      throw Exception('Failed to mark notification as unread: $e');
     }
   }
 
@@ -172,21 +236,52 @@ class NotificationRepository {
           .from('notifications')
           .select('id');
 
-      // Marquer chaque notification comme lue pour cet utilisateur
-      final List<Map<String, dynamic>> batchInserts = [];
-      for (final notification in allNotifications) {
-        batchInserts.add({
-          'notification_id': notification['id'],
-          'user_id': currentUserId!,
-          'is_read': true,
-          'read_at': DateTime.now().toIso8601String(),
-        });
-      }
+      // Récupérer les statuts de lecture existants pour cet utilisateur
+      final notificationIds = (allNotifications as List).map((n) => n['id'] as String).toList();
       
-      if (batchInserts.isNotEmpty) {
+      final existingStatuses = await _supabase
+          .from('notification_read_status')
+          .select('notification_id')
+          .eq('user_id', currentUserId!)
+          .inFilter('notification_id', notificationIds);
+      
+      final existingNotificationIds = (existingStatuses as List)
+          .map((status) => status['notification_id'] as String)
+          .toSet();
+
+      final readTime = DateTime.now().toIso8601String();
+      
+      // Mettre à jour les enregistrements existants
+      if (existingNotificationIds.isNotEmpty) {
         await _supabase
             .from('notification_read_status')
-            .upsert(batchInserts);
+            .update({
+              'is_read': true,
+              'read_at': readTime,
+            })
+            .eq('user_id', currentUserId!)
+            .inFilter('notification_id', existingNotificationIds.toList());
+      }
+      
+      // Insérer les nouveaux enregistrements
+      final newNotificationIds = notificationIds.where(
+        (id) => !existingNotificationIds.contains(id)
+      ).toList();
+      
+      if (newNotificationIds.isNotEmpty) {
+        final List<Map<String, dynamic>> newInserts = [];
+        for (final notificationId in newNotificationIds) {
+          newInserts.add({
+            'notification_id': notificationId,
+            'user_id': currentUserId!,
+            'is_read': true,
+            'read_at': readTime,
+          });
+        }
+        
+        await _supabase
+            .from('notification_read_status')
+            .insert(newInserts);
       }
     } catch (e) {
       throw Exception('Failed to mark all notifications as read: $e');
@@ -219,10 +314,11 @@ class NotificationRepository {
     }
 
     try {
-      // Compter toutes les notifications
+      // Compter toutes les notifications sauf celles créées par l'utilisateur actuel
       final allNotifications = await _supabase
           .from('notifications')
-          .select('id');
+          .select('id')
+          .neq('created_by', currentUserId!);
 
       // Compter celles qui sont marquées comme lues par cet utilisateur
       final readNotifications = await _supabase

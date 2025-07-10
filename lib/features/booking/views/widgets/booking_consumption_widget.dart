@@ -448,157 +448,191 @@ class _ConsumptionItemStateless extends StatelessWidget {
                 ),
               ),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ValueListenableBuilder<int>(
-                  valueListenable: quantityNotifier,
-                  builder: (context, quantity, _) {
-                    return Material(
-                      type: MaterialType.transparency,
-                      child: IconButton(
-                        icon: Icon(
-                          quantity > 1 ? Icons.remove : Icons.delete_outline,
-                          size: 24,
-                          color:
-                              quantity > 1
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.error,
-                        ),
-                        onPressed: _isBookingPast(booking) ? null : () async {
-                          if (quantity > 1) {
-                            controller.updateConsumptionQuantity(
-                              context,
-                              consumption.id,
-                              quantity - 1,
-                            );
-                          } else {
-                            // Demander confirmation avant suppression
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder:
-                                  (context) => CustomConfirmDialog(
-                                    title: 'Supprimer la consommation ?',
-                                    content: 'Voulez-vous vraiment supprimer "${stockItem.name}" de cette réservation ?',
-                                    confirmText: 'SUPPRIMER',
-                                    cancelText: 'ANNULER',
-                                    icon: Icons.delete_forever,
-                                    iconColor: Colors.red,
-                                    confirmColor: Colors.red,
-                                    onConfirm: () => Navigator.of(context).pop(true),
-                                    onCancel: () => Navigator.of(context).pop(false),
-                                  ),
-                            );
-
-                            if (confirmed == true && context.mounted) {
-                              // Supprimer la consommation
-                              try {
-                                await controller.deleteConsumption(
-                                  context,
-                                  consumption.id,
-                                );
-
-                                // Forcer un refresh complet après la suppression
-                                if (context.mounted) {
-                                  await controller.reset(context);
-                                }
-
-                                // Afficher le dialog de succès
-                                if (context.mounted) {
-                                  await showDialog(
-                                    context: context,
-                                    barrierDismissible: true,
-                                    builder: (context) => CustomSuccessDialog(
-                                      title: 'Suppression réussie',
-                                      content: '${stockItem.name} a été supprimé de la réservation',
-                                      autoClose: true,
-                                      autoCloseDuration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                // Afficher un dialog d'erreur
-                                if (context.mounted) {
-                                  await showDialog(
-                                    context: context,
-                                    builder: (context) => CustomErrorDialog(
-                                      title: 'Erreur de suppression',
-                                      content: 'Erreur lors de la suppression: $e',
-                                    ),
-                                  );
-                                }
-                              }
-                            }
-                          }
-                        },
-                        padding: EdgeInsets.zero,
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(40, 40),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 4),
-                ValueListenableBuilder<int>(
-                  valueListenable: quantityNotifier,
-                  builder: (context, quantity, _) {
-                    return Container(
-                      constraints: const BoxConstraints(minWidth: 32),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$quantity',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 18,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 4),
-                ValueListenableBuilder<int>(
-                  valueListenable: quantityNotifier,
-                  builder: (context, quantity, _) {
-                    return Material(
-                      type: MaterialType.transparency,
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.add,
-                          size: 24,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        onPressed: _isBookingPast(booking) ? null : () {
-                          controller.updateConsumptionQuantity(
-                            context,
-                            consumption.id,
-                            quantity + 1,
+            _isBookingPast(booking) 
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ValueListenableBuilder<int>(
+                        valueListenable: quantityNotifier,
+                        builder: (context, quantity, _) {
+                          return Container(
+                            constraints: const BoxConstraints(minWidth: 32),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$quantity',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                              ),
+                            ),
                           );
                         },
-                        padding: EdgeInsets.zero,
-                        style: IconButton.styleFrom(
-                          minimumSize: const Size(40, 40),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 12),
-                ValueListenableBuilder<int>(
-                  valueListenable: quantityNotifier,
-                  builder: (context, quantity, _) {
-                    return Text(
-                      '${(quantity * consumption.unitPrice).toStringAsFixed(2)}€',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(width: 60),
+                      ValueListenableBuilder<int>(
+                        valueListenable: quantityNotifier,
+                        builder: (context, quantity, _) {
+                          return Text(
+                            '${(quantity * consumption.unitPrice).toStringAsFixed(2)}€',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                    ],
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ValueListenableBuilder<int>(
+                        valueListenable: quantityNotifier,
+                        builder: (context, quantity, _) {
+                          return Material(
+                            type: MaterialType.transparency,
+                            child: IconButton(
+                              icon: Icon(
+                                quantity > 1 ? Icons.remove : Icons.delete_outline,
+                                size: 24,
+                                color:
+                                    quantity > 1
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).colorScheme.error,
+                              ),
+                              onPressed: () async {
+                                if (quantity > 1) {
+                                  controller.updateConsumptionQuantity(
+                                    context,
+                                    consumption.id,
+                                    quantity - 1,
+                                  );
+                                } else {
+                                  // Demander confirmation avant suppression
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder:
+                                        (context) => CustomConfirmDialog(
+                                          title: 'Supprimer la consommation ?',
+                                          content: 'Voulez-vous vraiment supprimer "${stockItem.name}" de cette réservation ?',
+                                          confirmText: 'SUPPRIMER',
+                                          cancelText: 'ANNULER',
+                                          icon: Icons.delete_forever,
+                                          iconColor: Colors.red,
+                                          confirmColor: Colors.red,
+                                          onConfirm: () => Navigator.of(context).pop(true),
+                                          onCancel: () => Navigator.of(context).pop(false),
+                                        ),
+                                  );
+
+                                  if (confirmed == true && context.mounted) {
+                                    // Supprimer la consommation
+                                    try {
+                                      await controller.deleteConsumption(
+                                        context,
+                                        consumption.id,
+                                      );
+
+                                      // Forcer un refresh complet après la suppression
+                                      if (context.mounted) {
+                                        await controller.reset(context);
+                                      }
+
+                                      // Afficher le dialog de succès
+                                      if (context.mounted) {
+                                        await showDialog(
+                                          context: context,
+                                          barrierDismissible: true,
+                                          builder: (context) => CustomSuccessDialog(
+                                            title: 'Suppression réussie',
+                                            content: '${stockItem.name} a été supprimé de la réservation',
+                                            autoClose: true,
+                                            autoCloseDuration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      // Afficher un dialog d'erreur
+                                      if (context.mounted) {
+                                        await showDialog(
+                                          context: context,
+                                          builder: (context) => CustomErrorDialog(
+                                            title: 'Erreur de suppression',
+                                            content: 'Erreur lors de la suppression: $e',
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              padding: EdgeInsets.zero,
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size(40, 40),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      ValueListenableBuilder<int>(
+                        valueListenable: quantityNotifier,
+                        builder: (context, quantity, _) {
+                          return Container(
+                            constraints: const BoxConstraints(minWidth: 32),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$quantity',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      ValueListenableBuilder<int>(
+                        valueListenable: quantityNotifier,
+                        builder: (context, quantity, _) {
+                          return Material(
+                            type: MaterialType.transparency,
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.add,
+                                size: 24,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              onPressed: () {
+                                controller.updateConsumptionQuantity(
+                                  context,
+                                  consumption.id,
+                                  quantity + 1,
+                                );
+                              },
+                              padding: EdgeInsets.zero,
+                              style: IconButton.styleFrom(
+                                minimumSize: const Size(40, 40),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      ValueListenableBuilder<int>(
+                        valueListenable: quantityNotifier,
+                        builder: (context, quantity, _) {
+                          return Text(
+                            '${(quantity * consumption.unitPrice).toStringAsFixed(2)}€',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
           ],
         ),
       ),

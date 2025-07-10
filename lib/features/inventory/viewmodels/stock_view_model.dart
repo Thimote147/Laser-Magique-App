@@ -7,6 +7,7 @@ import '../../../shared/services/social_deal_service.dart';
 import '../../../shared/services/notification_service.dart';
 import '../repositories/stock_repository.dart';
 import '../../booking/viewmodels/booking_view_model.dart';
+import 'dart:async';
 
 class CacheEntry<T> {
   final T data;
@@ -69,9 +70,153 @@ class StockViewModel extends ChangeNotifier {
   bool _isLoading = true;
   String? _error;
   bool _initialized = false;
+  
+  // Realtime subscription management
+  StreamSubscription<List<StockItem>>? _stockItemsSubscription;
+  StreamSubscription<List<Consumption>>? _consumptionsSubscription;
+  final Map<String, StreamSubscription<List<Consumption>>> _consumptionSubscriptions = {};
 
   StockViewModel(this.bookingViewModel) {
     initialize();
+    _initializeRealtimeSubscriptions();
+  }
+  
+  // Initialize realtime subscriptions
+  void _initializeRealtimeSubscriptions() {
+    _repository.initializeRealtimeSubscriptions();
+    
+    // Subscribe to stock items changes
+    _stockItemsSubscription = _repository.stockItemsStream.listen(
+      (stockItems) {
+        _handleRealtimeStockItemsUpdate(stockItems);
+      },
+      onError: (error) {
+        debugPrint('Error in stock items stream: $error');
+      },
+    );
+    
+    // Subscribe to consumptions changes
+    _consumptionsSubscription = _repository.consumptionsStream.listen(
+      (consumptions) {
+        _handleRealtimeConsumptionsUpdate(consumptions);
+      },
+      onError: (error) {
+        debugPrint('Error in consumptions stream: $error');
+      },
+    );
+  }
+  
+  // Handle realtime stock items updates
+  void _handleRealtimeStockItemsUpdate(List<StockItem> stockItems) {
+    debugPrint('StockViewModel: Received realtime stock items update with ${stockItems.length} items');
+    
+    // Update cache immediately
+    _stockCache = CacheEntry<List<StockItem>>(
+      data: stockItems.where((item) => item.isActive).toList(),
+      timestamp: DateTime.now(),
+    );
+    
+    _allStockCache = CacheEntry<List<StockItem>>(
+      data: stockItems,
+      timestamp: DateTime.now(),
+    );
+    
+    // Notify listeners immediately for UI update
+    notifyListeners();
+  }
+  
+  // Handle realtime consumptions updates
+  void _handleRealtimeConsumptionsUpdate(List<Consumption> consumptions) {
+    debugPrint('StockViewModel: Received realtime consumptions update with ${consumptions.length} consumptions');
+    
+    // Group consumptions by booking ID
+    final Map<String, List<Consumption>> consumptionsByBooking = {};
+    for (final consumption in consumptions) {
+      if (!consumptionsByBooking.containsKey(consumption.bookingId)) {
+        consumptionsByBooking[consumption.bookingId] = [];
+      }
+      consumptionsByBooking[consumption.bookingId]!.add(consumption);
+    }
+    
+    // Update cache for each booking
+    for (final entry in consumptionsByBooking.entries) {
+      final bookingId = entry.key;
+      final bookingConsumptions = entry.value;
+      
+      // Convert to (Consumption, StockItem) pairs
+      final consumptionPairs = bookingConsumptions.map((consumption) {
+        final stockItem = findStockItemById(consumption.stockItemId);
+        if (stockItem != null) {
+          return (consumption, stockItem);
+        }
+        return null;
+      }).whereType<(Consumption, StockItem)>().toList();
+      
+      // Update cache
+      _updateConsumptionsCache(bookingId, consumptionPairs);
+    }
+    
+    // Notify listeners
+    notifyListeners();
+  }
+  
+  // Subscribe to consumptions for a specific booking
+  void subscribeToBookingConsumptions(String bookingId) {
+    if (_consumptionSubscriptions.containsKey(bookingId)) {
+      return; // Already subscribed
+    }
+    
+    _consumptionSubscriptions[bookingId] = _repository.getConsumptionsStreamForBooking(bookingId).listen(
+      (consumptions) {
+        _handleBookingConsumptionsUpdate(bookingId, consumptions);
+      },
+      onError: (error) {
+        debugPrint('Error in booking consumptions stream for $bookingId: $error');
+      },
+    );
+  }
+  
+  // Unsubscribe from consumptions for a specific booking
+  void unsubscribeFromBookingConsumptions(String bookingId) {
+    _consumptionSubscriptions[bookingId]?.cancel();
+    _consumptionSubscriptions.remove(bookingId);
+  }
+  
+  // Handle booking-specific consumptions updates
+  void _handleBookingConsumptionsUpdate(String bookingId, List<Consumption> consumptions) {
+    debugPrint('StockViewModel: Received booking consumptions update for $bookingId with ${consumptions.length} consumptions');
+    
+    // Convert to (Consumption, StockItem) pairs
+    final consumptionPairs = consumptions.map((consumption) {
+      final stockItem = findStockItemById(consumption.stockItemId);
+      if (stockItem != null) {
+        return (consumption, stockItem);
+      }
+      return null;
+    }).whereType<(Consumption, StockItem)>().toList();
+    
+    // Update cache for this booking
+    _updateConsumptionsCache(bookingId, consumptionPairs);
+    
+    // Notify listeners
+    notifyListeners();
+  }
+  
+  @override
+  void dispose() {
+    _stockItemsSubscription?.cancel();
+    _consumptionsSubscription?.cancel();
+    
+    // Cancel all booking-specific subscriptions
+    for (final subscription in _consumptionSubscriptions.values) {
+      subscription.cancel();
+    }
+    _consumptionSubscriptions.clear();
+    
+    // Dispose repository
+    _repository.dispose();
+    
+    super.dispose();
   }
 
   // Getters
@@ -422,6 +567,9 @@ class StockViewModel extends ChangeNotifier {
     if (!_initialized) {
       await initialize();
     }
+    
+    // Subscribe to realtime updates for this booking
+    subscribeToBookingConsumptions(bookingId);
 
     // Vérifier d'abord le cache local pour avoir les données les plus récentes
     if (_localConsumptionsCache.containsKey(bookingId) &&
@@ -1154,5 +1302,12 @@ class StockViewModel extends ChangeNotifier {
         _loadingConsumptions.remove(bookingId);
       }
     });
+  }
+  
+  // Clean up unused subscription when booking is closed
+  void cleanupBookingSubscription(String bookingId) {
+    unsubscribeFromBookingConsumptions(bookingId);
+    _localConsumptionsCache.remove(bookingId);
+    _consumptionsCache.remove(bookingId);
   }
 }
