@@ -34,7 +34,7 @@ jobs:
 
       - name: Deploy to remote server via SCP
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << ENDSSH
             mkdir -p ~/laser-magique-app
           ENDSSH
 
@@ -42,7 +42,7 @@ jobs:
 
       - name: Restart Docker container (optional)
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << ENDSSH
             docker stop laser_web || true
             docker rm laser_web || true
             docker run -d \
