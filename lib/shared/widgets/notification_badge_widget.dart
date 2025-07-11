@@ -26,6 +26,7 @@ class _NotificationBadgeState extends State<NotificationBadge> {
   bool _isLoading = true;
   StreamSubscription? _notificationSubscription;
   Timer? _refreshTimer;
+  RealtimeNotificationService? _realtimeService;
 
   @override
   void initState() {
@@ -36,10 +37,10 @@ class _NotificationBadgeState extends State<NotificationBadge> {
 
   void _setupRealtimeSubscription() {
     // Écouter les changements de notifications via le service realtime
-    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
+    _realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
     
     // Actualiser le badge quand le service change
-    realtimeService.addListener(_onNotificationServiceChanged);
+    _realtimeService?.addListener(_onNotificationServiceChanged);
     
     // Écouter les changements de notifications et statuts de lecture pour mise à jour instantanée
     _subscribeToNotificationChanges();
@@ -92,8 +93,7 @@ class _NotificationBadgeState extends State<NotificationBadge> {
 
   @override
   void dispose() {
-    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
-    realtimeService.removeListener(_onNotificationServiceChanged);
+    _realtimeService?.removeListener(_onNotificationServiceChanged);
     _notificationSubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();
@@ -175,6 +175,7 @@ class _NotificationBadgeIconState extends State<NotificationBadgeIcon> {
   bool _isLoading = true;
   StreamSubscription? _notificationSubscription;
   Timer? _refreshTimer;
+  RealtimeNotificationService? _realtimeService;
 
   @override
   void initState() {
@@ -185,10 +186,10 @@ class _NotificationBadgeIconState extends State<NotificationBadgeIcon> {
 
   void _setupRealtimeSubscription() {
     // Écouter les changements de notifications via le service realtime
-    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
+    _realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
     
     // Actualiser le badge quand le service change
-    realtimeService.addListener(_onNotificationServiceChanged);
+    _realtimeService?.addListener(_onNotificationServiceChanged);
     
     // Écouter les changements de notifications et statuts de lecture pour mise à jour instantanée
     _subscribeToNotificationChanges();
@@ -233,8 +234,7 @@ class _NotificationBadgeIconState extends State<NotificationBadgeIcon> {
 
   @override
   void dispose() {
-    final realtimeService = Provider.of<RealtimeNotificationService>(context, listen: false);
-    realtimeService.removeListener(_onNotificationServiceChanged);
+    _realtimeService?.removeListener(_onNotificationServiceChanged);
     _notificationSubscription?.cancel();
     _refreshTimer?.cancel();
     super.dispose();

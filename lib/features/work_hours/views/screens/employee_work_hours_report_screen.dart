@@ -100,7 +100,10 @@ class _EmployeeWorkHoursReportScreenState
     if (words.length == 1) {
       return words[0].isNotEmpty ? words[0][0].toUpperCase() : '';
     }
-    return words.take(2).map((word) => word.isNotEmpty ? word[0].toUpperCase() : '').join();
+    return words
+        .take(2)
+        .map((word) => word.isNotEmpty ? word[0].toUpperCase() : '')
+        .join();
   }
 
   // Convertir les heures décimales en format heures et minutes (Xh30)
@@ -133,94 +136,88 @@ class _EmployeeWorkHoursReportScreenState
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primaryContainer,
-            colorScheme.primary.withAlpha((255 * 0.7).round()),
-          ],
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withAlpha((255 * 0.1).round()),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Total ${_monthFormat.format(_viewModel.selectedDate)}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onPrimaryContainer,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Total ${_monthFormat.format(_viewModel.selectedDate)}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.onPrimaryContainer.withAlpha(
+                        (255 * 0.2).round(),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _viewModel.isLoading
+                          ? 'Chargement...'
+                          : '${employees.length} employé${employees.length > 1 ? 's' : ''}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.onPrimaryContainer.withAlpha(
-                    (255 * 0.2).round(),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildTotalItem(
+                    icon: Icons.access_time_rounded,
+                    title:
+                        _viewModel.isLoading
+                            ? '---'
+                            : _formatHoursToHourMinutes(totalHours),
+                    subtitle: 'heures',
+                    color: colorScheme.onSurface,
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _viewModel.isLoading
-                      ? 'Chargement...'
-                      : '${employees.length} employé${employees.length > 1 ? 's' : ''}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.onPrimaryContainer,
+                  _buildTotalItem(
+                    icon: Icons.euro_rounded,
+                    title:
+                        _viewModel.isLoading
+                            ? '---'
+                            : '${totalAmount.toStringAsFixed(2)}€',
+                    subtitle: 'payés',
+                    color: colorScheme.onSurface,
                   ),
-                ),
+                  _buildTotalItem(
+                    icon: Icons.calendar_month_rounded,
+                    title: _viewModel.isLoading ? '---' : '$totalDays',
+                    subtitle: 'jours',
+                    color: colorScheme.onSurface,
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildTotalItem(
-                icon: Icons.access_time_rounded,
-                title:
-                    _viewModel.isLoading
-                        ? '---'
-                        : _formatHoursToHourMinutes(totalHours),
-                subtitle: 'heures',
-                color: colorScheme.onPrimaryContainer,
-              ),
-              _buildTotalItem(
-                icon: Icons.euro_rounded,
-                title:
-                    _viewModel.isLoading
-                        ? '---'
-                        : '${totalAmount.toStringAsFixed(2)}€',
-                subtitle: 'payés',
-                color: colorScheme.onPrimaryContainer,
-              ),
-              _buildTotalItem(
-                icon: Icons.calendar_month_rounded,
-                title: _viewModel.isLoading ? '---' : '$totalDays',
-                subtitle: 'jours',
-                color: colorScheme.onPrimaryContainer,
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -240,7 +237,7 @@ class _EmployeeWorkHoursReportScreenState
           title,
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: color,
           ),
         ),
@@ -261,8 +258,14 @@ class _EmployeeWorkHoursReportScreenState
     final colorScheme = theme.colorScheme;
 
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         child: Padding(
@@ -276,12 +279,14 @@ class _EmployeeWorkHoursReportScreenState
                   // Avatar
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: Colors.blue[100],
+                    backgroundColor: colorScheme.primaryContainer.withValues(
+                      alpha: 0.5,
+                    ),
                     child: Text(
                       _getInitials(employee['name'] as String),
                       style: TextStyle(
-                        color: Colors.blue[700],
-                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w600,
                         fontSize: 16,
                       ),
                     ),
@@ -296,7 +301,7 @@ class _EmployeeWorkHoursReportScreenState
                         Text(
                           employee['name'] as String,
                           style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         Row(
@@ -343,14 +348,16 @@ class _EmployeeWorkHoursReportScreenState
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: colorScheme.primary,
+                      color: colorScheme.primaryContainer.withValues(
+                        alpha: 0.5,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${(employee['currentMonthAmount'] as double).toStringAsFixed(2)}€',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onPrimary,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.primary,
                         fontSize: 16,
                       ),
                     ),
@@ -395,7 +402,7 @@ class _EmployeeWorkHoursReportScreenState
                       ),
                       textStyle: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -425,7 +432,7 @@ class _EmployeeWorkHoursReportScreenState
             Text(
               value,
               style: TextStyle(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 fontSize: 16,
                 color: color,
               ),
@@ -561,9 +568,8 @@ class _EmployeeWorkHoursReportScreenState
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       builder:
           (context) => StatefulBuilder(
             builder:
@@ -574,398 +580,544 @@ class _EmployeeWorkHoursReportScreenState
                   expand: false,
                   builder:
                       (context, scrollController) => Container(
-                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withValues(
+                              alpha: 0.2,
+                            ),
+                            width: 1,
+                          ),
+                        ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // En-tête
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundImage: NetworkImage(
-                                    employee['avatarUrl'] as String,
-                                  ),
+                            // Handle bar
+                            Container(
+                              width: 40,
+                              height: 4,
+                              margin: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.outline.withValues(
+                                  alpha: 0.4,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        employee['name'] as String,
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                      ),
-                                      Text(
-                                        'Détails des heures de ${_monthFormat.format(_viewModel.selectedDate)}',
-                                        style: TextStyle(
-                                          color: colorScheme.onSurfaceVariant,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
-                              ],
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
-
-                            Divider(
-                              color: colorScheme.outlineVariant,
-                              height: 24,
-                            ),
-
-                            // Filtres pour les logs
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () async {
-                                      // Ici, on pourrait ajouter un sélecteur de plage de dates
-                                      // pour filtrer les logs
-                                      final DateTime? picked =
-                                          await showDatePicker(
-                                            context: context,
-                                            initialDate:
-                                                _viewModel.selectedDate,
-                                            firstDate: DateTime(2020),
-                                            lastDate: DateTime(2030),
-                                            locale: const Locale('fr', 'FR'),
-                                          );
-                                      if (picked != null &&
-                                          picked != _viewModel.selectedDate) {
-                                        setState(() {
-                                          isLoading = true;
-                                        });
-                                        await _viewModel.setSelectedDate(
-                                          picked,
-                                        );
-                                        await loadEmployeeLogs();
-                                        setState(() {});
-                                      }
-                                    },
-                                    icon: const Icon(
-                                      Icons.date_range,
-                                      size: 18,
-                                    ),
-                                    label: const Text('Changer de mois'),
-                                    style: OutlinedButton.styleFrom(
-                                      side: BorderSide(
-                                        color: colorScheme.outlineVariant,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Builder(
-                                  builder:
-                                      (context) => IconButton(
-                                        icon: const Icon(Icons.picture_as_pdf),
-                                        tooltip: 'Exporter en PDF',
-                                        onPressed: () async {
-                                          // Générer un PDF avec les logs
-                                          if (logs.isNotEmpty) {
-                                            final RenderBox box =
-                                                context.findRenderObject()
-                                                    as RenderBox;
-                                            final Offset position = box
-                                                .localToGlobal(Offset.zero);
-                                            _generateEmployeeLogsPdf(
-                                              employee,
-                                              logs,
-                                              Rect.fromLTWH(
-                                                position.dx,
-                                                position.dy,
-                                                box.size.width,
-                                                box.size.height,
-                                              ),
-                                            );
-                                          } else {
-                                            await showDialog(
-                                              context: context,
-                                              builder: (context) => CustomErrorDialog(
-                                                title: 'Exportation impossible',
-                                                content: 'Aucune donnée à exporter',
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        style: IconButton.styleFrom(
-                                          backgroundColor:
-                                              colorScheme
-                                                  .surfaceContainerHighest,
-                                          foregroundColor:
-                                              colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Liste des logs
                             Expanded(
-                              child:
-                                  isLoading
-                                      ? Center(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            CircularProgressIndicator(),
-                                            const SizedBox(height: 16),
-                                            Text(
-                                              'Chargement des heures travaillées...',
-                                              style: TextStyle(
-                                                color:
-                                                    colorScheme
-                                                        .onSurfaceVariant,
-                                              ),
-                                            ),
-                                          ],
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  16,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // En-tête
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundImage:
+                                              employee['avatarUrl'] != null
+                                                  ? NetworkImage(
+                                                    employee['avatarUrl']
+                                                        as String,
+                                                  )
+                                                  : null,
+                                          child:
+                                              employee['avatarUrl'] == null
+                                                  ? Text(
+                                                    (employee['name'] as String)
+                                                        .split(' ')
+                                                        .map(
+                                                          (word) =>
+                                                              word.isNotEmpty
+                                                                  ? word[0]
+                                                                  : '',
+                                                        )
+                                                        .take(2)
+                                                        .join()
+                                                        .toUpperCase(),
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  )
+                                                  : null,
                                         ),
-                                      )
-                                      : errorMessage != null
-                                      ? Center(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.error_outline,
-                                              size: 64,
-                                              color: colorScheme.error,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            Text(
-                                              errorMessage!,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color:
-                                                    colorScheme
-                                                        .onSurfaceVariant,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                employee['name'] as String,
+                                                style: theme
+                                                    .textTheme
+                                                    .titleMedium
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
                                               ),
-                                            ),
-                                            const SizedBox(height: 16),
-                                            ElevatedButton(
-                                              onPressed: () {
+                                              Text(
+                                                'Détails des heures de ${_monthFormat.format(_viewModel.selectedDate)}',
+                                                style: TextStyle(
+                                                  color:
+                                                      colorScheme
+                                                          .onSurfaceVariant,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.close),
+                                          onPressed:
+                                              () => Navigator.pop(context),
+                                        ),
+                                      ],
+                                    ),
+
+                                    Divider(
+                                      color: colorScheme.outlineVariant,
+                                      height: 24,
+                                    ),
+
+                                    // Filtres pour les logs
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: () async {
+                                              // Ici, on pourrait ajouter un sélecteur de plage de dates
+                                              // pour filtrer les logs
+                                              final DateTime? picked =
+                                                  await showDatePicker(
+                                                    context: context,
+                                                    initialDate:
+                                                        _viewModel.selectedDate,
+                                                    firstDate: DateTime(2020),
+                                                    lastDate: DateTime(2030),
+                                                    locale: const Locale(
+                                                      'fr',
+                                                      'FR',
+                                                    ),
+                                                  );
+                                              if (picked != null &&
+                                                  picked !=
+                                                      _viewModel.selectedDate) {
                                                 setState(() {
                                                   isLoading = true;
                                                 });
-                                                loadEmployeeLogs();
-                                              },
-                                              child: const Text('Réessayer'),
+                                                await _viewModel
+                                                    .setSelectedDate(picked);
+                                                await loadEmployeeLogs();
+                                                setState(() {});
+                                              }
+                                            },
+                                            icon: const Icon(
+                                              Icons.date_range,
+                                              size: 18,
                                             ),
-                                          ],
-                                        ),
-                                      )
-                                      : logs.isEmpty
-                                      ? Center(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.event_busy_rounded,
-                                              size: 64,
-                                              color: colorScheme
-                                                  .onSurfaceVariant
-                                                  .withAlpha(
-                                                    (255 * 0.5).round(),
-                                                  ),
+                                            label: const Text(
+                                              'Changer de mois',
                                             ),
-                                            const SizedBox(height: 16),
-                                            Text(
-                                              'Aucun log trouvé pour ${_monthFormat.format(_viewModel.selectedDate)}',
-                                              style: theme.textTheme.titleMedium
-                                                  ?.copyWith(
-                                                    color:
-                                                        colorScheme
-                                                            .onSurfaceVariant,
-                                                  ),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                      : ListView.separated(
-                                        controller: scrollController,
-                                        itemCount: logs.length,
-                                        separatorBuilder:
-                                            (context, index) =>
-                                                const SizedBox(height: 4),
-                                        itemBuilder: (context, index) {
-                                          final log = logs[index];
-                                          return Card(
-                                            margin: const EdgeInsets.symmetric(
-                                              vertical: 4,
-                                              horizontal: 2,
-                                            ),
-                                            elevation: 0,
-                                            color: const Color(0xFFF5F8FF),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                            ),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 8.0,
-                                                    horizontal: 10.0,
-                                                  ),
-                                              child: Row(
-                                                children: [
-                                                  // Date dans un container légèrement arrondi
-                                                  Container(
-                                                    width: 90,
-                                                    height: 50,
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                          color: Color(
-                                                            0xFFEDF2FF,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius.all(
-                                                                Radius.circular(
-                                                                  12,
-                                                                ),
-                                                              ),
-                                                        ),
-                                                    child: Center(
-                                                      child: Text(
-                                                        log['date'],
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 14,
-                                                          color: Color(
-                                                            0xFF2C3248,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-
-                                                  // Heures et durée
-                                                  Expanded(
-                                                    child: Row(
-                                                      children: [
-                                                        // Icône et heures
-                                                        Row(
-                                                          children: [
-                                                            const Icon(
-                                                              Icons
-                                                                  .access_time_rounded,
-                                                              size: 18,
-                                                              color: Color(
-                                                                0xFF6C70A7,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 4,
-                                                            ),
-                                                            Text(
-                                                              '${log['startTime']} - ${log['endTime']}',
-                                                              style: const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                                fontSize: 15,
-                                                                color: Color(
-                                                                  0xFF2C3248,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-
-                                                        const Spacer(),
-
-                                                        // Badge pour la durée
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                horizontal: 10,
-                                                                vertical: 3,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: const Color(
-                                                              0xFFE6E6FC,
-                                                            ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                          ),
-                                                          child: Text(
-                                                            _formatHoursToHourMinutes(
-                                                              log['hours'],
-                                                            ),
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 18,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  color: Color(
-                                                                    0xFF6465A5,
-                                                                  ),
-                                                                ),
-                                                          ),
-                                                        ),
-
-                                                        // Badge pour le montant journalier
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                horizontal: 10,
-                                                                vertical: 3,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            color: const Color(
-                                                              0xFFEBF9ED,
-                                                            ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                          ),
-                                                          child: Text(
-                                                            '${log['amount'].toStringAsFixed(2)}€',
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 16,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  color: Color(
-                                                                    0xFF2E7D32,
-                                                                  ),
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
+                                            style: OutlinedButton.styleFrom(
+                                              side: BorderSide(
+                                                color:
+                                                    colorScheme.outlineVariant,
                                               ),
                                             ),
-                                          );
-                                        },
-                                      ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Builder(
+                                          builder:
+                                              (context) => IconButton(
+                                                icon: const Icon(
+                                                  Icons.picture_as_pdf,
+                                                ),
+                                                tooltip: 'Exporter en PDF',
+                                                onPressed: () async {
+                                                  // Générer un PDF avec les logs
+                                                  if (logs.isNotEmpty) {
+                                                    final RenderBox box =
+                                                        context.findRenderObject()
+                                                            as RenderBox;
+                                                    final Offset position = box
+                                                        .localToGlobal(
+                                                          Offset.zero,
+                                                        );
+                                                    _generateEmployeeLogsPdf(
+                                                      employee,
+                                                      logs,
+                                                      Rect.fromLTWH(
+                                                        position.dx,
+                                                        position.dy,
+                                                        box.size.width,
+                                                        box.size.height,
+                                                      ),
+                                                    );
+                                                  } else {
+                                                    await showDialog(
+                                                      context: context,
+                                                      builder:
+                                                          (
+                                                            context,
+                                                          ) => CustomErrorDialog(
+                                                            title:
+                                                                'Exportation impossible',
+                                                            content:
+                                                                'Aucune donnée à exporter',
+                                                          ),
+                                                    );
+                                                  }
+                                                },
+                                                style: IconButton.styleFrom(
+                                                  backgroundColor:
+                                                      colorScheme
+                                                          .surfaceContainerHighest,
+                                                  foregroundColor:
+                                                      colorScheme
+                                                          .onSurfaceVariant,
+                                                ),
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    // Liste des logs
+                                    Expanded(
+                                      child:
+                                          isLoading
+                                              ? Center(
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    CircularProgressIndicator(),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      'Chargement des heures travaillées...',
+                                                      style: TextStyle(
+                                                        color:
+                                                            colorScheme
+                                                                .onSurfaceVariant,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                              : errorMessage != null
+                                              ? Center(
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.error_outline,
+                                                      size: 64,
+                                                      color: colorScheme.error,
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      errorMessage!,
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: TextStyle(
+                                                        color:
+                                                            colorScheme
+                                                                .onSurfaceVariant,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    ElevatedButton(
+                                                      onPressed: () {
+                                                        setState(() {
+                                                          isLoading = true;
+                                                        });
+                                                        loadEmployeeLogs();
+                                                      },
+                                                      child: const Text(
+                                                        'Réessayer',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                              : logs.isEmpty
+                                              ? Center(
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.event_busy_rounded,
+                                                      size: 64,
+                                                      color: colorScheme
+                                                          .onSurfaceVariant
+                                                          .withAlpha(
+                                                            (255 * 0.5).round(),
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                      'Aucun log trouvé pour ${_monthFormat.format(_viewModel.selectedDate)}',
+                                                      style: theme
+                                                          .textTheme
+                                                          .titleMedium
+                                                          ?.copyWith(
+                                                            color:
+                                                                colorScheme
+                                                                    .onSurfaceVariant,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                              : ListView.separated(
+                                                controller: scrollController,
+                                                itemCount: logs.length,
+                                                separatorBuilder:
+                                                    (context, index) =>
+                                                        const SizedBox(
+                                                          height: 4,
+                                                        ),
+                                                itemBuilder: (context, index) {
+                                                  final log = logs[index];
+                                                  return Card(
+                                                    margin:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 8,
+                                                          horizontal: 0,
+                                                        ),
+                                                    elevation: 0,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            16,
+                                                          ),
+                                                      side: BorderSide(
+                                                        color: theme
+                                                            .colorScheme
+                                                            .outlineVariant
+                                                            .withValues(
+                                                              alpha: 0.3,
+                                                            ),
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            16,
+                                                          ),
+                                                      child: Row(
+                                                        children: [
+                                                          // Date dans un container légèrement arrondi
+                                                          Container(
+                                                            width: 90,
+                                                            height: 50,
+                                                            decoration: BoxDecoration(
+                                                              color: theme
+                                                                  .colorScheme
+                                                                  .primary
+                                                                  .withValues(
+                                                                    alpha: 0.1,
+                                                                  ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .primary
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.2,
+                                                                    ),
+                                                                width: 1,
+                                                              ),
+                                                            ),
+                                                            child: Center(
+                                                              child: Text(
+                                                                log['date'],
+                                                                textAlign:
+                                                                    TextAlign
+                                                                        .center,
+                                                                style: theme
+                                                                    .textTheme
+                                                                    .labelLarge
+                                                                    ?.copyWith(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                      color:
+                                                                          theme
+                                                                              .colorScheme
+                                                                              .primary,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 16,
+                                                          ),
+
+                                                          // Heures et durée
+                                                          Expanded(
+                                                            child: Row(
+                                                              children: [
+                                                                // Icône et heures
+                                                                Row(
+                                                                  children: [
+                                                                    Icon(
+                                                                      Icons
+                                                                          .access_time_rounded,
+                                                                      size: 18,
+                                                                      color:
+                                                                          theme
+                                                                              .colorScheme
+                                                                              .primary,
+                                                                    ),
+                                                                    const SizedBox(
+                                                                      width: 8,
+                                                                    ),
+                                                                    Text(
+                                                                      '${log['startTime']} - ${log['endTime']}',
+                                                                      style: theme
+                                                                          .textTheme
+                                                                          .bodyMedium
+                                                                          ?.copyWith(
+                                                                            fontWeight:
+                                                                                FontWeight.w500,
+                                                                            color:
+                                                                                theme.colorScheme.onSurface,
+                                                                          ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+
+                                                                const Spacer(),
+
+                                                                // Badge pour la durée
+                                                                Container(
+                                                                  padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            10,
+                                                                        vertical:
+                                                                            3,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: theme
+                                                                        .colorScheme
+                                                                        .primary
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.15,
+                                                                        ),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          12,
+                                                                        ),
+                                                                    border: Border.all(
+                                                                      color: theme
+                                                                          .colorScheme
+                                                                          .primary
+                                                                          .withValues(
+                                                                            alpha:
+                                                                                0.3,
+                                                                          ),
+                                                                      width: 1,
+                                                                    ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    _formatHoursToHourMinutes(
+                                                                      log['hours'],
+                                                                    ),
+                                                                    style: theme
+                                                                        .textTheme
+                                                                        .titleSmall
+                                                                        ?.copyWith(
+                                                                          fontWeight:
+                                                                              FontWeight.w600,
+                                                                          color:
+                                                                              theme.colorScheme.primary,
+                                                                        ),
+                                                                  ),
+                                                                ),
+
+                                                                // Badge pour le montant journalier
+                                                                const SizedBox(
+                                                                  width: 8,
+                                                                ),
+                                                                Container(
+                                                                  padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            10,
+                                                                        vertical:
+                                                                            3,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: colorScheme
+                                                                        .tertiaryContainer
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.3,
+                                                                        ),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          12,
+                                                                        ),
+                                                                    border: Border.all(
+                                                                      color: colorScheme
+                                                                          .tertiary
+                                                                          .withValues(
+                                                                            alpha:
+                                                                                0.3,
+                                                                          ),
+                                                                      width: 1,
+                                                                    ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    '${log['amount'].toStringAsFixed(2)}€',
+                                                                    style: theme
+                                                                        .textTheme
+                                                                        .labelLarge
+                                                                        ?.copyWith(
+                                                                          fontWeight:
+                                                                              FontWeight.w600,
+                                                                          color:
+                                                                              colorScheme.tertiary,
+                                                                        ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -996,7 +1148,7 @@ class _EmployeeWorkHoursReportScreenState
             ),
           ),
           backgroundColor: Theme.of(context).colorScheme.surface,
-          elevation: 0,
+          elevation: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 24.0,
@@ -1241,7 +1393,8 @@ class _EmployeeWorkHoursReportScreenState
                 ),
               ),
               backgroundColor: Theme.of(context).colorScheme.surface,
-              elevation: 0,
+              elevation:
+                  Theme.of(context).brightness == Brightness.dark ? 1 : 2,
               titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
               title: Row(
                 children: [
@@ -1268,6 +1421,14 @@ class _EmployeeWorkHoursReportScreenState
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
+                  ),
+                  const SizedBox(width: 24),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ],
               ),
@@ -1355,24 +1516,8 @@ class _EmployeeWorkHoursReportScreenState
               ),
               actions: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      style: TextButton.styleFrom(
-                        foregroundColor:
-                            Theme.of(context).colorScheme.onSurfaceVariant,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      label: const Text('Fermer'),
-                    ),
-                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.share_rounded, size: 18),
                       style: ElevatedButton.styleFrom(
@@ -1422,12 +1567,41 @@ class _EmployeeWorkHoursReportScreenState
                             barrierDismissible: false,
                             builder: (BuildContext context) {
                               return AlertDialog(
-                                content: Row(
-                                  children: [
-                                    CircularProgressIndicator(),
-                                    SizedBox(width: 16),
-                                    Text("Enregistrement en cours..."),
-                                  ],
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(
+                                    color: Theme.of(context).colorScheme.outline
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                ),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.surface,
+                                elevation:
+                                    Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? 1
+                                        : 2,
+                                content: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Text(
+                                        "Enregistrement en cours...",
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodyMedium,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             },
@@ -1447,31 +1621,39 @@ class _EmployeeWorkHoursReportScreenState
                             // Afficher un message de confirmation avec un bouton pour prévisualiser
                             await showDialog(
                               context: context,
-                              builder: (context) => CustomDialog(
-                                title: 'PDF enregistré',
-                                titleIcon: Icon(
-                                  Icons.check_circle,
-                                  color: Colors.green,
-                                ),
-                                content: Text('PDF enregistré avec succès dans ${file.path}'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    child: const Text('Fermer'),
+                              builder:
+                                  (context) => CustomDialog(
+                                    title: 'PDF enregistré',
+                                    titleIcon: Icon(
+                                      Icons.check_circle,
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.tertiary,
+                                    ),
+                                    content: Text(
+                                      'PDF enregistré avec succès dans ${file.path}',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed:
+                                            () => Navigator.of(context).pop(),
+                                        child: const Text('Fermer'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          Printing.layoutPdf(
+                                            onLayout:
+                                                (PdfPageFormat format) async =>
+                                                    await file.readAsBytes(),
+                                            name: fileName,
+                                          );
+                                        },
+                                        child: const Text('Aperçu'),
+                                      ),
+                                    ],
                                   ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                      Printing.layoutPdf(
-                                        onLayout: (PdfPageFormat format) async =>
-                                            await file.readAsBytes(),
-                                        name: fileName,
-                                      );
-                                    },
-                                    child: const Text('Aperçu'),
-                                  ),
-                                ],
-                              ),
                             );
                           }
                         } catch (e) {
@@ -1481,10 +1663,12 @@ class _EmployeeWorkHoursReportScreenState
                             ).pop(); // Fermer le dialogue de chargement
                             await showDialog(
                               context: context,
-                              builder: (context) => CustomErrorDialog(
-                                title: 'Erreur d\'enregistrement',
-                                content: 'Erreur lors de l\'enregistrement: $e',
-                              ),
+                              builder:
+                                  (context) => CustomErrorDialog(
+                                    title: 'Erreur d\'enregistrement',
+                                    content:
+                                        'Erreur lors de l\'enregistrement: $e',
+                                  ),
                             );
                           }
                         }
@@ -1520,7 +1704,8 @@ class _EmployeeWorkHoursReportScreenState
                 ),
               ),
               backgroundColor: Theme.of(context).colorScheme.surface,
-              elevation: 0,
+              elevation:
+                  Theme.of(context).brightness == Brightness.dark ? 1 : 2,
               titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
               title: Row(
                 children: [
@@ -1680,9 +1865,10 @@ class _EmployeeWorkHoursReportScreenState
           SliverAppBar(
             pinned: true,
             floating: true,
-            expandedHeight: 120,
-            backgroundColor: colorScheme.surface,
-            scrolledUnderElevation: 0,
+            expandedHeight: 140,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
             title:
                 _isSearching
                     ? TextField(
@@ -1738,74 +1924,85 @@ class _EmployeeWorkHoursReportScreenState
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 alignment: Alignment.bottomCenter,
-                padding: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withAlpha((255 * 0.1).round()),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left),
-                      onPressed: () async {
-                        final currentDate = _viewModel.selectedDate;
-                        final newDate = DateTime(
-                          currentDate.year,
-                          currentDate.month - 1,
-                          1,
-                        );
-                        await _viewModel.setSelectedDate(newDate);
-                        setState(() {});
-                      },
+                padding: const EdgeInsets.only(bottom: 16, top: 80),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.3,
                     ),
-                    GestureDetector(
-                      onTap: () async {
-                        // Afficher un sélecteur de date
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: _viewModel.selectedDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                          locale: const Locale('fr', 'FR'),
-                        );
-                        if (picked != null &&
-                            picked != _viewModel.selectedDate) {
-                          await _viewModel.setSelectedDate(picked);
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        onPressed: () async {
+                          final currentDate = _viewModel.selectedDate;
+                          final newDate = DateTime(
+                            currentDate.year,
+                            currentDate.month - 1,
+                            1,
+                          );
+                          await _viewModel.setSelectedDate(newDate);
                           setState(() {});
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _monthFormat.format(_viewModel.selectedDate),
-                          style: TextStyle(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w600,
+                        },
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          // Afficher un sélecteur de date
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: _viewModel.selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                            locale: const Locale('fr', 'FR'),
+                          );
+                          if (picked != null &&
+                              picked != _viewModel.selectedDate) {
+                            await _viewModel.setSelectedDate(picked);
+                            setState(() {});
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            _monthFormat.format(_viewModel.selectedDate),
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right),
-                      onPressed: () async {
-                        final currentDate = _viewModel.selectedDate;
-                        final newDate = DateTime(
-                          currentDate.year,
-                          currentDate.month + 1,
-                          1,
-                        );
-                        await _viewModel.setSelectedDate(newDate);
-                        setState(() {});
-                      },
-                    ),
-                  ],
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: () async {
+                          final currentDate = _viewModel.selectedDate;
+                          final newDate = DateTime(
+                            currentDate.year,
+                            currentDate.month + 1,
+                            1,
+                          );
+                          await _viewModel.setSelectedDate(newDate);
+                          setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1826,107 +2023,113 @@ class _EmployeeWorkHoursReportScreenState
           ),
 
           // Indicateur de chargement
-          if (_viewModel.isLoading)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32.0),
+          _viewModel.isLoading
+              ? const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32.0),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text(
+                          'Chargement des données...',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+              : const SliverToBoxAdapter(child: SizedBox.shrink()),
+
+          // Message d'erreur
+          !_viewModel.isLoading && _viewModel.errorMessage != null
+              ? SliverFillRemaining(
                 child: Center(
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
+                      Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: colorScheme.error,
+                      ),
+                      const SizedBox(height: 16),
                       Text(
-                        'Chargement des données...',
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                        'Erreur',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          _viewModel.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => _viewModel.loadEmployeeData(),
+                        child: const Text('Réessayer'),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
-
-          // Message d'erreur
-          if (!_viewModel.isLoading && _viewModel.errorMessage != null)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: colorScheme.error,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Erreur',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: colorScheme.error,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        _viewModel.errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => _viewModel.loadEmployeeData(),
-                      child: const Text('Réessayer'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+              )
+              : const SliverToBoxAdapter(child: SizedBox.shrink()),
 
           // Liste des employés
-          if (!_viewModel.isLoading && _viewModel.errorMessage == null)
-            SliverPadding(
-              padding: const EdgeInsets.only(bottom: 80),
-              sliver:
-                  employees.isEmpty
-                      ? SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.person_search_rounded,
-                                size: 64,
-                                color: colorScheme.onSurfaceVariant.withAlpha(
-                                  (255 * 0.5).round(),
+          !_viewModel.isLoading && _viewModel.errorMessage == null
+              ? SliverPadding(
+                padding: const EdgeInsets.only(bottom: 80),
+                sliver:
+                    employees.isEmpty
+                        ? SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.person_search_rounded,
+                                  size: 64,
+                                  color: colorScheme.onSurfaceVariant.withAlpha(
+                                    (255 * 0.5).round(),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Aucun employé trouvé',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Aucun employé trouvé',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                      : SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final employee = employees[index];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 8.0,
+                              ],
                             ),
-                            child: _buildEmployeeCard(employee),
-                          );
-                        }, childCount: employees.length),
-                      ),
-            ),
+                          ),
+                        )
+                        : SliverList(
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final employee = employees[index];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                                vertical: 8.0,
+                              ),
+                              child: _buildEmployeeCard(employee),
+                            );
+                          }, childCount: employees.length),
+                        ),
+              )
+              : const SliverToBoxAdapter(child: SizedBox.shrink()),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -1935,10 +2138,12 @@ class _EmployeeWorkHoursReportScreenState
           setState(() {});
         },
         icon: const Icon(Icons.today_rounded),
-        label: const Text('Mois actuel'),
-        elevation: 2,
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
+        label: const Text(
+          'Mois actuel',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }

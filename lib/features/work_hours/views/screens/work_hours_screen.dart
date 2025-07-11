@@ -208,9 +208,8 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                         ? colorScheme.primary.withAlpha(
                                           (255 * 0.15).round(),
                                         )
-                                        : colorScheme.surfaceContainerHighest.withAlpha(
-                                          (255 * 0.5).round(),
-                                        ),
+                                        : colorScheme.surfaceContainerHighest
+                                            .withAlpha((255 * 0.5).round()),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
@@ -283,7 +282,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                           child: Row(
                             children: [
                               Container(
-                                width: 32,
+                                width: 40,
                                 height: 4,
                                 decoration: BoxDecoration(
                                   color:
@@ -292,7 +291,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                             (255 * 0.3).round(),
                                           )
                                           : colorScheme.surfaceContainerHighest
-                                              .withAlpha((255 * 0.3).round()),
+                                              .withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
@@ -418,13 +417,17 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     Icon(
                       Icons.calendar_today_outlined,
                       size: 48,
-                      color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.5).round()),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.5,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Aucune journée ce mois-ci',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -527,7 +530,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                     decoration: BoxDecoration(
                       color:
                           isRecent
-                              ? colorScheme.primary.withAlpha((255 * 0.15).round())
+                              ? colorScheme.primary.withValues(alpha: 0.15)
                               : colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -581,7 +584,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                         decoration: BoxDecoration(
                           color:
                               isRecent
-                                  ? colorScheme.primary.withAlpha((255 * 0.15).round())
+                                  ? colorScheme.primary.withValues(alpha: 0.15)
                                   : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -621,7 +624,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: colorScheme.primary.withAlpha((255 * 0.1).round()),
+                          color: colorScheme.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -698,49 +701,29 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
       enableDrag: true,
-      transitionAnimationController: AnimationController(
-        vsync: Navigator.of(context),
-        duration: const Duration(milliseconds: 300),
-      ),
+      useRootNavigator: true,
       builder:
-          (context) => DraggableScrollableSheet(
-            initialChildSize: 0.7,
-            maxChildSize: 0.9,
-            minChildSize:
-                0.2, // Réduit pour permettre une fermeture plus intuitive
-            snap: true,
-            snapSizes: const [0.2, 0.7, 0.9],
-            builder: (context, scrollController) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(26), // ~0.1 opacity
-                      blurRadius: 10,
-                      spreadRadius: 0,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: WorkDayEditSheet(
-                  title: 'Nouveau jour',
-                  workDay: workDay,
-                  scrollController: scrollController,
-                  onSave: (updatedWorkDay) async {
-                    // Animation de succès avant de fermer
-                    await _showSuccessAndClose(context, () async {
-                      await profileVM.addWorkDay(updatedWorkDay);
-                    });
-                  },
-                ),
-              );
-            },
+          (context) => Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            child: WorkDayEditSheet(
+              title: 'Nouveau jour',
+              workDay: workDay,
+              onSave: (updatedWorkDay) async {
+                await profileVM.addWorkDay(updatedWorkDay);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+            ),
           ),
     );
   }
@@ -753,38 +736,35 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      useRootNavigator: true,
       builder:
-          (context) => DraggableScrollableSheet(
-            initialChildSize: 0.7,
-            maxChildSize: 0.9,
-            minChildSize: 0.5,
-            builder: (context, scrollController) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: WorkDayEditSheet(
-                  title: 'Modifier le jour',
-                  workDay: workDay,
-                  onSave: (updatedWorkDay) async {
-                    await profileVM.updateWorkDay(updatedWorkDay);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  onDelete: () async {
-                    await profileVM.deleteWorkDay(workDay.id);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                ),
-              );
-            },
+          (context) => Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            child: WorkDayEditSheet(
+              title: 'Modifier le jour',
+              workDay: workDay,
+              onSave: (updatedWorkDay) async {
+                await profileVM.updateWorkDay(updatedWorkDay);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+              onDelete: () async {
+                await profileVM.deleteWorkDay(workDay.id);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
+            ),
           ),
     );
   }
@@ -796,46 +776,6 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
         builder: (context) => const EmployeeWorkHoursReportScreen(),
       ),
     );
-  }
-
-  // Méthode pour afficher une animation de succès avant de fermer le modal
-  Future<void> _showSuccessAndClose(
-    BuildContext context,
-    Future<void> Function() action,
-  ) async {
-    try {
-      // Exécuter l'action (comme sauvegarder)
-      await action();
-
-      if (!context.mounted) return;
-
-      // Afficher une animation de succès
-      showDialog(
-        context: context,
-        builder: (context) => CustomSuccessDialog(
-          title: 'Succès',
-          content: 'Enregistré avec succès !',
-          autoClose: true,
-          autoCloseDuration: const Duration(seconds: 2),
-        ),
-      );
-
-      // Fermer le modal avec une animation
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (!context.mounted) return;
-
-      // Afficher une erreur si quelque chose ne va pas
-      showDialog(
-        context: context,
-        builder: (context) => CustomErrorDialog(
-          title: 'Erreur',
-          content: 'Erreur: $e',
-        ),
-      );
-    }
   }
 
   @override
@@ -861,7 +801,7 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
               if (profileVM.role == UserRole.admin)
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: IconButton.filledTonal(
+                  child: IconButton(
                     icon: const Icon(
                       Icons.admin_panel_settings_rounded,
                       size: 20,
@@ -1065,122 +1005,114 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  colorScheme.primary.withAlpha(179), // ~0.7 opacity
-                  colorScheme.primary,
-                ],
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                width: 1,
               ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withAlpha(26), // ~0.1 opacity
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha((255 * 0.2).round()),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.timer_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Total du mois',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(51), // ~0.2 opacity
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        formatHoursToHourMinutes(totalHours),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.timer_rounded,
+                          color: colorScheme.primary,
+                          size: 20,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Montant gagné',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withAlpha((255 * 0.8).round()),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${totalAmount.toStringAsFixed(2)} €',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 12),
+                      Text(
+                        'Total du mois',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha((255 * 0.2).round()),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.timer_rounded,
-                            color: Colors.white,
-                            size: 16,
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          formatHoursToHourMinutes(totalHours),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Taux: ${profileVM.hourlyRate.toStringAsFixed(2)} €/h',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Montant gagné',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              '${totalAmount.toStringAsFixed(2)} €',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.payments_rounded,
+                              color: colorScheme.tertiary,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Taux: ${profileVM.hourlyRate.toStringAsFixed(2)} €/h',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1333,7 +1265,9 @@ class _WorkHoursScreenState extends State<WorkHoursScreen> {
                                     isToday
                                         ? colorScheme.primary
                                         : hours > 0
-                                        ? colorScheme.primary.withAlpha((255 * 0.6).round())
+                                        ? colorScheme.primary.withValues(
+                                          alpha: 0.6,
+                                        )
                                         : colorScheme.surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -1770,81 +1704,84 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 8),
+            // Drag handle
             Center(
               child: Container(
-                width: 32,
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withAlpha(
-                    (255 * 0.4).round(),
-                  ),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            // Header with title and delete button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(4),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(
-                    Icons.calendar_month_rounded,
-                    color: colorScheme.primary,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_month_rounded,
+                        color: colorScheme.primary,
+                        size: 24,
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Text(
+                        widget.title,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                  if (widget.onDelete != null)
-                    IconButton(
-                      onPressed: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder:
-                              (context) => AlertDialog(
-                                title: const Text('Supprimer ce jour ?'),
-                                content: const Text(
-                                  'Cette action est irréversible. Voulez-vous vraiment supprimer cette entrée ?',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed:
-                                        () => Navigator.of(context).pop(false),
-                                    child: const Text('Annuler'),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.onDelete != null)
+                        IconButton(
+                          onPressed: () async {
+                            showDialog(
+                              context: context,
+                              builder:
+                                  (context) => CustomConfirmDialog(
+                                    title: 'Supprimer ce jour ?',
+                                    content:
+                                        'Cette action est irréversible. Voulez-vous vraiment supprimer cette entrée ?',
+                                    confirmText: 'SUPPRIMER',
+                                    cancelText: 'ANNULER',
+                                    icon: Icons.delete_forever,
+                                    iconColor: colorScheme.error,
+                                    confirmColor: colorScheme.error,
+                                    onConfirm: () {
+                                      Navigator.of(context).pop();
+                                      widget.onDelete!();
+                                    },
+                                    onCancel: () => Navigator.of(context).pop(),
                                   ),
-                                  TextButton(
-                                    onPressed:
-                                        () => Navigator.of(context).pop(true),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: colorScheme.error,
-                                    ),
-                                    child: const Text('Supprimer'),
-                                  ),
-                                ],
-                              ),
-                        );
-                        if (confirmed == true) {
-                          widget.onDelete!();
-                        }
-                      },
-                      icon: const Icon(Icons.delete_outline_rounded),
-                      color: colorScheme.error,
-                    ),
+                            );
+                          },
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          color: colorScheme.error,
+                          tooltip: 'Supprimer',
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(context).pop(),
+                        tooltip: 'Fermer',
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -2069,7 +2006,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: colorScheme.surfaceContainerHighest
-                                    .withAlpha((255 * 0.3).round()),
+                                    .withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               padding: const EdgeInsets.symmetric(
@@ -2119,7 +2056,7 @@ class _WorkDayEditSheetState extends State<WorkDayEditSheet> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: colorScheme.surfaceContainerHighest
-                                    .withAlpha((255 * 0.3).round()),
+                                    .withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               padding: const EdgeInsets.symmetric(
