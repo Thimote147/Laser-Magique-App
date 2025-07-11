@@ -32,17 +32,24 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web
 
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
       - name: Deploy to remote server via SCP
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << ENDSSH
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
             mkdir -p ~/laser-magique-app
           ENDSSH
 
-          scp -o StrictHostKeyChecking=no -r build/web/* ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/laser-magique-app/
+          scp -r build/web/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/laser-magique-app/
 
-      - name: Restart Docker container (optional)
+      - name: Restart Docker container
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << ENDSSH
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
             docker stop laser_web || true
             docker rm laser_web || true
             docker run -d \
