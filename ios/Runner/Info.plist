@@ -31,6 +31,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>MinimumOSVersion</key>
+	<string>13.0</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -46,5 +48,19 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Cette app utilise le réseau local pour se connecter aux services Supabase et Firebase.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_supabase._tcp</string>
+		<string>_firebase._tcp</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Cette app utilise les notifications pour vous informer des réservations et événements importants.</string>
 </dict>
 </plist>

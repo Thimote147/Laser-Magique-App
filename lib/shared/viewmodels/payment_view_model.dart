@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../features/booking/models/booking_model.dart';
 import '../models/payment_model.dart';
@@ -8,13 +9,24 @@ class PaymentViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   final Map<String, List<Payment>> _bookingPayments = {};
+  final Map<String, StreamSubscription> _paymentSubscriptions = {};
 
   bool get isLoading => _isLoading;
   String? get error => _error;
+  
+  @override
+  void dispose() {
+    for (final subscription in _paymentSubscriptions.values) {
+      subscription.cancel();
+    }
+    _repository.dispose();
+    super.dispose();
+  }
 
   // Récupère les paiements d'une réservation et souscrit aux mises à jour
   void initializeForBooking(String bookingId) {
-    _repository
+    _paymentSubscriptions[bookingId]?.cancel();
+    _paymentSubscriptions[bookingId] = _repository
         .getPaymentsStream(bookingId)
         .listen(
           (payments) {

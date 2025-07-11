@@ -3,14 +3,16 @@ import 'package:provider/provider.dart';
 
 import '../../models/booking_model.dart';
 import '../../../../shared/viewmodels/activity_formula_view_model.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 import '../../viewmodels/booking_edit_viewmodel.dart';
 import '../widgets/booking_form_widget.dart';
 import '../functions/booking_functions.dart';
 
 class BookingEditScreen extends StatelessWidget {
   final Booking? booking;
+  final DateTime? initialDate;
 
-  const BookingEditScreen({super.key, this.booking});
+  const BookingEditScreen({super.key, this.booking, this.initialDate});
 
   @override
   Widget build(BuildContext context) {
@@ -33,9 +35,13 @@ class BookingEditScreen extends StatelessWidget {
                   onPressed: () {
                     final error = viewModel.validate();
                     if (error != null) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(error)));
+                      showDialog(
+                        context: context,
+                        builder: (context) => CustomErrorDialog(
+                          title: 'Erreur de validation',
+                          content: error,
+                        ),
+                      );
                       return;
                     }
                     viewModel.save();
@@ -45,7 +51,10 @@ class BookingEditScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: BookingFormWidget(booking: booking),
+            body: BookingFormWidget(
+              booking: booking,
+              initialDate: initialDate,
+            ),
           );
         },
       ),

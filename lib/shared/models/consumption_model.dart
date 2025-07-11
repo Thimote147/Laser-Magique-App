@@ -5,6 +5,7 @@ class Consumption {
   final int quantity;
   final DateTime timestamp;
   final double unitPrice;
+  final bool isIncluded;
 
   const Consumption({
     required this.id,
@@ -13,10 +14,11 @@ class Consumption {
     required this.quantity,
     required this.timestamp,
     required this.unitPrice,
+    this.isIncluded = false,
   });
 
   // Calculate total price as a getter
-  double get totalPrice => quantity * unitPrice;
+  double get totalPrice => isIncluded ? 0.0 : quantity * unitPrice;
 
   Map<String, dynamic> toMap() {
     return {
@@ -26,6 +28,7 @@ class Consumption {
       'quantity': quantity,
       'timestamp': timestamp.toIso8601String(),
       'unit_price': unitPrice,
+      'is_included': isIncluded,
     };
   }
 
@@ -73,6 +76,7 @@ class Consumption {
       quantity: (map['quantity'] ?? 0) as int,
       timestamp: timestamp,
       unitPrice: unitPrice,
+      isIncluded: map['is_included'] ?? false,
     );
   }
 
@@ -83,6 +87,7 @@ class Consumption {
     int? quantity,
     DateTime? timestamp,
     double? unitPrice,
+    bool? isIncluded,
   }) {
     return Consumption(
       id: id ?? this.id,
@@ -91,6 +96,7 @@ class Consumption {
       quantity: quantity ?? this.quantity,
       timestamp: timestamp ?? this.timestamp,
       unitPrice: unitPrice ?? this.unitPrice,
+      isIncluded: isIncluded ?? this.isIncluded,
     );
   }
 }

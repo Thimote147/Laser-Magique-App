@@ -7,6 +7,80 @@ import '../../../shared/models/payment_model.dart';
 
 class BookingRepository {
   final SupabaseClient _client = SupabaseConfig.client;
+  
+  // Realtime subscriptions
+  RealtimeChannel? _bookingsChannel;
+  
+  // Stream controllers for real-time updates
+  final StreamController<List<Booking>> _bookingsController = StreamController<List<Booking>>.broadcast();
+  
+  // Stream getters
+  Stream<List<Booking>> get bookingsStream => _bookingsController.stream;
+    
+  // Initialize realtime subscriptions
+  void initializeRealtimeSubscriptions() {
+    _subscribeToBookings();
+  }
+  
+  // Subscribe to bookings table changes
+  void _subscribeToBookings() {
+    _bookingsChannel = _client.channel('bookings_channel');
+    
+    _bookingsChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'bookings',
+      callback: (payload) {
+        _handleBookingsChange(payload);
+      },
+    ).subscribe();
+  }
+  
+  // Handle bookings changes
+  void _handleBookingsChange(PostgresChangePayload payload) {
+    switch (payload.eventType) {
+      case PostgresChangeEvent.insert:
+        _refreshBookingsData();
+        break;
+      case PostgresChangeEvent.update:
+        _refreshBookingsData();
+        break;
+      case PostgresChangeEvent.delete:
+        _refreshBookingsData();
+        break;
+      case PostgresChangeEvent.all:
+        // Handle all event type if needed
+        break;
+    }
+  }
+  
+  // Refresh bookings data from database
+  void _refreshBookingsData() async {
+    try {
+      final bookings = await getAllBookings();
+      _bookingsController.add(bookings);
+    } catch (e) {
+      // Log error silently or use proper logging framework
+    }
+  }
+  
+  // Get stream of bookings for a specific day
+  Stream<List<Booking>> getBookingsStreamForDay(DateTime date) {
+    return _bookingsController.stream.map((bookings) {
+      final startOfDay = DateTime(date.year, date.month, date.day).toUtc();
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      
+      return bookings.where((booking) {
+        return booking.dateTime.isAfter(startOfDay) && booking.dateTime.isBefore(endOfDay);
+      }).toList();
+    });
+  }
+  
+  // Dispose method to clean up subscriptions
+  void dispose() {
+    _bookingsChannel?.unsubscribe();
+    _bookingsController.close();
+  }
 
   // Récupère la liste des réservations
   Future<List<Booking>> getAllBookings() async {
@@ -16,7 +90,9 @@ class BookingRepository {
           .select()
           .order('date_time');
 
-      return (response as List).map((json) => Booking.fromMap(json)).toList();
+      final bookings = (response as List).map((json) => Booking.fromMap(json)).toList();
+      
+      return bookings;
     } catch (e) {
       rethrow;
     }
@@ -34,7 +110,9 @@ class BookingRepository {
         .lt('date_time', endOfDay.toIso8601String())
         .order('date_time');
 
-    return (response as List).map((json) => Booking.fromMap(json)).toList();
+    final bookings = (response as List).map((json) => Booking.fromMap(json)).toList();
+    
+    return bookings;
   }
 
   Future<Booking> createBooking({

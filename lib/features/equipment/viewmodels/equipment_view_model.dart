@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/equipment_model.dart';
 import '../repositories/equipment_repository.dart';
@@ -11,6 +12,34 @@ class EquipmentViewModel extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   EquipmentFilter _currentFilter = EquipmentFilter.all;
+  StreamSubscription? _equipmentSubscription;
+  
+  EquipmentViewModel() {
+    _initializeRealtimeSubscription();
+  }
+  
+  void _initializeRealtimeSubscription() {
+    _equipmentSubscription = _repository.equipmentStream.listen(
+      (equipment) {
+        _equipment = equipment;
+        _isLoading = false;
+        _error = null;
+        notifyListeners();
+      },
+      onError: (error) {
+        _error = 'Erreur lors du chargement des équipements: $error';
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+  
+  @override
+  void dispose() {
+    _equipmentSubscription?.cancel();
+    _repository.dispose();
+    super.dispose();
+  }
 
   List<Equipment> get equipment => _getFilteredEquipment();
   bool get isLoading => _isLoading;
@@ -52,19 +81,8 @@ class EquipmentViewModel extends ChangeNotifier {
   }
 
   Future<void> loadEquipment() async {
-    _setLoading(true);
-    _clearError();
-    
-    try {
-      _equipment = await _repository.getAllEquipment();
-      // La liste est déjà triée côté base de données, mais on s'assure du tri local aussi
-      _sortEquipmentByName();
-      notifyListeners();
-    } catch (e) {
-      _setError('Erreur lors du chargement des équipements: $e');
-    } finally {
-      _setLoading(false);
-    }
+    // Cette méthode est maintenant gérée par le stream Realtime
+    // Elle est conservée pour compatibilité mais ne fait plus rien
   }
 
   Future<void> addEquipment({
@@ -85,10 +103,8 @@ class EquipmentViewModel extends ChangeNotifier {
         updatedAt: now,
       );
 
-      final createdEquipment = await _repository.createEquipment(newEquipment);
-      _equipment.add(createdEquipment);
-      _sortEquipmentByName(); // Trier après ajout
-      notifyListeners();
+      await _repository.createEquipment(newEquipment);
+      // Le stream Realtime se chargera automatiquement de mettre à jour _equipment
     } catch (e) {
       _setError('Erreur lors de l\'ajout de l\'équipement: $e');
       rethrow;
@@ -99,14 +115,8 @@ class EquipmentViewModel extends ChangeNotifier {
     _clearError();
     
     try {
-      final updatedEquipment = await _repository.updateEquipment(equipment);
-      final index = _equipment.indexWhere((e) => e.id == equipment.id);
-      
-      if (index != -1) {
-        _equipment[index] = updatedEquipment;
-        _sortEquipmentByName(); // Retrier en cas de changement de nom
-        notifyListeners();
-      }
+      await _repository.updateEquipment(equipment);
+      // Le stream Realtime se chargera automatiquement de mettre à jour _equipment
     } catch (e) {
       _setError('Erreur lors de la mise à jour de l\'équipement: $e');
       rethrow;
@@ -118,8 +128,7 @@ class EquipmentViewModel extends ChangeNotifier {
     
     try {
       await _repository.deleteEquipment(id);
-      _equipment.removeWhere((e) => e.id == id);
-      notifyListeners();
+      // Le stream Realtime se chargera automatiquement de mettre à jour _equipment
     } catch (e) {
       _setError('Erreur lors de la suppression de l\'équipement: $e');
       rethrow;
@@ -144,10 +153,6 @@ class EquipmentViewModel extends ChangeNotifier {
     }
   }
 
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
 
   void _setError(String error) {
     _error = error;
@@ -163,7 +168,4 @@ class EquipmentViewModel extends ChangeNotifier {
 
   void clearError() => _clearError();
 
-  void _sortEquipmentByName() {
-    _equipment.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-  }
 }

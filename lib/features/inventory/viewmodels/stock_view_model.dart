@@ -3,8 +3,11 @@ import 'package:flutter/foundation.dart';
 import '../models/stock_item_model.dart';
 import '../../../shared/models/consumption_model.dart';
 import '../../../shared/services/consumption_price_service.dart';
+import '../../../shared/services/social_deal_service.dart';
+import '../../../shared/services/notification_service.dart';
 import '../repositories/stock_repository.dart';
 import '../../booking/viewmodels/booking_view_model.dart';
+import 'dart:async';
 
 class CacheEntry<T> {
   final T data;
@@ -47,6 +50,8 @@ class ConsumptionCacheEntry {
 class StockViewModel extends ChangeNotifier {
   final StockRepository _repository = StockRepository();
   final BookingViewModel bookingViewModel;
+  final SocialDealService _socialDealService = SocialDealService();
+  final NotificationService _notificationService = NotificationService();
 
   // Cache pour les articles en stock avec expiration
   CacheEntry<List<StockItem>>? _stockCache;
@@ -65,9 +70,153 @@ class StockViewModel extends ChangeNotifier {
   bool _isLoading = true;
   String? _error;
   bool _initialized = false;
+  
+  // Realtime subscription management
+  StreamSubscription<List<StockItem>>? _stockItemsSubscription;
+  StreamSubscription<List<Consumption>>? _consumptionsSubscription;
+  final Map<String, StreamSubscription<List<Consumption>>> _consumptionSubscriptions = {};
 
   StockViewModel(this.bookingViewModel) {
     initialize();
+    _initializeRealtimeSubscriptions();
+  }
+  
+  // Initialize realtime subscriptions
+  void _initializeRealtimeSubscriptions() {
+    _repository.initializeRealtimeSubscriptions();
+    
+    // Subscribe to stock items changes
+    _stockItemsSubscription = _repository.stockItemsStream.listen(
+      (stockItems) {
+        _handleRealtimeStockItemsUpdate(stockItems);
+      },
+      onError: (error) {
+        debugPrint('Error in stock items stream: $error');
+      },
+    );
+    
+    // Subscribe to consumptions changes
+    _consumptionsSubscription = _repository.consumptionsStream.listen(
+      (consumptions) {
+        _handleRealtimeConsumptionsUpdate(consumptions);
+      },
+      onError: (error) {
+        debugPrint('Error in consumptions stream: $error');
+      },
+    );
+  }
+  
+  // Handle realtime stock items updates
+  void _handleRealtimeStockItemsUpdate(List<StockItem> stockItems) {
+    debugPrint('StockViewModel: Received realtime stock items update with ${stockItems.length} items');
+    
+    // Update cache immediately
+    _stockCache = CacheEntry<List<StockItem>>(
+      data: stockItems.where((item) => item.isActive).toList(),
+      timestamp: DateTime.now(),
+    );
+    
+    _allStockCache = CacheEntry<List<StockItem>>(
+      data: stockItems,
+      timestamp: DateTime.now(),
+    );
+    
+    // Notify listeners immediately for UI update
+    notifyListeners();
+  }
+  
+  // Handle realtime consumptions updates
+  void _handleRealtimeConsumptionsUpdate(List<Consumption> consumptions) {
+    debugPrint('StockViewModel: Received realtime consumptions update with ${consumptions.length} consumptions');
+    
+    // Group consumptions by booking ID
+    final Map<String, List<Consumption>> consumptionsByBooking = {};
+    for (final consumption in consumptions) {
+      if (!consumptionsByBooking.containsKey(consumption.bookingId)) {
+        consumptionsByBooking[consumption.bookingId] = [];
+      }
+      consumptionsByBooking[consumption.bookingId]!.add(consumption);
+    }
+    
+    // Update cache for each booking
+    for (final entry in consumptionsByBooking.entries) {
+      final bookingId = entry.key;
+      final bookingConsumptions = entry.value;
+      
+      // Convert to (Consumption, StockItem) pairs
+      final consumptionPairs = bookingConsumptions.map((consumption) {
+        final stockItem = findStockItemById(consumption.stockItemId);
+        if (stockItem != null) {
+          return (consumption, stockItem);
+        }
+        return null;
+      }).whereType<(Consumption, StockItem)>().toList();
+      
+      // Update cache
+      _updateConsumptionsCache(bookingId, consumptionPairs);
+    }
+    
+    // Notify listeners
+    notifyListeners();
+  }
+  
+  // Subscribe to consumptions for a specific booking
+  void subscribeToBookingConsumptions(String bookingId) {
+    if (_consumptionSubscriptions.containsKey(bookingId)) {
+      return; // Already subscribed
+    }
+    
+    _consumptionSubscriptions[bookingId] = _repository.getConsumptionsStreamForBooking(bookingId).listen(
+      (consumptions) {
+        _handleBookingConsumptionsUpdate(bookingId, consumptions);
+      },
+      onError: (error) {
+        debugPrint('Error in booking consumptions stream for $bookingId: $error');
+      },
+    );
+  }
+  
+  // Unsubscribe from consumptions for a specific booking
+  void unsubscribeFromBookingConsumptions(String bookingId) {
+    _consumptionSubscriptions[bookingId]?.cancel();
+    _consumptionSubscriptions.remove(bookingId);
+  }
+  
+  // Handle booking-specific consumptions updates
+  void _handleBookingConsumptionsUpdate(String bookingId, List<Consumption> consumptions) {
+    debugPrint('StockViewModel: Received booking consumptions update for $bookingId with ${consumptions.length} consumptions');
+    
+    // Convert to (Consumption, StockItem) pairs
+    final consumptionPairs = consumptions.map((consumption) {
+      final stockItem = findStockItemById(consumption.stockItemId);
+      if (stockItem != null) {
+        return (consumption, stockItem);
+      }
+      return null;
+    }).whereType<(Consumption, StockItem)>().toList();
+    
+    // Update cache for this booking
+    _updateConsumptionsCache(bookingId, consumptionPairs);
+    
+    // Notify listeners
+    notifyListeners();
+  }
+  
+  @override
+  void dispose() {
+    _stockItemsSubscription?.cancel();
+    _consumptionsSubscription?.cancel();
+    
+    // Cancel all booking-specific subscriptions
+    for (final subscription in _consumptionSubscriptions.values) {
+      subscription.cancel();
+    }
+    _consumptionSubscriptions.clear();
+    
+    // Dispose repository
+    _repository.dispose();
+    
+    super.dispose();
   }
 
   // Getters
@@ -227,9 +376,33 @@ class StockViewModel extends ChangeNotifier {
 
   Future<void> updateItem(StockItem item) async {
     try {
+      // Get the current item to compare quantities
+      final currentItem = items.firstWhere(
+        (i) => i.id == item.id,
+        orElse: () => item, // If not found, use the new item
+      );
+      
       await _repository.updateStockItem(item);
       await refreshStock();
       await refreshAllStock();
+      
+      // Send stock update notification only if quantity changed
+      if (currentItem.quantity != item.quantity) {
+        _notificationService.notifyStockUpdated(
+          item.name,
+          item.quantity,
+          isLowStock: item.isLowStock,
+        );
+        
+        // Send low stock alert if item becomes low stock
+        if (item.isLowStock && !currentItem.isLowStock) {
+          _notificationService.notifyStockAlert(
+            item.name,
+            item.quantity,
+            item.alertThreshold,
+          );
+        }
+      }
     } catch (e) {
       _error = 'Error updating item: $e';
       notifyListeners();
@@ -270,8 +443,25 @@ class StockViewModel extends ChangeNotifier {
         throw Exception('La quantité ne peut pas être négative');
       }
 
-      final updatedItem = item.copyWith(quantity: item.quantity + delta);
+      final newQuantity = item.quantity + delta;
+      final updatedItem = item.copyWith(quantity: newQuantity);
       await updateItem(updatedItem);
+      
+      // Send stock update notification
+      _notificationService.notifyStockUpdated(
+        item.name,
+        newQuantity,
+        isLowStock: updatedItem.isLowStock,
+      );
+      
+      // Send low stock alert if item becomes low stock
+      if (updatedItem.isLowStock && !item.isLowStock) {
+        _notificationService.notifyStockAlert(
+          item.name,
+          newQuantity,
+          item.alertThreshold,
+        );
+      }
     } catch (e) {
       _error = 'Error adjusting quantity: $e';
       notifyListeners();
@@ -377,6 +567,9 @@ class StockViewModel extends ChangeNotifier {
     if (!_initialized) {
       await initialize();
     }
+    
+    // Subscribe to realtime updates for this booking
+    subscribeToBookingConsumptions(bookingId);
 
     // Vérifier d'abord le cache local pour avoir les données les plus récentes
     if (_localConsumptionsCache.containsKey(bookingId) &&
@@ -448,14 +641,23 @@ class StockViewModel extends ChangeNotifier {
         'StockViewModel: Found stock item: ${stockItem.name} (ID: ${stockItem.id})',
       );
 
-      // Créer une consommation temporaire locale avec un ID unique temporaire
-      final tempConsumption = Consumption(
+      // Get the booking to access its formula
+      final booking = await bookingViewModel.getBooking(bookingId);
+
+      // Get existing consumptions for this booking
+      final existingConsumptions = await getConsumptionsWithStockItems(bookingId);
+
+      // Create consumption with Social Deal logic
+      final tempConsumption = _socialDealService.createConsumption(
         id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
         bookingId: bookingId,
         stockItemId: stockItemId,
         quantity: quantity,
         timestamp: DateTime.now(),
-        unitPrice: stockItem.price,
+        formula: booking.formula,
+        stockItem: stockItem,
+        bookingPersons: booking.numberOfPersons,
+        existingConsumptions: existingConsumptions.map((pair) => pair.$1).toList(),
       );
 
       // Mettre à jour le cache local immédiatement pour une UI réactive
@@ -492,6 +694,23 @@ class StockViewModel extends ChangeNotifier {
       await refreshStock(silent: true);
 
       debugPrint('StockViewModel: Consumption added successfully');
+      
+      // Send notification for consumption added
+      _notificationService.notifyConsumptionAdded(
+        bookingId,
+        stockItem.name,
+        quantity,
+      );
+      
+      // Check if stock became low after consumption and send alert
+      final updatedStockItem = findStockItemById(stockItemId);
+      if (updatedStockItem != null && updatedStockItem.isLowStock) {
+        _notificationService.notifyStockAlert(
+          updatedStockItem.name,
+          updatedStockItem.quantity,
+          updatedStockItem.alertThreshold,
+        );
+      }
       
       // Notifier tous les listeners pour déclencher la mise à jour des UI
       Future.microtask(() {
@@ -948,9 +1167,26 @@ class StockViewModel extends ChangeNotifier {
   }
 
   Future<void> _updateItemQuantity(StockItem item, int newQuantity) async {
+    final oldQuantity = item.quantity;
     final updatedItem = item.copyWith(quantity: newQuantity);
     await _repository.updateStockItem(updatedItem);
     await refreshStock();
+    
+    // Send stock update notification
+    _notificationService.notifyStockUpdated(
+      item.name,
+      newQuantity,
+      isLowStock: updatedItem.isLowStock,
+    );
+    
+    // Send low stock alert if item becomes low stock
+    if (updatedItem.isLowStock && oldQuantity > item.alertThreshold) {
+      _notificationService.notifyStockAlert(
+        item.name,
+        newQuantity,
+        item.alertThreshold,
+      );
+    }
   }
 
   // Helper pour éviter trop de notifications rapprochées
@@ -1066,5 +1302,12 @@ class StockViewModel extends ChangeNotifier {
         _loadingConsumptions.remove(bookingId);
       }
     });
+  }
+  
+  // Clean up unused subscription when booking is closed
+  void cleanupBookingSubscription(String bookingId) {
+    unsubscribeFromBookingConsumptions(bookingId);
+    _localConsumptionsCache.remove(bookingId);
+    _consumptionsCache.remove(bookingId);
   }
 }

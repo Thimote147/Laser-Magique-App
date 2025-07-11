@@ -4,6 +4,71 @@ import '../../work_hours/models/work_day_model.dart';
 class EmployeeProfileRepository {
   final supabase = Supabase.instance.client;
 
+  /// Récupère le nom complet d'un utilisateur par son ID
+  Future<String> getUserFullName(String userId) async {
+    try {
+      final response = await supabase
+          .from('user_settings')
+          .select('first_name, last_name')
+          .eq('user_id', userId)
+          .single();
+
+      final firstName = response['first_name'] as String? ?? '';
+      final lastName = response['last_name'] as String? ?? '';
+      
+      if (firstName.isEmpty && lastName.isEmpty) {
+        return 'Utilisateur inconnu';
+      }
+      
+      return '$firstName $lastName'.trim();
+    } catch (e) {
+      // En cas d'erreur, retourner un nom par défaut
+      return 'Utilisateur ($userId)';
+    }
+  }
+
+  /// Récupère les noms de plusieurs utilisateurs par leurs IDs
+  Future<Map<String, String>> getMultipleUserNames(List<String> userIds) async {
+    if (userIds.isEmpty) return {};
+    
+    try {
+      final response = await supabase
+          .from('user_settings')
+          .select('user_id, first_name, last_name')
+          .inFilter('user_id', userIds);
+
+      final Map<String, String> userNames = {};
+      
+      for (final user in response) {
+        final userId = user['user_id'] as String;
+        final firstName = user['first_name'] as String? ?? '';
+        final lastName = user['last_name'] as String? ?? '';
+        
+        if (firstName.isEmpty && lastName.isEmpty) {
+          userNames[userId] = 'Utilisateur inconnu';
+        } else {
+          userNames[userId] = '$firstName $lastName'.trim();
+        }
+      }
+      
+      // Ajouter les utilisateurs non trouvés
+      for (final userId in userIds) {
+        if (!userNames.containsKey(userId)) {
+          userNames[userId] = 'Utilisateur ($userId)';
+        }
+      }
+      
+      return userNames;
+    } catch (e) {
+      // En cas d'erreur, retourner des noms par défaut
+      final Map<String, String> fallbackNames = {};
+      for (final userId in userIds) {
+        fallbackNames[userId] = 'Utilisateur ($userId)';
+      }
+      return fallbackNames;
+    }
+  }
+
   /// Récupère le profil de l'utilisateur connecté
   Future<Map<String, dynamic>> getCurrentProfile() async {
     try {

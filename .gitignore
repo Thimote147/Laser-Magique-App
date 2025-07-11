@@ -47,3 +47,11 @@ app.*.map.json
 #environment variables
 .env
 *.sql
+
+# node_modules
+node_modules/
+
+# Additional files to ignore
+sendNotification.js
+serviceAccountKey.json
+firebase.json

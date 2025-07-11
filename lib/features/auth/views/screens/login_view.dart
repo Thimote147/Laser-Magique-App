@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import 'package:laser_magique_app/app/navigation/main_screen.dart';
-import 'package:provider/provider.dart';
-import '../../../../shared/user_provider.dart';
 
 class LoginView extends StatefulWidget {
   final VoidCallback onRegisterTap;
@@ -79,9 +77,9 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
           _errorMessage = 'Email ou mot de passe incorrect.';
         });
       } else {
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        userProvider.user = user;
         if (mounted) {
+          // Ne pas définir manuellement l'utilisateur ici car _SessionGate le gérera
+          // automatiquement via le StreamBuilder
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainScreen()),
             (route) => false,

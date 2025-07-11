@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "754637112411",
+    "project_id": "laser-magique-app-4192a",
+    "storage_bucket": "laser-magique-app-4192a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:754637112411:android:d2f1c5aa405b1406dcab7e",
+        "android_client_info": {
+          "package_name": "com.laser_magique.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgcvAxxklVjvff_D2hze7FVWcrXmQruLU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:754637112411:android:da25a79b6b9040a8dcab7e",
+        "android_client_info": {
+          "package_name": "com.thimotefetu.laser_magique_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgcvAxxklVjvff_D2hze7FVWcrXmQruLU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

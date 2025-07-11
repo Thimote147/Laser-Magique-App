@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 import '../../models/equipment_model.dart';
 import '../../viewmodels/equipment_view_model.dart';
 import '../../../profile/viewmodels/employee_profile_view_model.dart';
@@ -592,17 +593,24 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
           description: equipment.description,
         );
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Équipement ajouté avec succès'),
-              backgroundColor: Colors.green,
+          showDialog(
+            context: context,
+            builder: (context) => CustomSuccessDialog(
+              title: 'Succès',
+              content: 'Équipement ajouté avec succès',
+              autoClose: true,
+              autoCloseDuration: const Duration(seconds: 2),
             ),
           );
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur',
+              content: 'Erreur: $e',
+            ),
           );
         }
       }
@@ -618,17 +626,24 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
       try {
         await viewModel.updateEquipment(updated);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Équipement mis à jour avec succès'),
-              backgroundColor: Colors.green,
+          showDialog(
+            context: context,
+            builder: (context) => CustomSuccessDialog(
+              title: 'Succès',
+              content: 'Équipement mis à jour avec succès',
+              autoClose: true,
+              autoCloseDuration: const Duration(seconds: 2),
             ),
           );
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          showDialog(
+            context: context,
+            builder: (context) => CustomErrorDialog(
+              title: 'Erreur',
+              content: 'Erreur: $e',
+            ),
           );
         }
       }

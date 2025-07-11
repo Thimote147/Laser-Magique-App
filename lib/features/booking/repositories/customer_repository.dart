@@ -1,9 +1,45 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../models/customer_model.dart';
 
 class CustomerRepository {
   final SupabaseClient _client = SupabaseConfig.client;
+  
+  RealtimeChannel? _customersChannel;
+  final StreamController<List<Customer>> _customersStreamController = StreamController<List<Customer>>.broadcast();
+  
+  Stream<List<Customer>> get customersStream => _customersStreamController.stream;
+  
+  CustomerRepository() {
+    _initializeRealtimeSubscription();
+  }
+
+  void _initializeRealtimeSubscription() {
+    _customersChannel = _client.channel('customers_channel');
+    
+    _customersChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'customers',
+      callback: (payload) {
+        _refreshCustomers();
+      },
+    );
+    
+    _customersChannel!.subscribe();
+    
+    _refreshCustomers();
+  }
+  
+  Future<void> _refreshCustomers() async {
+    try {
+      final customers = await getAllCustomers();
+      _customersStreamController.add(customers);
+    } catch (e) {
+      _customersStreamController.addError(e);
+    }
+  }
 
   // Get all customers
   Future<List<Customer>> getAllCustomers() async {
@@ -78,6 +114,11 @@ class CustomerRepository {
         await _client.from('customers').select().eq('id', id).single();
 
     return Customer.fromMap(response);
+  }
+  
+  void dispose() {
+    _customersChannel?.unsubscribe();
+    _customersStreamController.close();
   }
 }
 

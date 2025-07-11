@@ -16,8 +16,9 @@ import 'customer_selection_widget.dart';
 class BookingFormWidget extends StatefulWidget {
   final Booking? booking;
   final VoidCallback? onSubmit;
+  final DateTime? initialDate;
 
-  const BookingFormWidget({super.key, this.booking, this.onSubmit});
+  const BookingFormWidget({super.key, this.booking, this.onSubmit, this.initialDate});
 
   @override
   State<BookingFormWidget> createState() => _BookingFormWidgetState();
@@ -35,6 +36,12 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
   PaymentMethod _depositPaymentMethod = PaymentMethod.transfer;
 
   final _depositController = TextEditingController(text: '0');
+
+  /// Retourne le début de la journée actuelle (00:00:00)
+  DateTime get _todayStart {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
 
   @override
   void initState() {
@@ -82,10 +89,30 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         _checkAndAdjustLimits(widget.booking!.formula);
       });
     } else {
-      selectedDate = DateTime.now();
+      // Pour une nouvelle réservation, vérifier si la date initiale est passée
+      DateTime initialDate = widget.initialDate ?? DateTime.now();
+      
+      // Si la date initiale est passée, utiliser aujourd'hui
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final initialDay = DateTime(initialDate.year, initialDate.month, initialDate.day);
+      
+      if (initialDay.isBefore(today)) {
+        initialDate = DateTime.now();
+      }
+      
+      selectedDate = initialDate;
       selectedTime = TimeOfDay.now();
       numberOfPersons = 1;
       numberOfGames = 1;
+      
+      // Synchroniser la date sélectionnée avec le ViewModel
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final bookingEditViewModel = context.read<BookingEditViewModel>();
+        bookingEditViewModel.setDate(selectedDate);
+        bookingEditViewModel.setTime(selectedTime);
+      });
     }
 
     // Planifier l'initialisation de la formule après la construction (uniquement pour les nouvelles réservations)
@@ -187,7 +214,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
               top: false,
               child: CupertinoDatePicker(
                 initialDateTime: selectedDate,
-                minimumDate: DateTime.now(),
+                minimumDate: _todayStart, // Permet de sélectionner aujourd'hui même dans le passé
                 maximumDate: DateTime.now().add(const Duration(days: 365)),
                 mode: CupertinoDatePickerMode.date,
                 onDateTimeChanged: (DateTime newDate) {
@@ -204,7 +231,7 @@ class _BookingFormWidgetState extends State<BookingFormWidget> {
         context: context,
         locale: const Locale('fr', 'FR'),
         initialDate: selectedDate,
-        firstDate: DateTime.now(),
+        firstDate: _todayStart, // Permet de sélectionner aujourd'hui même dans le passé
         lastDate: DateTime.now().add(const Duration(days: 365)),
       );
       if (pickedDate != null) {

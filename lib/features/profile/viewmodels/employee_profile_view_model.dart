@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../work_hours/models/work_day_model.dart';
 import '../repositories/employee_profile_repository.dart';
 
@@ -23,6 +25,9 @@ class EmployeeProfileViewModel extends ChangeNotifier {
   // Liste des jours de travail
   final List<WorkDay> _workDays = [];
 
+  // Stream subscription pour écouter les changements d'auth
+  late final StreamSubscription<AuthState> _authSubscription;
+
   // Getters
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -45,19 +50,44 @@ class EmployeeProfileViewModel extends ChangeNotifier {
   // Constructeur qui charge les données du profil
   EmployeeProfileViewModel() {
     _loadProfile();
+    
+    // Écouter les changements d'état d'authentification
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((AuthState state) {
+      // Recharger le profil quand l'utilisateur change
+      _loadProfile();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 
   // Charger les données du profil depuis la base de données
   Future<void> _loadProfile() async {
-    // Debug log
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      // Vérifier si l'utilisateur est connecté
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        // Réinitialiser les données si pas d'utilisateur
+        _firstName = '';
+        _lastName = '';
+        _email = '';
+        _phone = '';
+        _role = UserRole.member;
+        _hourlyRate = 0.0;
+        _workDays.clear();
+        _error = null;
+        return;
+      }
+
       // Charger le profil
       final profileData = await _repository.getCurrentProfile();
-      // Debug log
       _updateFromJson(profileData);
 
       // Charger les jours de travail

@@ -1,12 +1,50 @@
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../models/equipment_model.dart';
 
 class EquipmentRepository {
   static const String _tableName = 'equipment';
+  final SupabaseClient _client = SupabaseConfig.client;
+  
+  RealtimeChannel? _equipmentChannel;
+  final StreamController<List<Equipment>> _equipmentStreamController = StreamController<List<Equipment>>.broadcast();
+  
+  Stream<List<Equipment>> get equipmentStream => _equipmentStreamController.stream;
+  
+  EquipmentRepository() {
+    _initializeRealtimeSubscription();
+  }
+  
+  void _initializeRealtimeSubscription() {
+    _equipmentChannel = _client.channel('equipment_channel');
+    
+    _equipmentChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'equipment',
+      callback: (payload) {
+        _refreshEquipment();
+      },
+    );
+    
+    _equipmentChannel!.subscribe();
+    
+    _refreshEquipment();
+  }
+  
+  Future<void> _refreshEquipment() async {
+    try {
+      final equipment = await getAllEquipment();
+      _equipmentStreamController.add(equipment);
+    } catch (e) {
+      _equipmentStreamController.addError(e);
+    }
+  }
 
   Future<List<Equipment>> getAllEquipment() async {
     try {
-      final response = await SupabaseConfig.client
+      final response = await _client
           .from(_tableName)
           .select()
           .order('name', ascending: true);
@@ -21,7 +59,7 @@ class EquipmentRepository {
 
   Future<Equipment> getEquipmentById(String id) async {
     try {
-      final response = await SupabaseConfig.client
+      final response = await _client
           .from(_tableName)
           .select()
           .eq('id', id)
@@ -44,7 +82,7 @@ class EquipmentRepository {
         'updated_at': now.toIso8601String(),
       };
 
-      final response = await SupabaseConfig.client
+      final response = await _client
           .from(_tableName)
           .insert(equipmentData)
           .select()
@@ -65,7 +103,7 @@ class EquipmentRepository {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      final response = await SupabaseConfig.client
+      final response = await _client
           .from(_tableName)
           .update(equipmentData)
           .eq('id', equipment.id)
@@ -80,7 +118,7 @@ class EquipmentRepository {
 
   Future<void> deleteEquipment(String id) async {
     try {
-      await SupabaseConfig.client
+      await _client
           .from(_tableName)
           .delete()
           .eq('id', id);
@@ -91,7 +129,7 @@ class EquipmentRepository {
 
   Future<List<Equipment>> getFunctionalEquipment() async {
     try {
-      final response = await SupabaseConfig.client
+      final response = await _client
           .from(_tableName)
           .select()
           .eq('is_functional', true)
@@ -107,7 +145,7 @@ class EquipmentRepository {
 
   Future<List<Equipment>> getNonFunctionalEquipment() async {
     try {
-      final response = await SupabaseConfig.client
+      final response = await _client
           .from(_tableName)
           .select()
           .eq('is_functional', false)
@@ -119,5 +157,10 @@ class EquipmentRepository {
     } catch (e) {
       throw Exception('Erreur lors de la récupération des équipements en panne: $e');
     }
+  }
+  
+  void dispose() {
+    _equipmentChannel?.unsubscribe();
+    _equipmentStreamController.close();
   }
 }

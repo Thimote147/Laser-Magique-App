@@ -1,5 +1,6 @@
 import '../../../shared/models/formula_model.dart';
 import '../../../shared/models/payment_model.dart' as payment_model;
+import '../../../shared/models/game_session_model.dart';
 import '../../../shared/utils/price_utils.dart';
 
 class Booking {
@@ -18,14 +19,21 @@ class Booking {
   final payment_model.PaymentMethod paymentMethod;
   final List<payment_model.Payment> payments;
   final double consumptionsTotal;
+  final List<GameSession> gameSessions;
 
   double get formulaPrice =>
       calculateTotalPrice(formula.price, numberOfGames, numberOfPersons);
   double get totalPaid =>
       payments.fold(0, (sum, payment) => sum + payment.amount);
   final double? _totalPrice;
-  double get totalPrice => _totalPrice ?? (formulaPrice + consumptionsTotal);
+  double get totalPrice => _totalPrice ?? (actualTotalPrice + consumptionsTotal);
   double get remainingBalance => totalPrice - totalPaid;
+  
+  double get actualTotalPrice => gameSessions.isNotEmpty 
+      ? gameSessions.fold(0.0, (sum, session) => sum + session.adjustedPrice)
+      : formulaPrice;
+  
+  bool get hasCustomGameSessions => gameSessions.isNotEmpty;
 
   // Always return UTC time
   DateTime get dateTimeUTC => dateTime;
@@ -48,6 +56,7 @@ class Booking {
     this.paymentMethod = payment_model.PaymentMethod.transfer,
     this.payments = const [],
     this.consumptionsTotal = 0.0,
+    this.gameSessions = const [],
     double? totalPrice,
   }) : _totalPrice = totalPrice;
   Booking copyWith({
@@ -65,6 +74,7 @@ class Booking {
     payment_model.PaymentMethod? paymentMethod,
     List<payment_model.Payment>? payments,
     double? consumptionsTotal,
+    List<GameSession>? gameSessions,
     double? totalPrice,
   }) {
     return Booking(
@@ -82,6 +92,7 @@ class Booking {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       payments: payments ?? this.payments,
       consumptionsTotal: consumptionsTotal ?? this.consumptionsTotal,
+      gameSessions: gameSessions ?? this.gameSessions,
       totalPrice: totalPrice ?? _totalPrice,
     );
   }
@@ -102,6 +113,7 @@ class Booking {
       'paymentMethod': paymentMethod.toString().split('.').last,
       'payments': payments.map((x) => x.toMap()).toList(),
       'consumptionsTotal': consumptionsTotal,
+      'gameSessions': gameSessions.map((x) => x.toMap()).toList(),
     };
   }
 
@@ -159,12 +171,17 @@ class Booking {
               .toList() ??
           [],
       consumptionsTotal: (map['consumptions_total'] ?? 0.0).toDouble(),
+      gameSessions: (map['game_sessions'] as List<dynamic>?)
+              ?.where((x) => x != null)
+              .map((x) => GameSession.fromMap(x as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
   @override
   String toString() {
-    return 'Booking(id: $id, firstName: $firstName, lastName: $lastName, dateTime: $dateTime, numberOfPersons: $numberOfPersons, numberOfGames: $numberOfGames, email: $email, phone: $phone, formula: $formula, isCancelled: $isCancelled, deposit: $deposit, paymentMethod: $paymentMethod, payments: $payments, consumptionsTotal: $consumptionsTotal)';
+    return 'Booking(id: $id, firstName: $firstName, lastName: $lastName, dateTime: $dateTime, numberOfPersons: $numberOfPersons, numberOfGames: $numberOfGames, email: $email, phone: $phone, formula: $formula, isCancelled: $isCancelled, deposit: $deposit, paymentMethod: $paymentMethod, payments: $payments, consumptionsTotal: $consumptionsTotal, gameSessions: $gameSessions)';
   }
 
   @override
@@ -183,7 +200,8 @@ class Booking {
         other.isCancelled == isCancelled &&
         other.deposit == deposit &&
         other.paymentMethod == paymentMethod &&
-        other.consumptionsTotal == consumptionsTotal;
+        other.consumptionsTotal == consumptionsTotal &&
+        other.gameSessions == gameSessions;
   }
 
   @override
@@ -200,7 +218,8 @@ class Booking {
         isCancelled.hashCode ^
         deposit.hashCode ^
         paymentMethod.hashCode ^
-        consumptionsTotal.hashCode;
+        consumptionsTotal.hashCode ^
+        gameSessions.hashCode;
   }
 }
 

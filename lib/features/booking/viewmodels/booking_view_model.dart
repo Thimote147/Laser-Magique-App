@@ -25,9 +25,10 @@ import '../../../shared/viewmodels/activity_formula_view_model.dart';
 class BookingViewModel extends ChangeNotifier {
   final BookingRepository _repository = BookingRepository();
   ActivityFormulaViewModel _activityFormulaViewModel;
-  Timer? _refreshTimer;
   Timer? _debounceTimer;
-  DateTime? _lastManualRefresh;
+  
+  // Realtime subscription management
+  StreamSubscription<List<Booking>>? _bookingsSubscription;
 
   List<Booking> _bookings = [];
   final Map<String, Booking> _bookingCache = {};
@@ -36,7 +37,7 @@ class BookingViewModel extends ChangeNotifier {
 
   BookingViewModel(this._activityFormulaViewModel) {
     _initializeData();
-    _setupPeriodicRefresh();
+    _initializeRealtimeSubscriptions();
   }
 
   // Getters
@@ -58,29 +59,52 @@ class BookingViewModel extends ChangeNotifier {
     await loadBookings();
   }
 
-  // Configure le rafraîchissement périodique
-  void _setupPeriodicRefresh() {
-    // Rafraîchit toutes les 30 secondes si aucune action utilisateur récente
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      final now = DateTime.now();
-      // Ne rafraîchit que si aucun refresh manuel n'a été fait dans les 30 dernières secondes
-      if (_lastManualRefresh == null ||
-          now.difference(_lastManualRefresh!) > const Duration(seconds: 30)) {
-        loadBookings();
-      }
-    });
+  // Initialize realtime subscriptions
+  void _initializeRealtimeSubscriptions() {
+    _repository.initializeRealtimeSubscriptions();
+    
+    // Subscribe to bookings changes
+    _bookingsSubscription = _repository.bookingsStream.listen(
+      (bookings) {
+        _handleRealtimeBookingsUpdate(bookings);
+      },
+      onError: (error) {
+        debugPrint('Error in bookings stream: $error');
+      },
+    );
+  }
+  
+  // Handle realtime bookings updates
+  void _handleRealtimeBookingsUpdate(List<Booking> bookings) {
+    debugPrint('BookingViewModel: Received realtime bookings update with ${bookings.length} bookings');
+    
+    // Update bookings list
+    _bookings = bookings;
+    
+    // Update cache
+    _bookingCache.clear();
+    for (final booking in bookings) {
+      _bookingCache[booking.id] = booking;
+    }
+    
+    // Update loading state
+    _isLoading = false;
+    _error = null;
+    
+    // Notify listeners immediately for UI update
+    notifyListeners();
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _bookingsSubscription?.cancel();
     _debounceTimer?.cancel();
+    _repository.dispose();
     super.dispose();
   }
 
   /// Déclenche un refresh immédiat avec debounce
   Future<void> _triggerImmediateRefresh() async {
-    _lastManualRefresh = DateTime.now();
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       await loadBookings();
@@ -171,6 +195,7 @@ class BookingViewModel extends ChangeNotifier {
       _bookings = [..._bookings, newBooking]
         ..sort((a, b) => a.dateTimeLocal.compareTo(b.dateTimeLocal));
       notifyListeners();
+
 
       // Refresh différé pour s'assurer que les données sont à jour
       await _triggerImmediateRefresh();
@@ -327,6 +352,7 @@ class BookingViewModel extends ChangeNotifier {
       // Envoyer au serveur
       await updateBooking(updatedBooking);
 
+
       // Refresh différé
       await _triggerImmediateRefresh();
     } catch (e) {
@@ -445,7 +471,6 @@ class BookingViewModel extends ChangeNotifier {
 
         // Refresh différé mais moins fréquent
         // Utiliser un debounce plus long pour éviter les mises à jour en cascade
-        _lastManualRefresh = DateTime.now();
         _debounceTimer?.cancel();
         _debounceTimer = Timer(const Duration(seconds: 2), () async {
           await loadBookings();

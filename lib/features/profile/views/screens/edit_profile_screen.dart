@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/employee_profile_view_model.dart';
+import '../../../../shared/widgets/custom_dialog.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -465,7 +466,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // Méthode pour créer un champ en lecture seule
 
   // Enregistrer les modifications du profil
-  void _saveProfile() {
+  void _saveProfile() async {
     if (_formKey.currentState!.validate()) {
       // Récupérer le view model
       final profileVM = Provider.of<EmployeeProfileViewModel>(
@@ -494,15 +495,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
 
       // Afficher un message de confirmation
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil mis à jour avec succès'),
-          backgroundColor: Colors.green,
+      await showDialog(
+        context: context,
+        builder: (context) => CustomSuccessDialog(
+          title: 'Profil mis à jour',
+          content: 'Profil mis à jour avec succès',
+          autoClose: true,
+          autoCloseDuration: Duration(seconds: 2),
         ),
       );
 
       // Retourner à l'écran précédent
-      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
 }

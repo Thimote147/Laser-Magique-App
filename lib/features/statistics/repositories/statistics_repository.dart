@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_statistics_model.dart';
 import '../models/cash_movement_model.dart';
@@ -7,6 +8,74 @@ import '../../inventory/models/stock_item_model.dart';
 
 class StatisticsRepository {
   final SupabaseClient _supabase = Supabase.instance.client;
+  
+  // Realtime subscriptions
+  RealtimeChannel? _cashMovementsChannel;
+  RealtimeChannel? _dailyStatisticsChannel;
+  
+  // Stream controllers for real-time updates
+  final StreamController<List<CashMovement>> _cashMovementsController = StreamController<List<CashMovement>>.broadcast();
+  final StreamController<List<DailyStatistics>> _dailyStatisticsController = StreamController<List<DailyStatistics>>.broadcast();
+  
+  // Stream getters
+  Stream<List<CashMovement>> get cashMovementsStream => _cashMovementsController.stream;
+  Stream<List<DailyStatistics>> get dailyStatisticsStream => _dailyStatisticsController.stream;
+  
+  StatisticsRepository() {
+    _initializeRealtimeSubscriptions();
+  }
+  
+  void _initializeRealtimeSubscriptions() {
+    // Subscribe to cash_movements table
+    _cashMovementsChannel = _supabase.channel('cash_movements_channel');
+    _cashMovementsChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'cash_movements',
+      callback: (payload) {
+        _refreshCashMovements();
+      },
+    );
+    _cashMovementsChannel!.subscribe();
+    
+    // Subscribe to daily_statistics table
+    _dailyStatisticsChannel = _supabase.channel('daily_statistics_channel');
+    _dailyStatisticsChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'daily_statistics',
+      callback: (payload) {
+        _refreshDailyStatistics();
+      },
+    );
+    _dailyStatisticsChannel!.subscribe();
+  }
+  
+  Future<void> _refreshCashMovements() async {
+    try {
+      final today = DateTime.now();
+      final response = await _supabase
+          .from('cash_movements')
+          .select()
+          .eq('date', today.toIso8601String().substring(0, 10))
+          .order('created_at', ascending: false);
+      
+      final movements = response.map((json) => CashMovement.fromJson(json)).toList();
+      _cashMovementsController.add(movements);
+    } catch (e) {
+      _cashMovementsController.addError(e);
+    }
+  }
+  
+  Future<void> _refreshDailyStatistics() async {
+    try {
+      final today = DateTime.now();
+      final stats = await getDailyStatistics(today);
+      _dailyStatisticsController.add([stats]);
+    } catch (e) {
+      _dailyStatisticsController.addError(e);
+    }
+  }
 
   // Cache des statistiques
   final Map<String, DailyStatistics> _statisticsCache = {};
@@ -404,31 +473,95 @@ class StatisticsRepository {
     );
   }
 
+  // Méthode simplifiée pour mettre à jour UN seul champ manuel
+  Future<void> updateSingleManualField({
+    required DateTime date,
+    required String fieldName,
+    required double value,
+  }) async {
+    final dateString = date.toIso8601String().substring(0, 10);
+    
+    // Valider le nom du champ
+    final validFields = ['fond_caisse_ouverture', 'fond_caisse_fermeture', 'montant_coffre'];
+    if (!validFields.contains(fieldName)) {
+      throw ArgumentError('Nom de champ invalide: $fieldName');
+    }
+
+    try {
+      // Faire l'upsert avec seulement le champ spécifique
+      final data = {
+        'date': dateString,
+        fieldName: value,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      await _supabase.from('daily_statistics').upsert(
+        data,
+        onConflict: 'date',
+        ignoreDuplicates: false,
+      );
+
+      // Invalider SEULEMENT le cache pour cette date
+      final cacheKey = _getCacheKey(date);
+      _manualFieldsCache.remove(cacheKey);
+      _statisticsCache.remove(cacheKey);
+      
+    } catch (e) {
+      throw Exception('Erreur lors de la mise à jour du champ $fieldName: $e');
+    }
+  }
+
+  // Méthode pour vider le cache d'une date spécifique
+  void clearCacheForDate(DateTime date) {
+    final cacheKey = _getCacheKey(date);
+    _manualFieldsCache.remove(cacheKey);
+    _statisticsCache.remove(cacheKey);
+  }
+
+  // Méthode pour forcer le rechargement des champs manuels depuis la BDD
+  Future<Map<String, double?>> forceRefreshManualFields(DateTime date) async {
+    return getManualFields(date, forceRefresh: true);
+  }
+
+  // Ancienne méthode maintenue pour compatibilité
   Future<void> updateManualFields({
     required DateTime date,
     double? fondCaisseOuverture,
     double? fondCaisseFermeture,
     double? montantCoffre,
   }) async {
-    final data = <String, dynamic>{};
-
+    // Mettre à jour chaque champ individuellement
     if (fondCaisseOuverture != null) {
-      data['fond_caisse_ouverture'] = fondCaisseOuverture;
+      await updateSingleManualField(
+        date: date,
+        fieldName: 'fond_caisse_ouverture',
+        value: fondCaisseOuverture,
+      );
     }
     if (fondCaisseFermeture != null) {
-      data['fond_caisse_fermeture'] = fondCaisseFermeture;
+      await updateSingleManualField(
+        date: date,
+        fieldName: 'fond_caisse_fermeture',
+        value: fondCaisseFermeture,
+      );
     }
     if (montantCoffre != null) {
-      data['montant_coffre'] = montantCoffre;
+      await updateSingleManualField(
+        date: date,
+        fieldName: 'montant_coffre',
+        value: montantCoffre,
+      );
     }
-
-    data['date'] = date.toIso8601String().substring(0, 10);
-    data['updated_at'] = DateTime.now().toIso8601String();
-
-    await _supabase.from('daily_statistics').upsert(data, onConflict: 'date');
   }
 
-  Future<Map<String, double?>> getManualFields(DateTime date) async {
+  Future<Map<String, double?>> getManualFields(DateTime date, {bool forceRefresh = false}) async {
+    final cacheKey = _getCacheKey(date);
+    
+    // Vérifier le cache d'abord (sauf si forceRefresh est demandé)
+    if (!forceRefresh && _manualFieldsCache.containsKey(cacheKey)) {
+      return Map<String, double?>.from(_manualFieldsCache[cacheKey]!);
+    }
+
     final response =
         await _supabase
             .from('daily_statistics')
@@ -438,11 +571,16 @@ class StatisticsRepository {
             .eq('date', date.toIso8601String().substring(0, 10))
             .maybeSingle();
 
-    return {
+    final result = <String, double?>{
       'fond_caisse_ouverture': response?['fond_caisse_ouverture']?.toDouble(),
       'fond_caisse_fermeture': response?['fond_caisse_fermeture']?.toDouble(),
       'montant_coffre': response?['montant_coffre']?.toDouble(),
     };
+
+    // Mettre en cache le résultat
+    _manualFieldsCache[cacheKey] = result;
+    
+    return result;
   }
 
   // Récupère uniquement le fond de caisse de fermeture de la veille
@@ -484,5 +622,21 @@ class StatisticsRepository {
   Future<void> deleteCashMovement(String id) async {
     // Supprimer le mouvement
     await _supabase.from('cash_movements').delete().eq('id', id);
+  }
+  
+  Stream<List<CashMovement>> getCashMovementsStream(DateTime date) {
+    return cashMovementsStream.map((allMovements) => 
+      allMovements.where((movement) => 
+        movement.date.toIso8601String().substring(0, 10) == 
+        date.toIso8601String().substring(0, 10)
+      ).toList()
+    );
+  }
+  
+  void dispose() {
+    _cashMovementsChannel?.unsubscribe();
+    _dailyStatisticsChannel?.unsubscribe();
+    _cashMovementsController.close();
+    _dailyStatisticsController.close();
   }
 }

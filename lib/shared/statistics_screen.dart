@@ -3,13 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
 import '../features/statistics/viewmodels/statistics_view_model.dart';
 import '../features/statistics/models/daily_statistics_model.dart';
 import '../features/statistics/models/cash_movement_model.dart';
 import '../features/statistics/widgets/cash_movement_dialog.dart';
 import '../features/statistics/services/pdf_export_service.dart';
+import './widgets/custom_dialog.dart';
 import './user_provider.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -22,6 +21,7 @@ class StatisticsScreen extends StatefulWidget {
 class _StatisticsScreenState extends State<StatisticsScreen>
     with AutomaticKeepAliveClientMixin {
   late StatisticsViewModel _viewModel;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Permet de conserver l'état lorsqu'on navigue entre les onglets
   @override
@@ -46,6 +46,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     return ChangeNotifierProvider.value(
       value: _viewModel,
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: Theme.of(context).colorScheme.surface,
         appBar: AppBar(
           title: const Text('Statistiques'),
@@ -111,34 +112,40 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               );
             }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDateHeader(viewModel),
-                  const SizedBox(height: 16),
-                  // N'afficher la section de saisie manuelle que pour la vue jour
-                  if (viewModel.periodType == PeriodType.day) ...[
-                    _buildManualFieldsSection(viewModel),
+            return GestureDetector(
+              onTap: () {
+                // Fermer le clavier quand on tape en dehors des champs
+                FocusScope.of(context).unfocus();
+              },
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDateHeader(viewModel),
                     const SizedBox(height: 16),
+                    // N'afficher la section de saisie manuelle que pour la vue jour
+                    if (viewModel.periodType == PeriodType.day) ...[
+                      _buildManualFieldsSection(viewModel),
+                      const SizedBox(height: 16),
+                    ],
+                    _buildPaymentMethodsSection(statistics),
+                    const SizedBox(height: 16),
+                    _buildCategoriesSection(statistics),
+                    const SizedBox(height: 16),
+                    // N'afficher le résumé de caisse que pour la vue jour
+                    if (viewModel.periodType == PeriodType.day) ...[
+                      // Utiliser un Consumer pour s'assurer que cette section se reconstruit
+                      // lorsque le ViewModel change, indépendamment du reste de l'interface
+                      Consumer<StatisticsViewModel>(
+                        builder: (context, vm, child) {
+                          // Force la reconstruction chaque fois que le ViewModel change
+                          return _buildSummarySection(vm);
+                        },
+                      ),
+                    ],
                   ],
-                  _buildPaymentMethodsSection(statistics),
-                  const SizedBox(height: 16),
-                  _buildCategoriesSection(statistics),
-                  const SizedBox(height: 16),
-                  // N'afficher le résumé de caisse que pour la vue jour
-                  if (viewModel.periodType == PeriodType.day) ...[
-                    // Utiliser un Consumer pour s'assurer que cette section se reconstruit
-                    // lorsque le ViewModel change, indépendamment du reste de l'interface
-                    Consumer<StatisticsViewModel>(
-                      builder: (context, vm, child) {
-                        // Force la reconstruction chaque fois que le ViewModel change
-                        return _buildSummarySection(vm);
-                      },
-                    ),
-                  ],
-                ],
+                ),
               ),
             );
           },
@@ -275,7 +282,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                           onPressed:
                               viewModel.isLoading
                                   ? null
-                                  : () => viewModel.loadStatistics(),
+                                  : () => viewModel.refreshStatistics(),
                           iconSize: 20,
                           color:
                               viewModel.isLoading
@@ -420,7 +427,9 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               decoration: BoxDecoration(
                 color:
                     selected
-                        ? Theme.of(context).colorScheme.primary.withAlpha((255 * 0.2).round())
+                        ? Theme.of(
+                          context,
+                        ).colorScheme.primary.withAlpha((255 * 0.2).round())
                         : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -495,6 +504,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       },
                       Icons.account_balance_wallet,
                       'Obligatoire',
+                      readOnly: _isDateInPast(),
                     ),
 
                     // Afficher l'alerte de différence de fond de caisse si nécessaire
@@ -575,6 +585,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       },
                       Icons.account_balance_wallet_outlined,
                       'Obligatoire',
+                      readOnly: _isDateInPast(),
                     ),
                     const SizedBox(height: 8),
                     _buildManualFieldContainer(
@@ -586,6 +597,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       },
                       Icons.lock,
                       'Obligatoire',
+                      readOnly: _isDateInPast(),
                     ),
                   ],
                 ),
@@ -614,6 +626,18 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         ],
       ),
     );
+  }
+
+  // Helper pour vérifier si la date est passée
+  bool _isDateInPast() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selectedDay = DateTime(
+      _viewModel.selectedDate.year,
+      _viewModel.selectedDate.month,
+      _viewModel.selectedDate.day,
+    );
+    return selectedDay.isBefore(today);
   }
 
   Widget _buildManualFieldContainer(
@@ -678,6 +702,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              textInputAction: TextInputAction.done,
               readOnly: readOnly,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
@@ -718,6 +743,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                       : (value) {
                         // Appeler la même fonction que pour onChanged
                         onChanged(value);
+                        // Fermer le clavier après validation
+                        FocusScope.of(context).unfocus();
                       },
             ),
           ),
@@ -1230,7 +1257,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     // Calcul de l'écart de caisse en tenant compte des mouvements de caisse
     final double cashDifference =
-        statistics.fondCaisseFermeture - (theoricalCashAmount + totalCashMovements);
+        statistics.fondCaisseFermeture -
+        (theoricalCashAmount + totalCashMovements);
     final bool hasCashDiscrepancy =
         cashDifference.abs() > 0.01; // Seuil de tolérance pour les arrondis
 
@@ -1427,11 +1455,17 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         case PeriodType.day:
           return DateFormat('dd/MM').format(date);
         case PeriodType.week:
-          return DateFormat('E', 'fr_FR').format(date); // Jour de la semaine en français
+          return DateFormat(
+            'E',
+            'fr_FR',
+          ).format(date); // Jour de la semaine en français
         case PeriodType.month:
           return DateFormat('dd/MM', 'fr_FR').format(date); // Jour du mois
         case PeriodType.year:
-          return DateFormat('MMM', 'fr_FR').format(date); // Mois de l'année en français
+          return DateFormat(
+            'MMM',
+            'fr_FR',
+          ).format(date); // Mois de l'année en français
       }
     }
 
@@ -1621,7 +1655,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       context: context,
       initialDate: _viewModel.selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      lastDate: DateTime.now(),
     );
 
     if (date != null) {
@@ -1664,11 +1698,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     final bool isAdmin = userProvider.isAdmin;
 
     if (!isAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Vous n\'avez pas les droits pour exporter les statistiques',
-          ),
+      showDialog(
+        context: context,
+        builder: (context) => CustomErrorDialog(
+          title: 'Accès refusé',
+          content: 'Vous n\'avez pas les droits pour exporter les statistiques',
         ),
       );
       return;
@@ -1681,9 +1715,13 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             : _viewModel.periodAggregateStatistics;
 
     if (statistics == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Aucune donnée à exporter')));
+      await showDialog(
+        context: context,
+        builder: (context) => CustomErrorDialog(
+          title: 'Exportation impossible',
+          content: 'Aucune donnée à exporter',
+        ),
+      );
       return;
     }
 
@@ -1778,348 +1816,501 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       );
 
       // Fermer le dialogue de progression
-      Navigator.of(context, rootNavigator: true).pop();
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       // Format du nom de fichier: statistiques_jj_mm_aaaa.pdf
       final fileName =
           'statistiques_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
 
       // Montrer un dialogue de succès avant le partage
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: Theme.of(
-                  context,
-                ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                ),
               ),
-            ),
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            elevation: 0,
-            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            title: Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer
-                        .withAlpha((255 * 0.5).round()),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.check_circle_outline_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Exportation réussie',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Le PDF a été généré avec succès.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest
-                        .withAlpha((255 * 0.4).round()),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withAlpha((255 * 0.2).round()),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.description_outlined,
-                        size: 22,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Nom du fichier',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant.withAlpha((255 * 0.7).round()),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              fileName,
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Que souhaitez-vous faire?',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              elevation: 0,
+              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              title: Row(
                 children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          Theme.of(context).colorScheme.onSurfaceVariant,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer
+                          .withAlpha((255 * 0.5).round()),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    label: const Text('Fermer'),
+                    child: Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 24,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.share_rounded, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          Theme.of(context).colorScheme.secondaryContainer,
-                      foregroundColor:
-                          Theme.of(context).colorScheme.onSecondaryContainer,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Exportation réussie',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      pdfExportService.sharePdf(pdfBytes, fileName);
-                    },
-                    label: const Text('Partager'),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.preview_rounded, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Printing.layoutPdf(
-                        onLayout: (PdfPageFormat format) async => pdfBytes,
-                        name: fileName,
-                      );
-                    },
-                    label: const Text('Aperçu'),
                   ),
                 ],
               ),
-            ],
-            actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          );
-        },
-      );
+              contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Le PDF a été généré avec succès.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withAlpha((255 * 0.4).round()),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          size: 22,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Nom du fichier',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                      .withAlpha((255 * 0.7).round()),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                fileName,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Que souhaitez-vous faire?',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    SizedBox(
+                      width: 70,
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.close, size: 14),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 8,
+                          ),
+                        ),
+                        label: const Text('Fermer', style: TextStyle(fontSize: 10)),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 90,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.share_rounded, size: 14),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.secondaryContainer,
+                          foregroundColor:
+                              Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 8,
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          // Obtenir la position pour iOS
+                          final RenderBox? box = context.findRenderObject() as RenderBox?;
+                          final Rect? sharePositionOrigin = box != null
+                              ? box.localToGlobal(Offset.zero) & box.size
+                              : null;
+                          pdfExportService.sharePdf(pdfBytes, fileName, sharePositionOrigin: sharePositionOrigin);
+                        },
+                        label: const Text('Partager', style: TextStyle(fontSize: 10)),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 100,
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.save_alt_rounded, size: 14),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onPrimary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 8,
+                          ),
+                        ),
+                        onPressed: () async {
+                          // Fermer le dialogue de succès
+                          Navigator.of(context).pop();
+
+                          try {
+                            // Utiliser le sélecteur de fichiers pour enregistrer
+                            bool saved = await pdfExportService.saveToDevice(pdfBytes, fileName);
+
+                            // Attendre un peu pour s'assurer que le dialogue est fermé
+                            await Future.delayed(Duration(milliseconds: 300));
+
+                            // Utiliser le contexte du scaffold qui est plus stable
+                            final scaffoldContext = _scaffoldKey.currentContext;
+                            if (scaffoldContext != null && mounted) {
+                              if (saved) {
+                                // Afficher le dialogue de succès
+                                showDialog(
+                                  context: scaffoldContext,
+                                  barrierDismissible: false,
+                                  builder: (BuildContext dialogContext) {
+                                    // Fermer automatiquement après 2 secondes
+                                    Future.delayed(Duration(seconds: 2), () {
+                                      if (Navigator.canPop(dialogContext)) {
+                                        Navigator.of(dialogContext).pop();
+                                      }
+                                    });
+
+                                    return Dialog(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        side: BorderSide(
+                                          color: Theme.of(
+                                            scaffoldContext,
+                                          ).colorScheme.outline.withAlpha((255 * 0.2).round()),
+                                        ),
+                                      ),
+                                      backgroundColor: Theme.of(scaffoldContext).colorScheme.surface,
+                                      elevation: 0,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24.0,
+                                          vertical: 24.0,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Icône de succès avec animation
+                                            TweenAnimationBuilder<double>(
+                                              tween: Tween<double>(begin: 0.0, end: 1.0),
+                                              duration: const Duration(milliseconds: 500),
+                                              curve: Curves.elasticOut,
+                                              builder: (context, value, child) {
+                                                return Transform.scale(scale: value, child: child);
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green.withAlpha((255 * 0.1).round()),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  Icons.check_circle_outline_rounded,
+                                                  color: Colors.green,
+                                                  size: 48,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 24),
+                                            Text(
+                                              'Enregistrement réussi',
+                                              style: Theme.of(scaffoldContext).textTheme.titleLarge?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: Theme.of(scaffoldContext).colorScheme.onSurface,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'Le PDF a été enregistré avec succès.',
+                                              style: Theme.of(scaffoldContext).textTheme.bodyMedium?.copyWith(
+                                                color: Theme.of(scaffoldContext).colorScheme.onSurfaceVariant,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+                              // Pas de message pour l'annulation
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error,
+                                          color: Colors.red,
+                                          size: 28,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text("Erreur"),
+                                      ],
+                                    ),
+                                    content: Text("Erreur lors de l'enregistrement : $e"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                        child: Text("OK"),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            }
+                          }
+                        },
+                        label: const Text('Enregistrer', style: TextStyle(fontSize: 10)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            );
+          },
+        );
+      }
     } catch (e) {
       // Fermer le dialogue de progression en cas d'erreur
-      Navigator.of(context, rootNavigator: true).pop();
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       // Afficher un dialogue d'erreur plus détaillé
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: Theme.of(
-                  context,
-                ).colorScheme.error.withAlpha((255 * 0.2).round()),
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.error.withAlpha((255 * 0.2).round()),
+                ),
               ),
-            ),
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            elevation: 0,
-            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            title: Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.errorContainer.withAlpha((255 * 0.5).round()),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.error_outline_rounded,
-                    color: Theme.of(context).colorScheme.error,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'Échec de l\'exportation',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Une erreur est survenue lors de la génération du PDF.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.errorContainer.withAlpha((255 * 0.3).round()),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.error.withAlpha((255 * 0.4).round()),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Détails de l\'erreur',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        e.toString(),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                          fontFamily: 'monospace',
-                          height: 1.5,
-                        ),
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
-            actions: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              elevation: 0,
+              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              title: Row(
                 children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          Theme.of(context).colorScheme.onSurfaceVariant,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer
+                          .withAlpha((255 * 0.5).round()),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    label: const Text('Fermer'),
+                    child: Icon(
+                      Icons.error_outline_rounded,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 24,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Échec de l\'exportation',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      _exportStatistics(context); // Réessayer l'export
-                    },
-                    label: const Text('Réessayer'),
                   ),
                 ],
               ),
-            ],
-            actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          );
-        },
-      );
+              contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Une erreur est survenue lors de la génération du PDF.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer
+                          .withAlpha((255 * 0.3).round()),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.error.withAlpha((255 * 0.4).round()),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Détails de l\'erreur',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          e.toString(),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onErrorContainer,
+                            fontFamily: 'monospace',
+                            height: 1.5,
+                          ),
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+              actions: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      label: const Text('Fermer'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _exportStatistics(context); // Réessayer l'export
+                      },
+                      label: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ],
+              actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            );
+          },
+        );
+      }
     }
   }
 
@@ -2315,4 +2506,6 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       ),
     );
   }
+
+  // Fonction supprimée car intégrée directement dans le onPressed
 }

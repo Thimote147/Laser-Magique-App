@@ -1,9 +1,46 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/payment_model.dart';
 import '../../core/constants/supabase_config.dart';
 
 class PaymentRepository {
-  final SupabaseClient _client = SupabaseConfig.client; // Create a new payment
+  final SupabaseClient _client = SupabaseConfig.client;
+  
+  RealtimeChannel? _paymentsChannel;
+  final StreamController<List<Payment>> _paymentsStreamController = StreamController<List<Payment>>.broadcast();
+  
+  Stream<List<Payment>> get paymentsStream => _paymentsStreamController.stream;
+  
+  PaymentRepository() {
+    _initializeRealtimeSubscription();
+  }
+  
+  void _initializeRealtimeSubscription() {
+    _paymentsChannel = _client.channel('payments_channel');
+    
+    _paymentsChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'payments',
+      callback: (payload) {
+        _refreshPayments();
+      },
+    );
+    
+    _paymentsChannel!.subscribe();
+  }
+  
+  Future<void> _refreshPayments() async {
+    try {
+      final response = await _client.from('payments').select().order('payment_date');
+      final payments = response.map<Payment>((json) => Payment.fromJson(json)).toList();
+      _paymentsStreamController.add(payments);
+    } catch (e) {
+      _paymentsStreamController.addError(e);
+    }
+  }
+
+  // Create a new payment
   Future<Payment> createPayment(Payment payment) async {
     final paymentData = {
       'booking_id': payment.bookingId,
@@ -43,14 +80,13 @@ class PaymentRepository {
 
   // Get real-time updates for payments of a booking
   Stream<List<Payment>> getPaymentsStream(String bookingId) {
-    return _client
-        .from('payments')
-        .stream(primaryKey: ['id'])
-        .eq('booking_id', bookingId)
-        .order('payment_date')
-        .map(
-          (response) =>
-              response.map<Payment>((json) => Payment.fromJson(json)).toList(),
-        );
+    return paymentsStream.map((allPayments) => 
+      allPayments.where((payment) => payment.bookingId == bookingId).toList()
+    );
+  }
+  
+  void dispose() {
+    _paymentsChannel?.unsubscribe();
+    _paymentsStreamController.close();
   }
 }
