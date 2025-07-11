@@ -1,7 +1,10 @@
-name: Build & Deploy Flutter Web via Docker (with SCP)
+name: Build & Deploy Flutter Web to Server
 
 on:
   push:
+    branches:
+      - main
+  pull_request:
     branches:
       - main
 
@@ -11,7 +14,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
+
+      - name: Generate .env file
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -24,26 +32,22 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web
 
-      - name: Setup SSH key
+      - name: Deploy to remote server via SCP
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-        shell: bash
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+            mkdir -p ~/laser_web_deploy
+          ENDSSH
 
-      - name: Create remote directory if not exists
-        run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.SERVER_PATH }}"
+          scp -o StrictHostKeyChecking=no -r build/web/* ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/laser_web_deploy/
 
-      - name: Copy project to server using SCP
+      - name: Restart Docker container (optional)
         run: |
-          scp -r * ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}
-
-      - name: Rebuild and restart Docker
-        run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << EOF
-            cd ${{ secrets.SERVER_PATH }}
-            docker compose build
-            docker compose up -d
-          EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'ENDSSH'
+            docker stop laser_web || true
+            docker rm laser_web || true
+            docker run -d \
+              --name laser_web \
+              -p 37206:80 \
+              -v ~/laser_web_deploy:/usr/share/nginx/html:ro \
+              nginx:alpine
+          ENDSSH
