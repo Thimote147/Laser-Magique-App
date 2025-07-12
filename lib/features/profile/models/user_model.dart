@@ -7,6 +7,7 @@ class UserSettings {
   final bool notificationsEnabled;
   final String themeMode;
   final String role;
+  final bool isBlocked;
 
   UserSettings({
     required this.firstName,
@@ -15,6 +16,7 @@ class UserSettings {
     this.notificationsEnabled = true,
     this.themeMode = 'system',
     this.role = 'user',
+    this.isBlocked = false,
   });
 
   factory UserSettings.fromMap(Map<String, dynamic> map) {
@@ -25,6 +27,7 @@ class UserSettings {
       notificationsEnabled: map['notifications_enabled'] as bool? ?? true,
       themeMode: map['theme_mode'] as String? ?? 'system',
       role: map['role'] as String? ?? 'user',
+      isBlocked: map['is_blocked'] as bool? ?? false,
     );
   }
 
@@ -36,6 +39,7 @@ class UserSettings {
       'notifications_enabled': notificationsEnabled,
       'theme_mode': themeMode,
       'role': role,
+      'is_blocked': isBlocked,
     };
   }
 }

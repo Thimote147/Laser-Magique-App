@@ -3,6 +3,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/supabase_config.dart';
 import '../../profile/models/user_model.dart';
 
+class BlockedAccountException implements Exception {
+  final String message;
+  BlockedAccountException(this.message);
+  
+  @override
+  String toString() => message;
+}
+
 class AuthService {
   final _supabase = SupabaseConfig.client;
 
@@ -53,6 +61,7 @@ class AuthService {
                 'last_name': lastName,
                 'phone': phone,
                 'role': 'member',
+                'is_blocked': false,
               })
               .select()
               .single();
@@ -164,12 +173,25 @@ class AuthService {
           await completeUserSetup(response.user!);
         }
 
-        return _getUserWithSettings(response.user!);
+        final userWithSettings = await _getUserWithSettings(response.user!);
+        
+        // Vérifier si le compte est bloqué
+        if (userWithSettings?.settings?.isBlocked == true) {
+          developer.log('Tentative de connexion refusée: compte bloqué pour ${response.user!.id}');
+          // Ne pas déconnecter ici, laisser la page BlockedAccountView gérer la déconnexion
+          throw BlockedAccountException('Votre compte a été bloqué. Contactez un administrateur.');
+        }
+
+        return userWithSettings;
       }
 
       developer.log('Connexion échouée: pas d\'utilisateur retourné');
       return null;
     } catch (e, stackTrace) {
+      if (e is BlockedAccountException) {
+        // Ne pas logger l'erreur pour les comptes bloqués et relancer directement
+        rethrow;
+      }
       developer.log(
         'Erreur lors de la connexion',
         error: e,
@@ -211,6 +233,7 @@ class AuthService {
           'notifications_enabled': true,
           'theme_mode': 'system',
           'role': 'member',
+          'is_blocked': false,
         });
         developer.log('User settings créés pour ${user.id}');
       }

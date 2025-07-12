@@ -656,15 +656,40 @@ class _EmployeeWorkHoursReportScreenState
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                employee['name'] as String,
-                                                style: theme
-                                                    .textTheme
-                                                    .titleMedium
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
+                                              // Écouter les changements du ViewModel pour toutes les infos de l'employé
+                                              AnimatedBuilder(
+                                                animation: _viewModel,
+                                                builder: (context, child) {
+                                                  // Trouver l'employé mis à jour dans la liste
+                                                  final updatedEmployee = _viewModel.employees
+                                                      .firstWhere(
+                                                        (emp) => emp['id'] == employee['id'],
+                                                        orElse: () => employee,
+                                                      );
+                                                  return Row(
+                                                    children: [
+                                                      Text(
+                                                        '${updatedEmployee['name']} - ',
+                                                        style: theme
+                                                            .textTheme
+                                                            .titleMedium
+                                                            ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight.w600,
+                                                            ),
+                                                      ),
+                                                      Text(
+                                                        '${(updatedEmployee['hourlyRate'] ?? 0.0).toStringAsFixed(2)}€/h',
+                                                        style: TextStyle(
+                                                          color:
+                                                              colorScheme
+                                                                  .onSurfaceVariant,
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  );
+                                                },
                                               ),
                                               Text(
                                                 'Détails des heures de ${_monthFormat.format(_viewModel.selectedDate)}',
@@ -691,61 +716,95 @@ class _EmployeeWorkHoursReportScreenState
                                       height: 24,
                                     ),
 
-                                    // Filtres pour les logs
-                                    Row(
+                                    // Actions pour l'employé
+                                    Column(
                                       children: [
-                                        Expanded(
-                                          child: OutlinedButton.icon(
-                                            onPressed: () async {
-                                              // Ici, on pourrait ajouter un sélecteur de plage de dates
-                                              // pour filtrer les logs
-                                              final DateTime? picked =
-                                                  await showDatePicker(
-                                                    context: context,
-                                                    initialDate:
-                                                        _viewModel.selectedDate,
-                                                    firstDate: DateTime(2020),
-                                                    lastDate: DateTime(2030),
-                                                    locale: const Locale(
-                                                      'fr',
-                                                      'FR',
-                                                    ),
+                                        // Première ligne avec deux boutons
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                onPressed: () async {
+                                                  _showModifyHourlyRateDialog(
+                                                    employee,
                                                   );
-                                              if (picked != null &&
-                                                  picked !=
-                                                      _viewModel.selectedDate) {
-                                                setState(() {
-                                                  isLoading = true;
-                                                });
-                                                await _viewModel
-                                                    .setSelectedDate(picked);
-                                                await loadEmployeeLogs();
-                                                setState(() {});
-                                              }
-                                            },
-                                            icon: const Icon(
-                                              Icons.date_range,
-                                              size: 18,
-                                            ),
-                                            label: const Text(
-                                              'Changer de mois',
-                                            ),
-                                            style: OutlinedButton.styleFrom(
-                                              side: BorderSide(
-                                                color:
-                                                    colorScheme.outlineVariant,
+                                                },
+                                                icon: const Icon(
+                                                  Icons.euro,
+                                                  size: 16,
+                                                ),
+                                                label: const Text(
+                                                  'Taux horaire',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                style: OutlinedButton.styleFrom(
+                                                  side: BorderSide(
+                                                    color:
+                                                        colorScheme
+                                                            .outlineVariant,
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 8,
+                                                      ),
+                                                  minimumSize: const Size(
+                                                    0,
+                                                    36,
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Builder(
-                                          builder:
-                                              (context) => IconButton(
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                onPressed: () async {
+                                                  _showBlockEmployeeDialog(
+                                                    employee,
+                                                  );
+                                                },
                                                 icon: const Icon(
-                                                  Icons.picture_as_pdf,
+                                                  Icons.block,
+                                                  size: 16,
                                                 ),
-                                                tooltip: 'Exporter en PDF',
+                                                label: const Text(
+                                                  'Bloquer',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                style: OutlinedButton.styleFrom(
+                                                  side: BorderSide(
+                                                    color: colorScheme.error,
+                                                  ),
+                                                  foregroundColor:
+                                                      colorScheme.error,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 8,
+                                                      ),
+                                                  minimumSize: const Size(
+                                                    0,
+                                                    36,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        // Deuxième ligne avec le bouton PDF
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: OutlinedButton.icon(
                                                 onPressed: () async {
                                                   // Générer un PDF avec les logs
                                                   if (logs.isNotEmpty) {
@@ -781,15 +840,37 @@ class _EmployeeWorkHoursReportScreenState
                                                     );
                                                   }
                                                 },
-                                                style: IconButton.styleFrom(
-                                                  backgroundColor:
-                                                      colorScheme
-                                                          .surfaceContainerHighest,
-                                                  foregroundColor:
-                                                      colorScheme
-                                                          .onSurfaceVariant,
+                                                icon: const Icon(
+                                                  Icons.picture_as_pdf,
+                                                  size: 16,
+                                                ),
+                                                label: const Text(
+                                                  'Exporter PDF',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                style: OutlinedButton.styleFrom(
+                                                  side: BorderSide(
+                                                    color:
+                                                        colorScheme
+                                                            .outlineVariant,
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 8,
+                                                      ),
+                                                  minimumSize: const Size(
+                                                    0,
+                                                    36,
+                                                  ),
                                                 ),
                                               ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -1845,6 +1926,318 @@ class _EmployeeWorkHoursReportScreenState
         );
       }
     }
+  }
+
+  // Afficher le dialogue pour modifier le taux horaire
+  void _showModifyHourlyRateDialog(Map<String, dynamic> employee) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final TextEditingController hourlyRateController = TextEditingController(
+      text: employee['hourlyRate'].toStringAsFixed(2),
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: colorScheme.outline.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          backgroundColor: colorScheme.surface,
+          title: Row(
+            children: [
+              Icon(Icons.monetization_on, color: colorScheme.primary, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Modifier le taux horaire',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Employé: ${employee['name']}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: hourlyRateController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Nouveau taux horaire (€/h)',
+                  prefixIcon: const Icon(Icons.euro),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final newRate = double.tryParse(hourlyRateController.text);
+                if (newRate != null && newRate > 0) {
+                  Navigator.of(context).pop();
+
+                  // Capturer le navigator avant l'opération async
+                  final navigator = Navigator.of(context);
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                  // Afficher un indicateur de chargement
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder:
+                        (context) => Dialog(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(),
+                                const SizedBox(width: 16),
+                                Text('Mise à jour du taux horaire...'),
+                              ],
+                            ),
+                          ),
+                        ),
+                  );
+
+                  try {
+                    // Mettre à jour le taux horaire via le ViewModel
+                    await _viewModel.updateEmployeeHourlyRate(
+                      employee['id'],
+                      newRate,
+                    );
+
+                    // Fermer le loading
+                    navigator.pop();
+
+                    // Afficher un message de succès via SnackBar
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Taux horaire de ${employee['name']} modifié à ${newRate.toStringAsFixed(2)}€/h',
+                        ),
+                        backgroundColor: colorScheme.tertiary,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  } catch (e) {
+                    // Fermer le loading
+                    navigator.pop();
+
+                    // Afficher un message d'erreur via SnackBar
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Erreur lors de la mise à jour: $e'),
+                        backgroundColor: colorScheme.error,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                } else {
+                  // Afficher un message d'erreur
+                  if (mounted) {
+                    await showDialog(
+                      context: context,
+                      builder:
+                          (context) => CustomErrorDialog(
+                            title: 'Valeur invalide',
+                            content:
+                                'Veuillez entrer un taux horaire valide supérieur à 0',
+                          ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Modifier'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Afficher le dialogue pour bloquer un employé
+  void _showBlockEmployeeDialog(Map<String, dynamic> employee) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: colorScheme.error.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          backgroundColor: colorScheme.surface,
+          title: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: colorScheme.error,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Bloquer l\'employé',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Êtes-vous sûr de vouloir bloquer ${employee['name']} ?',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: colorScheme.error.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: colorScheme.error,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Cette action empêchera l\'employé de se connecter à l\'application.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+
+                // Capturer les références avant l'opération async
+                final navigator = Navigator.of(context);
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                // Afficher un indicateur de chargement
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder:
+                      (context) => Dialog(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(),
+                              const SizedBox(width: 16),
+                              Text('Blocage de l\'employé...'),
+                            ],
+                          ),
+                        ),
+                      ),
+                );
+
+                try {
+                  // Bloquer l'employé via le ViewModel
+                  await _viewModel.toggleEmployeeBlockStatus(
+                    employee['id'],
+                    true, // true = bloquer
+                  );
+
+                  // Fermer le loading et le modal des logs
+                  navigator.pop(); // Fermer le loading
+                  navigator.pop(); // Fermer le modal des logs
+
+                  // Afficher un message de succès via SnackBar
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '${employee['name']} a été bloqué avec succès',
+                      ),
+                      backgroundColor: colorScheme.error,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                } catch (e) {
+                  // Fermer le loading
+                  navigator.pop();
+
+                  // Afficher un message d'erreur via SnackBar
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur lors du blocage: $e'),
+                      backgroundColor: colorScheme.error,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+              ),
+              child: const Text('Bloquer'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

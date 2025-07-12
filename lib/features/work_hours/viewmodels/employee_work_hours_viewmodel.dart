@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/work_day_model.dart';
+import 'dart:async';
 
 // Cette classe gère les données et la logique pour le suivi des heures des employés
 class EmployeeWorkHoursViewModel extends ChangeNotifier {
@@ -9,6 +10,9 @@ class EmployeeWorkHoursViewModel extends ChangeNotifier {
 
   // Liste des employés avec leurs heures de travail
   final List<Map<String, dynamic>> _employees = [];
+
+  // Subscription pour les mises à jour en temps réel
+  StreamSubscription<List<Map<String, dynamic>>>? _userSettingsSubscription;
 
   // Date actuellement sélectionnée pour le rapport
   DateTime _selectedDate = DateTime.now();
@@ -165,6 +169,7 @@ class EmployeeWorkHoursViewModel extends ChangeNotifier {
           'email': userData['email'],
           'role': _mapRoleFromDb(userData['role']),
           'hourlyRate': userData['hourly_rate'] ?? 0.0,
+          'isBlocked': userData['is_blocked'] ?? false,
           'currentMonthHours': totalHours,
           'currentMonthAmount': totalAmount,
           'totalHours': totalHours,
@@ -181,11 +186,88 @@ class EmployeeWorkHoursViewModel extends ChangeNotifier {
       }
 
       _isLoading = false;
+      
+      // Configurer les mises à jour en temps réel après le premier chargement
+      _setupRealtimeSubscription();
+      
       notifyListeners(); // Notifier de la fin du chargement
     } catch (e) {
       _isLoading = false;
       _errorMessage = 'Erreur lors du chargement des données: $e';
       notifyListeners(); // Notifier de l'erreur
+    }
+  }
+
+  // Configurer la subscription en temps réel pour user_settings
+  void _setupRealtimeSubscription() {
+    // Annuler la subscription précédente si elle existe
+    _userSettingsSubscription?.cancel();
+
+    // Écouter les changements dans la table user_settings
+    _userSettingsSubscription = _supabase
+        .from('user_settings')
+        .stream(primaryKey: ['id'])
+        .listen((List<Map<String, dynamic>> data) {
+          _handleUserSettingsUpdate(data);
+        });
+  }
+
+  // Gérer les mises à jour en temps réel des user_settings
+  void _handleUserSettingsUpdate(List<Map<String, dynamic>> updatedUserSettings) {
+    bool hasChanges = false;
+
+    for (final updatedSettings in updatedUserSettings) {
+      final userId = updatedSettings['user_id'];
+      
+      // Trouver l'employé correspondant dans la liste locale
+      final employeeIndex = _employees.indexWhere((emp) => emp['id'] == userId);
+      
+      if (employeeIndex != -1) {
+        final employee = _employees[employeeIndex];
+        
+        // Vérifier si des informations ont changé
+        final newHourlyRate = updatedSettings['hourly_rate'] ?? 0.0;
+        final newIsBlocked = updatedSettings['is_blocked'] ?? false;
+        final newFirstName = updatedSettings['first_name'] ?? '';
+        final newLastName = updatedSettings['last_name'] ?? '';
+        final newRole = _mapRoleFromDb(updatedSettings['role']);
+        
+        // Mettre à jour les informations si elles ont changé
+        if (employee['hourlyRate'] != newHourlyRate ||
+            employee['isBlocked'] != newIsBlocked ||
+            !employee['name'].contains(newFirstName) ||
+            !employee['name'].contains(newLastName) ||
+            employee['role'] != newRole) {
+          
+          // Mettre à jour les informations de base
+          employee['hourlyRate'] = newHourlyRate;
+          employee['isBlocked'] = newIsBlocked;
+          employee['name'] = '$newFirstName $newLastName'.trim();
+          employee['role'] = newRole;
+          
+          // Recalculer les montants avec le nouveau taux horaire
+          final workDays = employee['workDays'] as List<WorkDay>;
+          double newTotalAmount = 0;
+          for (final workDay in workDays) {
+            newTotalAmount += workDay.hours * newHourlyRate;
+          }
+          employee['currentMonthAmount'] = newTotalAmount;
+          employee['totalAmount'] = newTotalAmount;
+          
+          hasChanges = true;
+        }
+        
+        // Si l'employé est bloqué, le supprimer de la liste
+        if (newIsBlocked) {
+          _employees.removeAt(employeeIndex);
+          hasChanges = true;
+        }
+      }
+    }
+
+    // Notifier les changements si nécessaire
+    if (hasChanges) {
+      notifyListeners();
     }
   }
 
@@ -236,5 +318,86 @@ class EmployeeWorkHoursViewModel extends ChangeNotifier {
         'Erreur lors de la récupération des jours de travail: $e',
       );
     }
+  }
+
+  // Modifier le taux horaire d'un employé
+  Future<void> updateEmployeeHourlyRate(String employeeId, double newRate) async {
+    try {
+      // Essayer de récupérer d'abord l'enregistrement existant
+      final existingRecord = await _supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', employeeId)
+          .maybeSingle();
+
+      // Mettre à jour le taux horaire dans la table user_settings
+      await _supabase
+          .from('user_settings')
+          .update({
+            'hourly_rate': newRate, 
+            'updated_at': DateTime.now().toIso8601String()
+          })
+          .eq('user_id', employeeId);
+
+      // Si aucun enregistrement n'existe, essayer de le créer
+      if (existingRecord == null) {
+        await _supabase
+            .from('user_settings')
+            .insert({
+              'user_id': employeeId,
+              'hourly_rate': newRate,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+      }
+
+      // Les mises à jour locales se feront automatiquement via le realtime
+    } catch (e) {
+      throw Exception('Erreur lors de la mise à jour du taux horaire: $e');
+    }
+  }
+
+  // Bloquer ou débloquer un employé
+  Future<void> toggleEmployeeBlockStatus(String employeeId, bool isBlocked) async {
+    try {
+      // Essayer de récupérer d'abord l'enregistrement existant
+      final existingRecord = await _supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', employeeId)
+          .maybeSingle();
+
+      // Mettre à jour le statut de blocage dans la table user_settings
+      await _supabase
+          .from('user_settings')
+          .update({
+            'is_blocked': isBlocked, 
+            'updated_at': DateTime.now().toIso8601String()
+          })
+          .eq('user_id', employeeId);
+
+      // Si aucun enregistrement n'existe, essayer de le créer
+      if (existingRecord == null) {
+        await _supabase
+            .from('user_settings')
+            .insert({
+              'user_id': employeeId,
+              'is_blocked': isBlocked,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+      }
+
+      // Les mises à jour locales se feront automatiquement via le realtime
+    } catch (e) {
+      throw Exception('Erreur lors de la modification du statut de blocage: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    // Annuler la subscription en temps réel
+    _userSettingsSubscription?.cancel();
+    super.dispose();
   }
 }

@@ -8,6 +8,7 @@ import 'firebase_options.dart';
 import 'core/core.dart';
 import 'app/app.dart';
 import 'features/auth/auth.dart';
+import 'features/auth/views/screens/blocked_account_view.dart';
 import 'features/booking/booking.dart';
 import 'features/equipment/equipment.dart';
 import 'features/settings/settings.dart';
@@ -260,7 +261,10 @@ class _SessionGateState extends State<_SessionGate> {
 
           if (session != null) {
             authService.currentUserWithSettings.then((user) {
-              userProvider.user = user;
+              // Ne pas définir l'utilisateur si le compte est bloqué
+              if (user?.settings?.isBlocked != true) {
+                userProvider.user = user;
+              }
             }).catchError((error) {
               userProvider.user = null;
             });
@@ -270,7 +274,32 @@ class _SessionGateState extends State<_SessionGate> {
         });
 
         if (session != null) {
-          return const MainScreen();
+          return FutureBuilder(
+            future: Provider.of<AuthService>(context, listen: false).currentUserWithSettings,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Vérification du compte...'),
+                      ],
+                    ),
+                  ),
+                );
+              }
+              
+              // Si le compte est bloqué, afficher la page de blocage
+              if (snapshot.hasData && snapshot.data?.settings?.isBlocked == true) {
+                return const BlockedAccountView();
+              }
+              
+              return const MainScreen();
+            },
+          );
         } else {
           return const AuthView();
         }

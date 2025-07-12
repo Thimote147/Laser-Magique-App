@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import 'package:laser_magique_app/app/navigation/main_screen.dart';
+import 'blocked_account_view.dart';
 
 class LoginView extends StatefulWidget {
   final VoidCallback onRegisterTap;
@@ -87,14 +88,29 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Erreur de connexion, veuillez réessayer.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      print('Login error: $e');
+      print('Error type: ${e.runtimeType}');
+      
+      if (e is BlockedAccountException || e.toString().contains('bloqué')) {
+        print('Navigating to blocked account view...');
+        // Rediriger vers la page de compte bloqué
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const BlockedAccountView()),
+            (route) => false,
+          );
+        }
+        return; // Sortir de la fonction pour éviter le finally
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Erreur de connexion, veuillez réessayer.';
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -123,17 +139,26 @@ class _LoginViewState extends State<LoginView> with WidgetsBindingObserver {
                       child: Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(16),
+                            width: 80,
+                            height: 80,
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withAlpha(
-                                (255 * 0.1).round(),
-                              ),
-                              shape: BoxShape.circle,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colorScheme.primary.withAlpha((255 * 0.3).round()),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
-                            child: Icon(
-                              Icons.sports_esports_rounded,
-                              size: 48,
-                              color: colorScheme.primary,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.asset(
+                                'assets/images/icon.jpeg',
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 24),

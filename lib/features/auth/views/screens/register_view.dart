@@ -256,15 +256,26 @@ class _RegisterViewState extends State<RegisterView> {
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                color: colorScheme.primary.withAlpha((255 * 0.1).round()),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withAlpha((255 * 0.3).round()),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              child: Icon(
-                Icons.sports_esports_rounded,
-                size: 48,
-                color: colorScheme.primary,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/images/icon.jpeg',
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(height: 24),
