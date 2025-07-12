@@ -62,7 +62,7 @@ class _BookingCalendarWidgetState extends State<BookingCalendarWidget> {
                 availableGestures: AvailableGestures.all,
                 availableCalendarFormats: const {
                   CalendarFormat.month: 'Mois',
-                  CalendarFormat.week: 'Semaine',
+                  CalendarFormat.week: 'Jour',
                 },
                 selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                 eventLoader: (day) => bookingViewModel.getBookingsForDay(day),
