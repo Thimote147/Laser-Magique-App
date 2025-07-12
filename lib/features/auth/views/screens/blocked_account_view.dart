@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:laser_magique_app/features/auth/services/auth_service.dart';
 import '../../../profile/models/user_model.dart';
+import 'auth_view.dart';
 
 class BlockedAccountView extends StatefulWidget {
   const BlockedAccountView({super.key});
@@ -234,8 +235,8 @@ class _BlockedAccountViewState extends State<BlockedAccountView> {
                             await authService.signOut();
                             
                             if (context.mounted) {
-                              Navigator.of(context).pushNamedAndRemoveUntil(
-                                '/auth',
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (context) => const AuthView()),
                                 (route) => false,
                               );
                             }
