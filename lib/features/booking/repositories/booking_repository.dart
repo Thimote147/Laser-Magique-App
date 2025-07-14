@@ -7,35 +7,38 @@ import '../../../shared/models/payment_model.dart';
 
 class BookingRepository {
   final SupabaseClient _client = SupabaseConfig.client;
-  
+
   // Realtime subscriptions
   RealtimeChannel? _bookingsChannel;
-  
+
   // Stream controllers for real-time updates
-  final StreamController<List<Booking>> _bookingsController = StreamController<List<Booking>>.broadcast();
-  
+  final StreamController<List<Booking>> _bookingsController =
+      StreamController<List<Booking>>.broadcast();
+
   // Stream getters
   Stream<List<Booking>> get bookingsStream => _bookingsController.stream;
-    
+
   // Initialize realtime subscriptions
   void initializeRealtimeSubscriptions() {
     _subscribeToBookings();
   }
-  
+
   // Subscribe to bookings table changes
   void _subscribeToBookings() {
     _bookingsChannel = _client.channel('bookings_channel');
-    
-    _bookingsChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'bookings',
-      callback: (payload) {
-        _handleBookingsChange(payload);
-      },
-    ).subscribe();
+
+    _bookingsChannel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'bookings',
+          callback: (payload) {
+            _handleBookingsChange(payload);
+          },
+        )
+        .subscribe();
   }
-  
+
   // Handle bookings changes
   void _handleBookingsChange(PostgresChangePayload payload) {
     switch (payload.eventType) {
@@ -53,7 +56,7 @@ class BookingRepository {
         break;
     }
   }
-  
+
   // Refresh bookings data from database
   void _refreshBookingsData() async {
     try {
@@ -63,19 +66,20 @@ class BookingRepository {
       // Log error silently or use proper logging framework
     }
   }
-  
+
   // Get stream of bookings for a specific day
   Stream<List<Booking>> getBookingsStreamForDay(DateTime date) {
     return _bookingsController.stream.map((bookings) {
       final startOfDay = DateTime(date.year, date.month, date.day).toUtc();
       final endOfDay = startOfDay.add(const Duration(days: 1));
-      
+
       return bookings.where((booking) {
-        return booking.dateTime.isAfter(startOfDay) && booking.dateTime.isBefore(endOfDay);
+        return booking.dateTime.isAfter(startOfDay) &&
+            booking.dateTime.isBefore(endOfDay);
       }).toList();
     });
   }
-  
+
   // Dispose method to clean up subscriptions
   void dispose() {
     _bookingsChannel?.unsubscribe();
@@ -90,8 +94,9 @@ class BookingRepository {
           .select()
           .order('date_time');
 
-      final bookings = (response as List).map((json) => Booking.fromMap(json)).toList();
-      
+      final bookings =
+          (response as List).map((json) => Booking.fromMap(json)).toList();
+
       return bookings;
     } catch (e) {
       rethrow;
@@ -110,8 +115,9 @@ class BookingRepository {
         .lt('date_time', endOfDay.toIso8601String())
         .order('date_time');
 
-    final bookings = (response as List).map((json) => Booking.fromMap(json)).toList();
-    
+    final bookings =
+        (response as List).map((json) => Booking.fromMap(json)).toList();
+
     return bookings;
   }
 
@@ -253,25 +259,19 @@ class BookingRepository {
 
   // Récupère les détails complets d'une réservation, y compris les montants à jour
   Future<Booking> getBookingDetails(String bookingId) async {
-    // Récupère les données depuis la vue qui inclut tous les calculs
-    final data =
-        await _client
-            .from('booking_summaries')
-            .select('''
-            *,
-            formula:formulas!formula_id (
-              *,
-              activity:activities (
-                id,
-                name,
-                description
-              )
-            )
-          ''')
-            .eq('id', bookingId)
-            .single();
+    try {
+      // Récupère les données depuis la vue SANS la jointure problématique
+      final data =
+          await _client
+              .from('booking_summaries')
+              .select() // Sélectionne tout sans jointure
+              .eq('id', bookingId)
+              .single();
 
-    return Booking.fromMap(data);
+      return Booking.fromMap(data);
+    } catch (e) {
+      rethrow;
+    }
   }
 
   // Mise à jour des totaux d'une réservation
